@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NhatDucSoftware")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+90ac9e6431baec18cefb1410548b0b9d6a154d69")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+62bf0496aac0f277ce46d09e6985e6fa97c0ed79")]
 [assembly: System.Reflection.AssemblyProductAttribute("NhatDucSoftware")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NhatDucSoftware")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

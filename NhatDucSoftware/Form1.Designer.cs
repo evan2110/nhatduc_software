@@ -109,6 +109,14 @@
             btnLoadAttendanceStudents = new Button();
             dgvAttendance = new DataGridView();
             btnSaveAttendance = new Button();
+            tabTeacherTimesheet = new TabPage();
+            dgvTimesheet = new DataGridView();
+            btnSaveTimesheet = new Button();
+            lblTimesheetMonth = new Label();
+            cmbTimesheetMonth = new ComboBox();
+            cmbTimesheetYear = new ComboBox();
+            btnLoadTimesheet = new Button();
+            lblTimesheetSummary = new Label();
             tabTeacherEvaluation = new TabPage();
             lblEvaluateClass = new Label();
             lblEvaluateStudent = new Label();
@@ -136,6 +144,8 @@
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).BeginInit();
             tabTeacher.SuspendLayout();
             tabTeacherFunctions.SuspendLayout();
+            tabTeacherTimesheet.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvTimesheet).BeginInit();
             tabTeacherSchedule.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvTeacherClasses).BeginInit();
             tabTeacherAttendance.SuspendLayout();
@@ -874,6 +884,7 @@
             // 
             // tabTeacherFunctions
             // 
+            tabTeacherFunctions.Controls.Add(tabTeacherTimesheet);
             tabTeacherFunctions.Controls.Add(tabTeacherSchedule);
             tabTeacherFunctions.Controls.Add(tabTeacherAttendance);
             tabTeacherFunctions.Controls.Add(tabTeacherEvaluation);
@@ -883,6 +894,76 @@
             tabTeacherFunctions.SelectedIndex = 0;
             tabTeacherFunctions.Size = new Size(1032, 532);
             tabTeacherFunctions.TabIndex = 0;
+            // 
+            // tabTeacherTimesheet
+            // 
+            tabTeacherTimesheet.Controls.Add(lblTimesheetMonth);
+            tabTeacherTimesheet.Controls.Add(cmbTimesheetMonth);
+            tabTeacherTimesheet.Controls.Add(cmbTimesheetYear);
+            tabTeacherTimesheet.Controls.Add(btnLoadTimesheet);
+            tabTeacherTimesheet.Controls.Add(btnSaveTimesheet);
+            tabTeacherTimesheet.Controls.Add(dgvTimesheet);
+            tabTeacherTimesheet.Controls.Add(lblTimesheetSummary);
+            tabTeacherTimesheet.Location = new Point(4, 24);
+            tabTeacherTimesheet.Name = "tabTeacherTimesheet";
+            tabTeacherTimesheet.Size = new Size(1024, 504);
+            tabTeacherTimesheet.TabIndex = 3;
+            tabTeacherTimesheet.Text = "Bảng chấm công";
+            // 
+            // lblTimesheetMonth
+            // 
+            lblTimesheetMonth.AutoSize = true;
+            lblTimesheetMonth.Location = new Point(10, 15);
+            lblTimesheetMonth.Name = "lblTimesheetMonth";
+            lblTimesheetMonth.Size = new Size(50, 15);
+            lblTimesheetMonth.Text = "Tháng:";
+            // 
+            // cmbTimesheetMonth
+            // 
+            cmbTimesheetMonth.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTimesheetMonth.Location = new Point(65, 12);
+            cmbTimesheetMonth.Name = "cmbTimesheetMonth";
+            cmbTimesheetMonth.Size = new Size(60, 23);
+            // 
+            // cmbTimesheetYear
+            // 
+            cmbTimesheetYear.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTimesheetYear.Location = new Point(135, 12);
+            cmbTimesheetYear.Name = "cmbTimesheetYear";
+            cmbTimesheetYear.Size = new Size(80, 23);
+            // 
+            // btnLoadTimesheet
+            // 
+            btnLoadTimesheet.Location = new Point(230, 11);
+            btnLoadTimesheet.Name = "btnLoadTimesheet";
+            btnLoadTimesheet.Size = new Size(80, 25);
+            btnLoadTimesheet.Text = "Xem";
+            btnLoadTimesheet.Click += btnLoadTimesheet_Click;
+            // 
+            // dgvTimesheet
+            // 
+            dgvTimesheet.Location = new Point(10, 45);
+            dgvTimesheet.Name = "dgvTimesheet";
+            dgvTimesheet.Size = new Size(1000, 400);
+            dgvTimesheet.AllowUserToAddRows = false;
+            dgvTimesheet.ReadOnly = false;
+            // 
+            // btnSaveTimesheet
+            // 
+            btnSaveTimesheet.Location = new Point(320, 11);
+            btnSaveTimesheet.Name = "btnSaveTimesheet";
+            btnSaveTimesheet.Size = new Size(100, 25);
+            btnSaveTimesheet.Text = "Lưu chấm công";
+            btnSaveTimesheet.Click += btnSaveTimesheet_Click;
+            // 
+            // lblTimesheetSummary
+            // 
+            lblTimesheetSummary.AutoSize = true;
+            lblTimesheetSummary.Location = new Point(10, 462);
+            lblTimesheetSummary.Name = "lblTimesheetSummary";
+            lblTimesheetSummary.Size = new Size(400, 15);
+            lblTimesheetSummary.Font = new Font(lblTimesheetSummary.Font, FontStyle.Bold);
+            lblTimesheetSummary.Text = "";
             // 
             // tabTeacherSchedule
             // 
@@ -1106,6 +1187,9 @@
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).EndInit();
             tabTeacher.ResumeLayout(false);
             tabTeacherFunctions.ResumeLayout(false);
+            tabTeacherTimesheet.ResumeLayout(false);
+            tabTeacherTimesheet.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvTimesheet).EndInit();
             tabTeacherSchedule.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvTeacherClasses).EndInit();
             tabTeacherAttendance.ResumeLayout(false);
@@ -1221,5 +1305,13 @@
         private Button btnLogoutAdmin;
         private Button btnLogoutTeacher;
         private Button btnLogoutGlobal;
+        private TabPage tabTeacherTimesheet;
+        private DataGridView dgvTimesheet;
+        private Label lblTimesheetMonth;
+        private ComboBox cmbTimesheetMonth;
+        private ComboBox cmbTimesheetYear;
+        private Button btnLoadTimesheet;
+        private Button btnSaveTimesheet;
+        private Label lblTimesheetSummary;
     }
 }

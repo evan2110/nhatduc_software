@@ -14,6 +14,7 @@ namespace NhatDucSoftware
         private readonly AttendanceService _attendanceService = new();
         private readonly EvaluationService _evaluationService = new();
         private readonly ReportService _reportService = new();
+        private readonly TeacherTimesheetService _timesheetService = new();
 
         private List<Student> _students = new();
         private List<Course> _courses = new();
@@ -46,6 +47,12 @@ namespace NhatDucSoftware
             LoadReports();
             LoadTeachers();
             LoadTeacherManagement();
+
+            if (_currentUser.Role == "Teacher")
+            {
+                InitTimesheetCombos();
+                LoadTimesheet();
+            }
         }
 
         private void SetGridHeaders(DataGridView grid, Dictionary<string, string> headers)
@@ -347,13 +354,17 @@ namespace NhatDucSoftware
         {
             try
             {
-                _teacherService.Add(new Teacher
+                var (username, password) = _teacherService.Add(new Teacher
                 {
                     FullName = txtTeacherName.Text.Trim(),
                     Phone = txtTeacherPhone.Text.Trim(),
                     Email = txtTeacherEmail.Text.Trim(),
                     Status = cmbTeacherStatus.Text
                 });
+
+                MessageBox.Show(
+                    $"Đã thêm giáo viên thành công!\n\nTài khoản đăng nhập:\n  Username: {username}\n  Password: {password}",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 LoadTeacherManagement();
                 LoadTeachers();
@@ -502,6 +513,88 @@ namespace NhatDucSoftware
                 txtComment.Text.Trim());
 
             MessageBox.Show("Đã lưu nhận xét/điểm.");
+        }
+
+        private void InitTimesheetCombos()
+        {
+            cmbTimesheetMonth.Items.Clear();
+            for (int i = 1; i <= 12; i++)
+                cmbTimesheetMonth.Items.Add(i);
+            cmbTimesheetMonth.SelectedItem = DateTime.Now.Month;
+
+            cmbTimesheetYear.Items.Clear();
+            for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+                cmbTimesheetYear.Items.Add(y);
+            cmbTimesheetYear.SelectedItem = DateTime.Now.Year;
+        }
+
+        private void btnLoadTimesheet_Click(object sender, EventArgs e)
+        {
+            LoadTimesheet();
+        }
+
+        private void LoadTimesheet()
+        {
+            if (_currentUser.TeacherId is not int teacherId) return;
+            if (cmbTimesheetMonth.SelectedItem is not int month) return;
+            if (cmbTimesheetYear.SelectedItem is not int year) return;
+
+            var records = _timesheetService.GetTimesheetByMonth(teacherId, year, month);
+
+            // Build pivot table: rows = dates, columns = Ca 1..5
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            var table = new System.Data.DataTable();
+            table.Columns.Add("Ngày", typeof(string));
+            for (int s = 1; s <= 5; s++)
+                table.Columns.Add(Models.TeacherTimesheet.GetShiftDescription(s), typeof(string));
+
+            for (int d = 1; d <= daysInMonth; d++)
+            {
+                var row = table.NewRow();
+                row["Ngày"] = $"{d:D2}/{month:D2}/{year}";
+                for (int s = 1; s <= 5; s++)
+                {
+                    var rec = records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s);
+                    row[s] = rec != null ? (rec.IsPresent ? "✓" : "✗") : "";
+                }
+                table.Rows.Add(row);
+            }
+
+            dgvTimesheet.DataSource = table;
+
+            // Make "Ngày" column readonly
+            if (dgvTimesheet.Columns.Count > 0)
+                dgvTimesheet.Columns[0].ReadOnly = true;
+
+            var totalShifts = records.Count(r => r.IsPresent);
+            var pay = totalShifts * Models.TeacherTimesheet.PayPerShift;
+            lblTimesheetSummary.Text = $"Tổng ca: {totalShifts} | Lương tháng: {pay:N0} VNĐ";
+        }
+
+        private void btnSaveTimesheet_Click(object sender, EventArgs e)
+        {
+            if (_currentUser.TeacherId is not int teacherId) return;
+            if (cmbTimesheetMonth.SelectedItem is not int month) return;
+            if (cmbTimesheetYear.SelectedItem is not int year) return;
+
+            for (int rowIdx = 0; rowIdx < dgvTimesheet.Rows.Count; rowIdx++)
+            {
+                int day = rowIdx + 1;
+                var workDate = new DateTime(year, month, day);
+
+                for (int shift = 1; shift <= 5; shift++)
+                {
+                    var cellValue = dgvTimesheet.Rows[rowIdx].Cells[shift].Value?.ToString()?.Trim().ToUpper() ?? "";
+                    bool isPresent = cellValue == "C" || cellValue == "✓";
+                    if (cellValue == "C" || cellValue == "✓" || cellValue == "✗")
+                    {
+                        _timesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent);
+                    }
+                }
+            }
+
+            MessageBox.Show("Đã lưu chấm công thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            LoadTimesheet();
         }
 
         private void btnLogout_Click(object sender, EventArgs e)

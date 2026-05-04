@@ -133,6 +133,17 @@ CREATE TABLE IF NOT EXISTS StudentEvaluations (
     FOREIGN KEY (ClassId) REFERENCES Classes(Id),
     FOREIGN KEY (TeacherId) REFERENCES Teachers(Id)
 );
+
+CREATE TABLE IF NOT EXISTS TeacherTimesheets (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    TeacherId INTEGER NOT NULL,
+    WorkDate TEXT NOT NULL,
+    ShiftNumber INTEGER NOT NULL CHECK(ShiftNumber BETWEEN 1 AND 5),
+    IsPresent INTEGER NOT NULL DEFAULT 0,
+    Note TEXT,
+    FOREIGN KEY (TeacherId) REFERENCES Teachers(Id),
+    UNIQUE (TeacherId, WorkDate, ShiftNumber)
+);
 ";
         command.ExecuteNonQuery();
 
