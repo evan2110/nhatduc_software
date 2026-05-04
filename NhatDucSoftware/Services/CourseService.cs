@@ -12,19 +12,16 @@ public class CourseService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Code, Name, Language, TuitionFee, DurationHours, Status FROM Courses ORDER BY Code;";
+        command.CommandText = "SELECT Id, Name, TuitionFee, Status FROM Courses ORDER BY Name;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
             result.Add(new Course
             {
                 Id = reader.GetInt32(0),
-                Code = reader.GetString(1),
-                Name = reader.GetString(2),
-                Language = reader.GetString(3),
-                TuitionFee = Convert.ToDecimal(reader.GetDouble(4)),
-                DurationHours = reader.GetInt32(5),
-                Status = reader.GetString(6)
+                Name = reader.GetString(1),
+                TuitionFee = Convert.ToDecimal(reader.GetDouble(2)),
+                Status = reader.GetString(3)
             });
         }
 
@@ -38,12 +35,24 @@ public class CourseService
 
         using var command = connection.CreateCommand();
         command.CommandText = @"INSERT INTO Courses(Code, Name, Language, TuitionFee, DurationHours, Status)
-VALUES(@code, @name, @lang, @fee, @duration, @status);";
-        command.Parameters.AddWithValue("@code", course.Code);
+VALUES(@code, @name, '', @fee, 90, @status);";
+        command.Parameters.AddWithValue("@code", course.Name);
         command.Parameters.AddWithValue("@name", course.Name);
-        command.Parameters.AddWithValue("@lang", course.Language);
         command.Parameters.AddWithValue("@fee", course.TuitionFee);
-        command.Parameters.AddWithValue("@duration", course.DurationHours);
+        command.Parameters.AddWithValue("@status", course.Status);
+        command.ExecuteNonQuery();
+    }
+
+    public void Update(Course course)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"UPDATE Courses SET Name = @name, TuitionFee = @fee, Status = @status WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", course.Id);
+        command.Parameters.AddWithValue("@name", course.Name);
+        command.Parameters.AddWithValue("@fee", course.TuitionFee);
         command.Parameters.AddWithValue("@status", course.Status);
         command.ExecuteNonQuery();
     }

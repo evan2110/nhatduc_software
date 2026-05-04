@@ -24,45 +24,39 @@
             lblStudentName = new Label();
             lblStudentPhone = new Label();
             lblStudentEmail = new Label();
-            lblStudentLanguage = new Label();
             lblStudentStatus = new Label();
-            lblAssignCourse = new Label();
             dgvStudents = new DataGridView();
             txtStudentName = new TextBox();
             txtStudentPhone = new TextBox();
             txtStudentEmail = new TextBox();
-            cmbStudentLanguage = new ComboBox();
             cmbStudentStatus = new ComboBox();
             btnAddStudent = new Button();
             btnUpdateStudent = new Button();
             btnDeleteStudent = new Button();
-            cmbCourseAssign = new ComboBox();
-            btnAssignCourse = new Button();
             tabAdminCourses = new TabPage();
-            lblCourseCode = new Label();
             lblCourseName = new Label();
-            lblCourseLanguage = new Label();
             lblCourseFee = new Label();
-            lblCourseDuration = new Label();
             dgvCourses = new DataGridView();
-            txtCourseCode = new TextBox();
             txtCourseName = new TextBox();
-            cmbCourseLanguage = new ComboBox();
             txtCourseFee = new TextBox();
-            txtCourseDuration = new TextBox();
             btnAddCourse = new Button();
+            btnUpdateCourse = new Button();
             tabAdminClasses = new TabPage();
             lblClassName = new Label();
             lblClassCourse = new Label();
             lblClassTeacher = new Label();
-            lblClassMaxSize = new Label();
+            btnCreateClass = new Button();
+            btnUpdateClass = new Button();
+            btnDeleteClass = new Button();
+            dgvClassStudents = new DataGridView();
+            btnRemoveStudentFromClass = new Button();
+            btnClassSchedule = new Button();
             lblSelectClass = new Label();
             lblSelectStudent = new Label();
             dgvClasses = new DataGridView();
             txtClassName = new TextBox();
             cmbCourseClass = new ComboBox();
             cmbTeacherClass = new ComboBox();
-            txtClassMaxSize = new TextBox();
             btnCreateClass = new Button();
             cmbClassAddStudent = new ComboBox();
             cmbStudentClass = new ComboBox();
@@ -84,6 +78,12 @@
             lblTotalRevenue = new Label();
             lblActiveClasses = new Label();
             tabAdminTeachers = new TabPage();
+            tabAdminPayroll = new TabPage();
+            lblPayrollMonth = new Label();
+            cmbPayrollMonth = new ComboBox();
+            cmbPayrollYear = new ComboBox();
+            btnLoadPayroll = new Button();
+            dgvPayroll = new DataGridView();
             lblTeacherName = new Label();
             lblTeacherPhone = new Label();
             lblTeacherEmail = new Label();
@@ -99,8 +99,20 @@
             btnLogoutAdmin = new Button();
             tabTeacher = new TabPage();
             tabTeacherFunctions = new TabControl();
+            tabTeacherTimesheet = new TabPage();
+            lblTimesheetMonth = new Label();
+            cmbTimesheetMonth = new ComboBox();
+            cmbTimesheetYear = new ComboBox();
+            btnLoadTimesheet = new Button();
+            btnSaveTimesheet = new Button();
+            dgvTimesheet = new DataGridView();
+            lblTimesheetSummary = new Label();
             tabTeacherSchedule = new TabPage();
             dgvTeacherClasses = new DataGridView();
+            lblTeacherWeek = new Label();
+            dtpTeacherWeek = new DateTimePicker();
+            btnLoadTeacherSchedule = new Button();
+            dgvTeacherWeeklySchedule = new DataGridView();
             tabTeacherAttendance = new TabPage();
             lblAttendanceClass = new Label();
             lblAttendanceDate = new Label();
@@ -109,14 +121,6 @@
             btnLoadAttendanceStudents = new Button();
             dgvAttendance = new DataGridView();
             btnSaveAttendance = new Button();
-            tabTeacherTimesheet = new TabPage();
-            dgvTimesheet = new DataGridView();
-            btnSaveTimesheet = new Button();
-            lblTimesheetMonth = new Label();
-            cmbTimesheetMonth = new ComboBox();
-            cmbTimesheetYear = new ComboBox();
-            btnLoadTimesheet = new Button();
-            lblTimesheetSummary = new Label();
             tabTeacherEvaluation = new TabPage();
             lblEvaluateClass = new Label();
             lblEvaluateStudent = new Label();
@@ -129,6 +133,10 @@
             btnSaveEvaluation = new Button();
             btnLogoutTeacher = new Button();
             btnLogoutGlobal = new Button();
+            lblPaymentFilterClass = new Label();
+            cmbPaymentFilterClass = new ComboBox();
+            txtSearchStudent = new TextBox();
+            dgvAttendanceDetail = new DataGridView();
             tabMain.SuspendLayout();
             tabAdmin.SuspendLayout();
             tabAdminFunctions.SuspendLayout();
@@ -138,9 +146,12 @@
             ((System.ComponentModel.ISupportInitialize)dgvCourses).BeginInit();
             tabAdminClasses.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvClasses).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvClassStudents).BeginInit();
             tabAdminPayments.SuspendLayout();
             tabAdminReports.SuspendLayout();
             tabAdminTeachers.SuspendLayout();
+            tabAdminPayroll.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvPayroll).BeginInit();
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).BeginInit();
             tabTeacher.SuspendLayout();
             tabTeacherFunctions.SuspendLayout();
@@ -148,6 +159,7 @@
             ((System.ComponentModel.ISupportInitialize)dgvTimesheet).BeginInit();
             tabTeacherSchedule.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvTeacherClasses).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvTeacherWeeklySchedule).BeginInit();
             tabTeacherAttendance.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvAttendance).BeginInit();
             tabTeacherEvaluation.SuspendLayout();
@@ -182,6 +194,7 @@
             tabAdminFunctions.Controls.Add(tabAdminPayments);
             tabAdminFunctions.Controls.Add(tabAdminReports);
             tabAdminFunctions.Controls.Add(tabAdminTeachers);
+            tabAdminFunctions.Controls.Add(tabAdminPayroll);
             tabAdminFunctions.Dock = DockStyle.Fill;
             tabAdminFunctions.Location = new Point(0, 0);
             tabAdminFunctions.Name = "tabAdminFunctions";
@@ -194,20 +207,15 @@
             tabAdminStudents.Controls.Add(lblStudentName);
             tabAdminStudents.Controls.Add(lblStudentPhone);
             tabAdminStudents.Controls.Add(lblStudentEmail);
-            tabAdminStudents.Controls.Add(lblStudentLanguage);
             tabAdminStudents.Controls.Add(lblStudentStatus);
-            tabAdminStudents.Controls.Add(lblAssignCourse);
             tabAdminStudents.Controls.Add(dgvStudents);
             tabAdminStudents.Controls.Add(txtStudentName);
             tabAdminStudents.Controls.Add(txtStudentPhone);
             tabAdminStudents.Controls.Add(txtStudentEmail);
-            tabAdminStudents.Controls.Add(cmbStudentLanguage);
             tabAdminStudents.Controls.Add(cmbStudentStatus);
             tabAdminStudents.Controls.Add(btnAddStudent);
             tabAdminStudents.Controls.Add(btnUpdateStudent);
             tabAdminStudents.Controls.Add(btnDeleteStudent);
-            tabAdminStudents.Controls.Add(cmbCourseAssign);
-            tabAdminStudents.Controls.Add(btnAssignCourse);
             tabAdminStudents.Location = new Point(4, 24);
             tabAdminStudents.Name = "tabAdminStudents";
             tabAdminStudents.Size = new Size(1024, 504);
@@ -238,29 +246,13 @@
             lblStudentEmail.TabIndex = 2;
             lblStudentEmail.Text = "Email";
             // 
-            // lblStudentLanguage
-            // 
-            lblStudentLanguage.Location = new Point(680, 146);
-            lblStudentLanguage.Name = "lblStudentLanguage";
-            lblStudentLanguage.Size = new Size(120, 15);
-            lblStudentLanguage.TabIndex = 3;
-            lblStudentLanguage.Text = "Ngôn ngữ";
-            // 
             // lblStudentStatus
             // 
-            lblStudentStatus.Location = new Point(835, 146);
+            lblStudentStatus.Location = new Point(680, 146);
             lblStudentStatus.Name = "lblStudentStatus";
             lblStudentStatus.Size = new Size(120, 15);
             lblStudentStatus.TabIndex = 4;
             lblStudentStatus.Text = "Trạng thái";
-            // 
-            // lblAssignCourse
-            // 
-            lblAssignCourse.Location = new Point(680, 233);
-            lblAssignCourse.Name = "lblAssignCourse";
-            lblAssignCourse.Size = new Size(150, 15);
-            lblAssignCourse.TabIndex = 5;
-            lblAssignCourse.Text = "Khóa học gán cho học viên";
             // 
             // dgvStudents
             // 
@@ -291,19 +283,10 @@
             txtStudentEmail.Size = new Size(300, 23);
             txtStudentEmail.TabIndex = 9;
             // 
-            // cmbStudentLanguage
-            // 
-            cmbStudentLanguage.Items.AddRange(new object[] { "JP", "DE" });
-            cmbStudentLanguage.Location = new Point(680, 164);
-            cmbStudentLanguage.Name = "cmbStudentLanguage";
-            cmbStudentLanguage.Size = new Size(145, 23);
-            cmbStudentLanguage.TabIndex = 10;
-            cmbStudentLanguage.Text = "JP";
-            // 
             // cmbStudentStatus
             // 
             cmbStudentStatus.Items.AddRange(new object[] { "Active", "Inactive" });
-            cmbStudentStatus.Location = new Point(835, 164);
+            cmbStudentStatus.Location = new Point(682, 164);
             cmbStudentStatus.Name = "cmbStudentStatus";
             cmbStudentStatus.Size = new Size(145, 23);
             cmbStudentStatus.TabIndex = 11;
@@ -336,152 +319,97 @@
             btnDeleteStudent.Text = "Xóa";
             btnDeleteStudent.Click += btnDeleteStudent_Click;
             // 
-            // cmbCourseAssign
-            // 
-            cmbCourseAssign.Location = new Point(680, 251);
-            cmbCourseAssign.Name = "cmbCourseAssign";
-            cmbCourseAssign.Size = new Size(200, 23);
-            cmbCourseAssign.TabIndex = 15;
-            // 
-            // btnAssignCourse
-            // 
-            btnAssignCourse.Location = new Point(885, 248);
-            btnAssignCourse.Name = "btnAssignCourse";
-            btnAssignCourse.Size = new Size(95, 28);
-            btnAssignCourse.TabIndex = 16;
-            btnAssignCourse.Text = "Gán khóa";
-            btnAssignCourse.Click += btnAssignCourse_Click;
-            // 
             // tabAdminCourses
             // 
-            tabAdminCourses.Controls.Add(lblCourseCode);
             tabAdminCourses.Controls.Add(lblCourseName);
-            tabAdminCourses.Controls.Add(lblCourseLanguage);
             tabAdminCourses.Controls.Add(lblCourseFee);
-            tabAdminCourses.Controls.Add(lblCourseDuration);
             tabAdminCourses.Controls.Add(dgvCourses);
-            tabAdminCourses.Controls.Add(txtCourseCode);
             tabAdminCourses.Controls.Add(txtCourseName);
-            tabAdminCourses.Controls.Add(cmbCourseLanguage);
             tabAdminCourses.Controls.Add(txtCourseFee);
-            tabAdminCourses.Controls.Add(txtCourseDuration);
             tabAdminCourses.Controls.Add(btnAddCourse);
+            tabAdminCourses.Controls.Add(btnUpdateCourse);
             tabAdminCourses.Location = new Point(4, 24);
             tabAdminCourses.Name = "tabAdminCourses";
             tabAdminCourses.Size = new Size(1024, 504);
             tabAdminCourses.TabIndex = 1;
             tabAdminCourses.Text = "Khóa học";
             // 
-            // lblCourseCode
-            // 
-            lblCourseCode.Location = new Point(730, 22);
-            lblCourseCode.Name = "lblCourseCode";
-            lblCourseCode.Size = new Size(120, 15);
-            lblCourseCode.TabIndex = 0;
-            lblCourseCode.Text = "Mã cấp độ";
-            // 
             // lblCourseName
             // 
-            lblCourseName.Location = new Point(860, 22);
+            lblCourseName.Location = new Point(730, 22);
             lblCourseName.Name = "lblCourseName";
             lblCourseName.Size = new Size(120, 15);
-            lblCourseName.TabIndex = 1;
+            lblCourseName.TabIndex = 0;
             lblCourseName.Text = "Tên khóa học";
-            // 
-            // lblCourseLanguage
-            // 
-            lblCourseLanguage.Location = new Point(730, 68);
-            lblCourseLanguage.Name = "lblCourseLanguage";
-            lblCourseLanguage.Size = new Size(120, 15);
-            lblCourseLanguage.TabIndex = 2;
-            lblCourseLanguage.Text = "Ngôn ngữ";
             // 
             // lblCourseFee
             // 
-            lblCourseFee.Location = new Point(860, 68);
+            lblCourseFee.Location = new Point(730, 68);
             lblCourseFee.Name = "lblCourseFee";
             lblCourseFee.Size = new Size(120, 15);
-            lblCourseFee.TabIndex = 3;
+            lblCourseFee.TabIndex = 1;
             lblCourseFee.Text = "Học phí";
-            // 
-            // lblCourseDuration
-            // 
-            lblCourseDuration.Location = new Point(730, 113);
-            lblCourseDuration.Name = "lblCourseDuration";
-            lblCourseDuration.Size = new Size(120, 15);
-            lblCourseDuration.TabIndex = 4;
-            lblCourseDuration.Text = "Thời lượng (giờ)";
             // 
             // dgvCourses
             // 
             dgvCourses.Location = new Point(10, 10);
             dgvCourses.Name = "dgvCourses";
             dgvCourses.Size = new Size(700, 430);
-            dgvCourses.TabIndex = 5;
-            // 
-            // txtCourseCode
-            // 
-            txtCourseCode.Location = new Point(730, 40);
-            txtCourseCode.Name = "txtCourseCode";
-            txtCourseCode.Size = new Size(120, 23);
-            txtCourseCode.TabIndex = 6;
+            dgvCourses.TabIndex = 2;
+            dgvCourses.SelectionChanged += dgvCourses_SelectionChanged;
             // 
             // txtCourseName
             // 
-            txtCourseName.Location = new Point(860, 40);
+            txtCourseName.Location = new Point(730, 40);
             txtCourseName.Name = "txtCourseName";
-            txtCourseName.Size = new Size(140, 23);
-            txtCourseName.TabIndex = 7;
-            // 
-            // cmbCourseLanguage
-            // 
-            cmbCourseLanguage.Items.AddRange(new object[] { "JP", "DE" });
-            cmbCourseLanguage.Location = new Point(730, 86);
-            cmbCourseLanguage.Name = "cmbCourseLanguage";
-            cmbCourseLanguage.Size = new Size(120, 23);
-            cmbCourseLanguage.TabIndex = 8;
-            cmbCourseLanguage.Text = "JP";
+            txtCourseName.Size = new Size(270, 23);
+            txtCourseName.TabIndex = 3;
             // 
             // txtCourseFee
             // 
-            txtCourseFee.Location = new Point(860, 86);
+            txtCourseFee.Location = new Point(730, 86);
             txtCourseFee.Name = "txtCourseFee";
-            txtCourseFee.Size = new Size(140, 23);
-            txtCourseFee.TabIndex = 9;
-            // 
-            // txtCourseDuration
-            // 
-            txtCourseDuration.Location = new Point(730, 131);
-            txtCourseDuration.Name = "txtCourseDuration";
-            txtCourseDuration.Size = new Size(120, 23);
-            txtCourseDuration.TabIndex = 10;
+            txtCourseFee.Size = new Size(270, 23);
+            txtCourseFee.TabIndex = 4;
             // 
             // btnAddCourse
             // 
-            btnAddCourse.Location = new Point(860, 129);
+            btnAddCourse.Location = new Point(730, 120);
             btnAddCourse.Name = "btnAddCourse";
-            btnAddCourse.Size = new Size(140, 28);
-            btnAddCourse.TabIndex = 11;
+            btnAddCourse.Size = new Size(130, 28);
+            btnAddCourse.TabIndex = 5;
             btnAddCourse.Text = "Thêm khóa";
             btnAddCourse.Click += btnAddCourse_Click;
+            // 
+            // btnUpdateCourse
+            // 
+            btnUpdateCourse.Location = new Point(870, 120);
+            btnUpdateCourse.Name = "btnUpdateCourse";
+            btnUpdateCourse.Size = new Size(130, 28);
+            btnUpdateCourse.TabIndex = 6;
+            btnUpdateCourse.Text = "Sửa học phí";
+            btnUpdateCourse.Click += btnUpdateCourse_Click;
             // 
             // tabAdminClasses
             // 
             tabAdminClasses.Controls.Add(lblClassName);
             tabAdminClasses.Controls.Add(lblClassCourse);
             tabAdminClasses.Controls.Add(lblClassTeacher);
-            tabAdminClasses.Controls.Add(lblClassMaxSize);
             tabAdminClasses.Controls.Add(lblSelectClass);
             tabAdminClasses.Controls.Add(lblSelectStudent);
             tabAdminClasses.Controls.Add(dgvClasses);
             tabAdminClasses.Controls.Add(txtClassName);
             tabAdminClasses.Controls.Add(cmbCourseClass);
             tabAdminClasses.Controls.Add(cmbTeacherClass);
-            tabAdminClasses.Controls.Add(txtClassMaxSize);
             tabAdminClasses.Controls.Add(btnCreateClass);
+            tabAdminClasses.Controls.Add(btnUpdateClass);
+            tabAdminClasses.Controls.Add(btnDeleteClass);
             tabAdminClasses.Controls.Add(cmbClassAddStudent);
             tabAdminClasses.Controls.Add(cmbStudentClass);
             tabAdminClasses.Controls.Add(btnAddStudentToClass);
+            tabAdminClasses.Controls.Add(dgvClassStudents);
+            tabAdminClasses.Controls.Add(btnRemoveStudentFromClass);
+            tabAdminClasses.Controls.Add(btnClassSchedule);
             tabAdminClasses.Location = new Point(4, 24);
             tabAdminClasses.Name = "tabAdminClasses";
             tabAdminClasses.Size = new Size(1024, 504);
@@ -490,7 +418,7 @@
             // 
             // lblClassName
             // 
-            lblClassName.Location = new Point(730, 22);
+            lblClassName.Location = new Point(730, 12);
             lblClassName.Name = "lblClassName";
             lblClassName.Size = new Size(120, 15);
             lblClassName.TabIndex = 0;
@@ -498,7 +426,7 @@
             // 
             // lblClassCourse
             // 
-            lblClassCourse.Location = new Point(730, 69);
+            lblClassCourse.Location = new Point(730, 57);
             lblClassCourse.Name = "lblClassCourse";
             lblClassCourse.Size = new Size(120, 15);
             lblClassCourse.TabIndex = 1;
@@ -506,23 +434,15 @@
             // 
             // lblClassTeacher
             // 
-            lblClassTeacher.Location = new Point(870, 69);
+            lblClassTeacher.Location = new Point(870, 57);
             lblClassTeacher.Name = "lblClassTeacher";
             lblClassTeacher.Size = new Size(120, 15);
             lblClassTeacher.TabIndex = 2;
             lblClassTeacher.Text = "Giáo viên";
             // 
-            // lblClassMaxSize
-            // 
-            lblClassMaxSize.Location = new Point(730, 117);
-            lblClassMaxSize.Name = "lblClassMaxSize";
-            lblClassMaxSize.Size = new Size(120, 15);
-            lblClassMaxSize.TabIndex = 3;
-            lblClassMaxSize.Text = "Sĩ số tối đa";
-            // 
             // lblSelectClass
             // 
-            lblSelectClass.Location = new Point(730, 162);
+            lblSelectClass.Location = new Point(730, 175);
             lblSelectClass.Name = "lblSelectClass";
             lblSelectClass.Size = new Size(120, 15);
             lblSelectClass.TabIndex = 4;
@@ -530,7 +450,7 @@
             // 
             // lblSelectStudent
             // 
-            lblSelectStudent.Location = new Point(870, 162);
+            lblSelectStudent.Location = new Point(870, 175);
             lblSelectStudent.Name = "lblSelectStudent";
             lblSelectStudent.Size = new Size(120, 15);
             lblSelectStudent.TabIndex = 5;
@@ -540,123 +460,172 @@
             // 
             dgvClasses.Location = new Point(10, 10);
             dgvClasses.Name = "dgvClasses";
-            dgvClasses.Size = new Size(700, 430);
+            dgvClasses.Size = new Size(700, 230);
             dgvClasses.TabIndex = 6;
+            dgvClasses.SelectionChanged += dgvClasses_SelectionChanged;
             // 
             // txtClassName
             // 
-            txtClassName.Location = new Point(730, 40);
+            txtClassName.Location = new Point(730, 30);
             txtClassName.Name = "txtClassName";
             txtClassName.Size = new Size(270, 23);
             txtClassName.TabIndex = 7;
             // 
             // cmbCourseClass
             // 
-            cmbCourseClass.Location = new Point(730, 87);
+            cmbCourseClass.Location = new Point(730, 75);
             cmbCourseClass.Name = "cmbCourseClass";
             cmbCourseClass.Size = new Size(130, 23);
             cmbCourseClass.TabIndex = 8;
             // 
             // cmbTeacherClass
             // 
-            cmbTeacherClass.Location = new Point(870, 87);
+            cmbTeacherClass.Location = new Point(870, 75);
             cmbTeacherClass.Name = "cmbTeacherClass";
             cmbTeacherClass.Size = new Size(130, 23);
             cmbTeacherClass.TabIndex = 9;
             // 
-            // txtClassMaxSize
-            // 
-            txtClassMaxSize.Location = new Point(730, 135);
-            txtClassMaxSize.Name = "txtClassMaxSize";
-            txtClassMaxSize.Size = new Size(130, 23);
-            txtClassMaxSize.TabIndex = 10;
-            txtClassMaxSize.Text = "20";
-            // 
             // btnCreateClass
             // 
-            btnCreateClass.Location = new Point(870, 133);
+            btnCreateClass.Location = new Point(730, 108);
             btnCreateClass.Name = "btnCreateClass";
-            btnCreateClass.Size = new Size(130, 28);
-            btnCreateClass.TabIndex = 11;
+            btnCreateClass.Size = new Size(85, 28);
+            btnCreateClass.TabIndex = 10;
             btnCreateClass.Text = "Tạo lớp";
             btnCreateClass.Click += btnCreateClass_Click;
             // 
+            // btnUpdateClass
+            // 
+            btnUpdateClass.Location = new Point(823, 108);
+            btnUpdateClass.Name = "btnUpdateClass";
+            btnUpdateClass.Size = new Size(85, 28);
+            btnUpdateClass.TabIndex = 11;
+            btnUpdateClass.Text = "Sửa lớp";
+            btnUpdateClass.Click += btnUpdateClass_Click;
+            // 
+            // btnDeleteClass
+            // 
+            btnDeleteClass.Location = new Point(915, 108);
+            btnDeleteClass.Name = "btnDeleteClass";
+            btnDeleteClass.Size = new Size(85, 28);
+            btnDeleteClass.TabIndex = 12;
+            btnDeleteClass.Text = "Xóa lớp";
+            btnDeleteClass.Click += btnDeleteClass_Click;
+            // 
             // cmbClassAddStudent
             // 
-            cmbClassAddStudent.Location = new Point(730, 180);
+            cmbClassAddStudent.Location = new Point(730, 193);
             cmbClassAddStudent.Name = "cmbClassAddStudent";
             cmbClassAddStudent.Size = new Size(130, 23);
-            cmbClassAddStudent.TabIndex = 12;
+            cmbClassAddStudent.TabIndex = 13;
             // 
             // cmbStudentClass
             // 
-            cmbStudentClass.Location = new Point(870, 180);
+            cmbStudentClass.Location = new Point(870, 193);
             cmbStudentClass.Name = "cmbStudentClass";
             cmbStudentClass.Size = new Size(130, 23);
-            cmbStudentClass.TabIndex = 13;
+            cmbStudentClass.TabIndex = 14;
             // 
             // btnAddStudentToClass
             // 
-            btnAddStudentToClass.Location = new Point(730, 213);
+            btnAddStudentToClass.Location = new Point(730, 223);
             btnAddStudentToClass.Name = "btnAddStudentToClass";
-            btnAddStudentToClass.Size = new Size(270, 30);
-            btnAddStudentToClass.TabIndex = 14;
+            btnAddStudentToClass.Size = new Size(270, 28);
+            btnAddStudentToClass.TabIndex = 15;
             btnAddStudentToClass.Text = "Thêm học viên vào lớp";
             btnAddStudentToClass.Click += btnAddStudentToClass_Click;
             // 
+            // dgvClassStudents
+            // 
+            dgvClassStudents.Location = new Point(10, 250);
+            dgvClassStudents.Name = "dgvClassStudents";
+            dgvClassStudents.Size = new Size(700, 200);
+            dgvClassStudents.TabIndex = 16;
+            dgvClassStudents.AllowUserToAddRows = false;
+            dgvClassStudents.ReadOnly = true;
+            // 
+            // btnRemoveStudentFromClass
+            // 
+            btnRemoveStudentFromClass.Location = new Point(730, 260);
+            btnRemoveStudentFromClass.Name = "btnRemoveStudentFromClass";
+            btnRemoveStudentFromClass.Size = new Size(270, 28);
+            btnRemoveStudentFromClass.TabIndex = 17;
+            btnRemoveStudentFromClass.Text = "Xóa học viên khỏi lớp";
+            btnRemoveStudentFromClass.Click += btnRemoveStudentFromClass_Click;
+            // 
+            // btnClassSchedule
+            // 
+            btnClassSchedule.Location = new Point(730, 295);
+            btnClassSchedule.Name = "btnClassSchedule";
+            btnClassSchedule.Size = new Size(270, 28);
+            btnClassSchedule.TabIndex = 18;
+            btnClassSchedule.Text = "Thiết lập lịch học";
+            btnClassSchedule.Click += btnClassSchedule_Click;
+            // 
             // tabAdminPayments
             // 
+            tabAdminPayments.Controls.Add(lblPaymentFilterClass);
+            tabAdminPayments.Controls.Add(cmbPaymentFilterClass);
             tabAdminPayments.Controls.Add(lblPaymentStudent);
-            tabAdminPayments.Controls.Add(lblPaymentAmount);
-            tabAdminPayments.Controls.Add(lblPaymentNote);
+            tabAdminPayments.Controls.Add(txtSearchStudent);
             tabAdminPayments.Controls.Add(cmbStudentPayment);
             tabAdminPayments.Controls.Add(btnLoadPayment);
             tabAdminPayments.Controls.Add(lblPaymentNeed);
             tabAdminPayments.Controls.Add(lblPaymentPaid);
             tabAdminPayments.Controls.Add(lblPaymentRemain);
+            tabAdminPayments.Controls.Add(lblPaymentAmount);
             tabAdminPayments.Controls.Add(txtPaymentAmount);
+            tabAdminPayments.Controls.Add(lblPaymentNote);
             tabAdminPayments.Controls.Add(txtPaymentNote);
             tabAdminPayments.Controls.Add(btnCollectPayment);
+            tabAdminPayments.Controls.Add(dgvAttendanceDetail);
             tabAdminPayments.Location = new Point(4, 24);
             tabAdminPayments.Name = "tabAdminPayments";
             tabAdminPayments.Size = new Size(1024, 504);
             tabAdminPayments.TabIndex = 3;
             tabAdminPayments.Text = "Học phí";
             // 
+            // lblPaymentFilterClass
+            // 
+            lblPaymentFilterClass.Location = new Point(20, 12);
+            lblPaymentFilterClass.Name = "lblPaymentFilterClass";
+            lblPaymentFilterClass.Size = new Size(80, 15);
+            lblPaymentFilterClass.Text = "Lọc theo lớp:";
+            // 
+            // cmbPaymentFilterClass
+            // 
+            cmbPaymentFilterClass.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbPaymentFilterClass.Location = new Point(105, 9);
+            cmbPaymentFilterClass.Name = "cmbPaymentFilterClass";
+            cmbPaymentFilterClass.Size = new Size(180, 23);
+            cmbPaymentFilterClass.SelectedIndexChanged += cmbPaymentFilterClass_SelectedIndexChanged;
+            // 
             // lblPaymentStudent
             // 
-            lblPaymentStudent.Location = new Point(20, 12);
+            lblPaymentStudent.Location = new Point(300, 12);
             lblPaymentStudent.Name = "lblPaymentStudent";
-            lblPaymentStudent.Size = new Size(160, 15);
+            lblPaymentStudent.Size = new Size(70, 15);
             lblPaymentStudent.TabIndex = 0;
-            lblPaymentStudent.Text = "Chọn học viên";
+            lblPaymentStudent.Text = "Tìm HV:";
             // 
-            // lblPaymentAmount
+            // txtSearchStudent
             // 
-            lblPaymentAmount.Location = new Point(20, 142);
-            lblPaymentAmount.Name = "lblPaymentAmount";
-            lblPaymentAmount.Size = new Size(160, 15);
-            lblPaymentAmount.TabIndex = 1;
-            lblPaymentAmount.Text = "Số tiền thu";
-            // 
-            // lblPaymentNote
-            // 
-            lblPaymentNote.Location = new Point(20, 188);
-            lblPaymentNote.Name = "lblPaymentNote";
-            lblPaymentNote.Size = new Size(160, 15);
-            lblPaymentNote.TabIndex = 2;
-            lblPaymentNote.Text = "Ghi chú";
+            txtSearchStudent.Location = new Point(375, 9);
+            txtSearchStudent.Name = "txtSearchStudent";
+            txtSearchStudent.Size = new Size(150, 23);
+            txtSearchStudent.PlaceholderText = "Nhập tên...";
+            txtSearchStudent.TextChanged += txtSearchStudent_TextChanged;
             // 
             // cmbStudentPayment
             // 
-            cmbStudentPayment.Location = new Point(20, 30);
+            cmbStudentPayment.Location = new Point(20, 40);
             cmbStudentPayment.Name = "cmbStudentPayment";
             cmbStudentPayment.Size = new Size(260, 23);
             cmbStudentPayment.TabIndex = 3;
             // 
             // btnLoadPayment
             // 
-            btnLoadPayment.Location = new Point(290, 27);
+            btnLoadPayment.Location = new Point(290, 38);
             btnLoadPayment.Name = "btnLoadPayment";
             btnLoadPayment.Size = new Size(120, 28);
             btnLoadPayment.TabIndex = 4;
@@ -665,50 +634,74 @@
             // 
             // lblPaymentNeed
             // 
-            lblPaymentNeed.Location = new Point(20, 70);
+            lblPaymentNeed.Location = new Point(20, 75);
             lblPaymentNeed.Name = "lblPaymentNeed";
-            lblPaymentNeed.Size = new Size(300, 24);
+            lblPaymentNeed.Size = new Size(500, 20);
             lblPaymentNeed.TabIndex = 5;
             lblPaymentNeed.Text = "Cần đóng: 0";
             // 
             // lblPaymentPaid
             // 
-            lblPaymentPaid.Location = new Point(20, 95);
+            lblPaymentPaid.Location = new Point(20, 97);
             lblPaymentPaid.Name = "lblPaymentPaid";
-            lblPaymentPaid.Size = new Size(300, 24);
+            lblPaymentPaid.Size = new Size(300, 20);
             lblPaymentPaid.TabIndex = 6;
             lblPaymentPaid.Text = "Đã đóng: 0";
             // 
             // lblPaymentRemain
             // 
-            lblPaymentRemain.Location = new Point(20, 120);
+            lblPaymentRemain.Location = new Point(20, 119);
             lblPaymentRemain.Name = "lblPaymentRemain";
-            lblPaymentRemain.Size = new Size(300, 24);
+            lblPaymentRemain.Size = new Size(300, 20);
             lblPaymentRemain.TabIndex = 7;
             lblPaymentRemain.Text = "Còn lại: 0";
             // 
+            // lblPaymentAmount
+            // 
+            lblPaymentAmount.Location = new Point(20, 145);
+            lblPaymentAmount.Name = "lblPaymentAmount";
+            lblPaymentAmount.Size = new Size(160, 15);
+            lblPaymentAmount.TabIndex = 1;
+            lblPaymentAmount.Text = "Số tiền thu";
+            // 
             // txtPaymentAmount
             // 
-            txtPaymentAmount.Location = new Point(20, 160);
+            txtPaymentAmount.Location = new Point(20, 163);
             txtPaymentAmount.Name = "txtPaymentAmount";
             txtPaymentAmount.Size = new Size(390, 23);
             txtPaymentAmount.TabIndex = 8;
             // 
+            // lblPaymentNote
+            // 
+            lblPaymentNote.Location = new Point(20, 190);
+            lblPaymentNote.Name = "lblPaymentNote";
+            lblPaymentNote.Size = new Size(160, 15);
+            lblPaymentNote.TabIndex = 2;
+            lblPaymentNote.Text = "Ghi chú";
+            // 
             // txtPaymentNote
             // 
-            txtPaymentNote.Location = new Point(20, 206);
+            txtPaymentNote.Location = new Point(20, 208);
             txtPaymentNote.Name = "txtPaymentNote";
             txtPaymentNote.Size = new Size(390, 23);
             txtPaymentNote.TabIndex = 9;
             // 
             // btnCollectPayment
             // 
-            btnCollectPayment.Location = new Point(20, 241);
+            btnCollectPayment.Location = new Point(20, 238);
             btnCollectPayment.Name = "btnCollectPayment";
             btnCollectPayment.Size = new Size(390, 30);
             btnCollectPayment.TabIndex = 10;
             btnCollectPayment.Text = "Thu học phí";
             btnCollectPayment.Click += btnCollectPayment_Click;
+            // 
+            // dgvAttendanceDetail
+            // 
+            dgvAttendanceDetail.Location = new Point(430, 40);
+            dgvAttendanceDetail.Name = "dgvAttendanceDetail";
+            dgvAttendanceDetail.Size = new Size(580, 450);
+            dgvAttendanceDetail.AllowUserToAddRows = false;
+            dgvAttendanceDetail.ReadOnly = true;
             // 
             // tabAdminReports
             // 
@@ -872,8 +865,58 @@
             btnLogoutAdmin.Text = "Đăng xuất";
             btnLogoutAdmin.Click += btnLogout_Click;
             // 
-            // tabTeacher
+            // tabAdminPayroll
             // 
+            tabAdminPayroll.Controls.Add(lblPayrollMonth);
+            tabAdminPayroll.Controls.Add(cmbPayrollMonth);
+            tabAdminPayroll.Controls.Add(cmbPayrollYear);
+            tabAdminPayroll.Controls.Add(btnLoadPayroll);
+            tabAdminPayroll.Controls.Add(dgvPayroll);
+            tabAdminPayroll.Location = new Point(4, 24);
+            tabAdminPayroll.Name = "tabAdminPayroll";
+            tabAdminPayroll.Size = new Size(1024, 504);
+            tabAdminPayroll.TabIndex = 6;
+            tabAdminPayroll.Text = "Ngày công";
+            // 
+            // lblPayrollMonth
+            // 
+            lblPayrollMonth.Location = new Point(10, 15);
+            lblPayrollMonth.Name = "lblPayrollMonth";
+            lblPayrollMonth.Size = new Size(50, 15);
+            lblPayrollMonth.Text = "Tháng:";
+            // 
+            // cmbPayrollMonth
+            // 
+            cmbPayrollMonth.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbPayrollMonth.Location = new Point(65, 12);
+            cmbPayrollMonth.Name = "cmbPayrollMonth";
+            cmbPayrollMonth.Size = new Size(60, 23);
+            // 
+            // cmbPayrollYear
+            // 
+            cmbPayrollYear.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbPayrollYear.Location = new Point(135, 12);
+            cmbPayrollYear.Name = "cmbPayrollYear";
+            cmbPayrollYear.Size = new Size(80, 23);
+            // 
+            // btnLoadPayroll
+            // 
+            btnLoadPayroll.Location = new Point(230, 11);
+            btnLoadPayroll.Name = "btnLoadPayroll";
+            btnLoadPayroll.Size = new Size(80, 25);
+            btnLoadPayroll.Text = "Xem";
+            btnLoadPayroll.Click += btnLoadPayroll_Click;
+            // 
+            // dgvPayroll
+            // 
+            dgvPayroll.Location = new Point(10, 45);
+            dgvPayroll.Name = "dgvPayroll";
+            dgvPayroll.Size = new Size(1000, 440);
+            dgvPayroll.AllowUserToAddRows = false;
+            dgvPayroll.ReadOnly = true;
+            // 
+            // tabTeacher
+            //
             tabTeacher.Controls.Add(tabTeacherFunctions);
             tabTeacher.Controls.Add(btnLogoutTeacher);
             tabTeacher.Location = new Point(4, 24);
@@ -915,7 +958,8 @@
             lblTimesheetMonth.AutoSize = true;
             lblTimesheetMonth.Location = new Point(10, 15);
             lblTimesheetMonth.Name = "lblTimesheetMonth";
-            lblTimesheetMonth.Size = new Size(50, 15);
+            lblTimesheetMonth.Size = new Size(44, 15);
+            lblTimesheetMonth.TabIndex = 0;
             lblTimesheetMonth.Text = "Tháng:";
             // 
             // cmbTimesheetMonth
@@ -924,6 +968,7 @@
             cmbTimesheetMonth.Location = new Point(65, 12);
             cmbTimesheetMonth.Name = "cmbTimesheetMonth";
             cmbTimesheetMonth.Size = new Size(60, 23);
+            cmbTimesheetMonth.TabIndex = 1;
             // 
             // cmbTimesheetYear
             // 
@@ -931,42 +976,49 @@
             cmbTimesheetYear.Location = new Point(135, 12);
             cmbTimesheetYear.Name = "cmbTimesheetYear";
             cmbTimesheetYear.Size = new Size(80, 23);
+            cmbTimesheetYear.TabIndex = 2;
             // 
             // btnLoadTimesheet
             // 
             btnLoadTimesheet.Location = new Point(230, 11);
             btnLoadTimesheet.Name = "btnLoadTimesheet";
             btnLoadTimesheet.Size = new Size(80, 25);
+            btnLoadTimesheet.TabIndex = 3;
             btnLoadTimesheet.Text = "Xem";
             btnLoadTimesheet.Click += btnLoadTimesheet_Click;
-            // 
-            // dgvTimesheet
-            // 
-            dgvTimesheet.Location = new Point(10, 45);
-            dgvTimesheet.Name = "dgvTimesheet";
-            dgvTimesheet.Size = new Size(1000, 400);
-            dgvTimesheet.AllowUserToAddRows = false;
-            dgvTimesheet.ReadOnly = false;
             // 
             // btnSaveTimesheet
             // 
             btnSaveTimesheet.Location = new Point(320, 11);
             btnSaveTimesheet.Name = "btnSaveTimesheet";
             btnSaveTimesheet.Size = new Size(100, 25);
+            btnSaveTimesheet.TabIndex = 4;
             btnSaveTimesheet.Text = "Lưu chấm công";
             btnSaveTimesheet.Click += btnSaveTimesheet_Click;
+            // 
+            // dgvTimesheet
+            // 
+            dgvTimesheet.AllowUserToAddRows = false;
+            dgvTimesheet.Location = new Point(10, 45);
+            dgvTimesheet.Name = "dgvTimesheet";
+            dgvTimesheet.Size = new Size(1000, 400);
+            dgvTimesheet.TabIndex = 5;
             // 
             // lblTimesheetSummary
             // 
             lblTimesheetSummary.AutoSize = true;
+            lblTimesheetSummary.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblTimesheetSummary.Location = new Point(10, 462);
             lblTimesheetSummary.Name = "lblTimesheetSummary";
-            lblTimesheetSummary.Size = new Size(400, 15);
-            lblTimesheetSummary.Font = new Font(lblTimesheetSummary.Font, FontStyle.Bold);
-            lblTimesheetSummary.Text = "";
+            lblTimesheetSummary.Size = new Size(0, 15);
+            lblTimesheetSummary.TabIndex = 6;
             // 
             // tabTeacherSchedule
             // 
+            tabTeacherSchedule.Controls.Add(lblTeacherWeek);
+            tabTeacherSchedule.Controls.Add(dtpTeacherWeek);
+            tabTeacherSchedule.Controls.Add(btnLoadTeacherSchedule);
+            tabTeacherSchedule.Controls.Add(dgvTeacherWeeklySchedule);
             tabTeacherSchedule.Controls.Add(dgvTeacherClasses);
             tabTeacherSchedule.Location = new Point(4, 24);
             tabTeacherSchedule.Name = "tabTeacherSchedule";
@@ -974,11 +1026,41 @@
             tabTeacherSchedule.TabIndex = 0;
             tabTeacherSchedule.Text = "Lịch dạy / Lớp";
             // 
+            // lblTeacherWeek
+            // 
+            lblTeacherWeek.Location = new Point(10, 12);
+            lblTeacherWeek.Name = "lblTeacherWeek";
+            lblTeacherWeek.Size = new Size(50, 15);
+            lblTeacherWeek.Text = "Tuần:";
+            // 
+            // dtpTeacherWeek
+            // 
+            dtpTeacherWeek.Location = new Point(65, 9);
+            dtpTeacherWeek.Name = "dtpTeacherWeek";
+            dtpTeacherWeek.Size = new Size(150, 23);
+            dtpTeacherWeek.Format = DateTimePickerFormat.Short;
+            // 
+            // btnLoadTeacherSchedule
+            // 
+            btnLoadTeacherSchedule.Location = new Point(225, 8);
+            btnLoadTeacherSchedule.Name = "btnLoadTeacherSchedule";
+            btnLoadTeacherSchedule.Size = new Size(80, 25);
+            btnLoadTeacherSchedule.Text = "Xem";
+            btnLoadTeacherSchedule.Click += btnLoadTeacherSchedule_Click;
+            // 
+            // dgvTeacherWeeklySchedule
+            // 
+            dgvTeacherWeeklySchedule.Location = new Point(10, 40);
+            dgvTeacherWeeklySchedule.Name = "dgvTeacherWeeklySchedule";
+            dgvTeacherWeeklySchedule.Size = new Size(1000, 230);
+            dgvTeacherWeeklySchedule.AllowUserToAddRows = false;
+            dgvTeacherWeeklySchedule.ReadOnly = true;
+            // 
             // dgvTeacherClasses
             // 
-            dgvTeacherClasses.Location = new Point(10, 10);
+            dgvTeacherClasses.Location = new Point(10, 280);
             dgvTeacherClasses.Name = "dgvTeacherClasses";
-            dgvTeacherClasses.Size = new Size(1000, 430);
+            dgvTeacherClasses.Size = new Size(1000, 210);
             dgvTeacherClasses.TabIndex = 0;
             // 
             // tabTeacherAttendance
@@ -1179,12 +1261,15 @@
             tabAdminClasses.ResumeLayout(false);
             tabAdminClasses.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvClasses).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dgvClassStudents).EndInit();
             tabAdminPayments.ResumeLayout(false);
             tabAdminPayments.PerformLayout();
             tabAdminReports.ResumeLayout(false);
             tabAdminTeachers.ResumeLayout(false);
             tabAdminTeachers.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).EndInit();
+            tabAdminPayroll.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvPayroll).EndInit();
             tabTeacher.ResumeLayout(false);
             tabTeacherFunctions.ResumeLayout(false);
             tabTeacherTimesheet.ResumeLayout(false);
@@ -1192,6 +1277,7 @@
             ((System.ComponentModel.ISupportInitialize)dgvTimesheet).EndInit();
             tabTeacherSchedule.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvTeacherClasses).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dgvTeacherWeeklySchedule).EndInit();
             tabTeacherAttendance.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvAttendance).EndInit();
             tabTeacherEvaluation.ResumeLayout(false);
@@ -1211,6 +1297,12 @@
         private TabPage tabAdminPayments;
         private TabPage tabAdminReports;
         private TabPage tabAdminTeachers;
+        private TabPage tabAdminPayroll;
+        private Label lblPayrollMonth;
+        private ComboBox cmbPayrollMonth;
+        private ComboBox cmbPayrollYear;
+        private Button btnLoadPayroll;
+        private DataGridView dgvPayroll;
         private TabControl tabTeacherFunctions;
         private TabPage tabTeacherSchedule;
         private TabPage tabTeacherAttendance;
@@ -1219,26 +1311,22 @@
         private TextBox txtStudentName;
         private TextBox txtStudentPhone;
         private TextBox txtStudentEmail;
-        private ComboBox cmbStudentLanguage;
         private ComboBox cmbStudentStatus;
         private Button btnAddStudent;
         private Button btnUpdateStudent;
         private Button btnDeleteStudent;
-        private ComboBox cmbCourseAssign;
-        private Button btnAssignCourse;
         private DataGridView dgvCourses;
-        private TextBox txtCourseCode;
         private TextBox txtCourseName;
-        private ComboBox cmbCourseLanguage;
         private TextBox txtCourseFee;
-        private TextBox txtCourseDuration;
         private Button btnAddCourse;
+        private Button btnUpdateCourse;
         private DataGridView dgvClasses;
         private TextBox txtClassName;
         private ComboBox cmbCourseClass;
         private ComboBox cmbTeacherClass;
-        private TextBox txtClassMaxSize;
         private Button btnCreateClass;
+        private Button btnUpdateClass;
+        private Button btnDeleteClass;
         private ComboBox cmbClassAddStudent;
         private ComboBox cmbStudentClass;
         private Button btnAddStudentToClass;
@@ -1250,10 +1338,18 @@
         private TextBox txtPaymentNote;
         private Button btnLoadPayment;
         private Button btnCollectPayment;
+        private Label lblPaymentFilterClass;
+        private ComboBox cmbPaymentFilterClass;
+        private TextBox txtSearchStudent;
+        private DataGridView dgvAttendanceDetail;
         private Label lblTotalStudents;
         private Label lblTotalRevenue;
         private Label lblActiveClasses;
         private DataGridView dgvTeacherClasses;
+        private Label lblTeacherWeek;
+        private DateTimePicker dtpTeacherWeek;
+        private Button btnLoadTeacherSchedule;
+        private DataGridView dgvTeacherWeeklySchedule;
         private ComboBox cmbClassAttendance;
         private DateTimePicker dtpSessionDate;
         private Button btnLoadAttendanceStudents;
@@ -1267,20 +1363,17 @@
         private Label lblStudentName;
         private Label lblStudentPhone;
         private Label lblStudentEmail;
-        private Label lblStudentLanguage;
         private Label lblStudentStatus;
-        private Label lblAssignCourse;
-        private Label lblCourseCode;
         private Label lblCourseName;
-        private Label lblCourseLanguage;
         private Label lblCourseFee;
-        private Label lblCourseDuration;
         private Label lblClassName;
         private Label lblClassCourse;
         private Label lblClassTeacher;
-        private Label lblClassMaxSize;
         private Label lblSelectClass;
         private Label lblSelectStudent;
+        private DataGridView dgvClassStudents;
+        private Button btnRemoveStudentFromClass;
+        private Button btnClassSchedule;
         private Label lblPaymentStudent;
         private Label lblPaymentAmount;
         private Label lblPaymentNote;

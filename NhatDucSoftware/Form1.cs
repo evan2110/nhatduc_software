@@ -15,6 +15,7 @@ namespace NhatDucSoftware
         private readonly EvaluationService _evaluationService = new();
         private readonly ReportService _reportService = new();
         private readonly TeacherTimesheetService _timesheetService = new();
+        private readonly ClassScheduleService _classScheduleService = new();
 
         private List<Student> _students = new();
         private List<Course> _courses = new();
@@ -47,11 +48,13 @@ namespace NhatDucSoftware
             LoadReports();
             LoadTeachers();
             LoadTeacherManagement();
+            InitPayrollCombos();
 
             if (_currentUser.Role == "Teacher")
             {
                 InitTimesheetCombos();
                 LoadTimesheet();
+                LoadTeacherWeeklySchedule();
             }
         }
 
@@ -74,7 +77,6 @@ namespace NhatDucSoftware
                 [nameof(Student.FullName)] = "Họ và tên",
                 [nameof(Student.Phone)] = "Số điện thoại",
                 [nameof(Student.Email)] = "Email",
-                [nameof(Student.Language)] = "Ngôn ngữ",
                 [nameof(Student.Status)] = "Trạng thái"
             });
         }
@@ -84,11 +86,8 @@ namespace NhatDucSoftware
             SetGridHeaders(dgvCourses, new Dictionary<string, string>
             {
                 [nameof(Course.Id)] = "Mã khóa",
-                [nameof(Course.Code)] = "Mã cấp độ",
                 [nameof(Course.Name)] = "Tên khóa học",
-                [nameof(Course.Language)] = "Ngôn ngữ",
                 [nameof(Course.TuitionFee)] = "Học phí",
-                [nameof(Course.DurationHours)] = "Thời lượng (giờ)",
                 [nameof(Course.Status)] = "Trạng thái"
             });
         }
@@ -101,10 +100,8 @@ namespace NhatDucSoftware
                 [nameof(ClassInfo.ClassName)] = "Tên lớp",
                 [nameof(ClassInfo.CourseCode)] = "Khóa học",
                 [nameof(ClassInfo.TeacherName)] = "Giáo viên",
-                [nameof(ClassInfo.MaxSize)] = "Sĩ số tối đa",
-                [nameof(ClassInfo.CurrentSize)] = "Sĩ số hiện tại",
-                [nameof(ClassInfo.Status)] = "Trạng thái",
-                [nameof(ClassInfo.ScheduleText)] = "Lịch học"
+                [nameof(ClassInfo.CurrentSize)] = "Sĩ số",
+                [nameof(ClassInfo.Status)] = "Trạng thái"
             });
         }
 
@@ -178,13 +175,8 @@ namespace NhatDucSoftware
 
             cmbCourseClass.DataSource = null;
             cmbCourseClass.DataSource = _courses.ToList();
-            cmbCourseClass.DisplayMember = nameof(Course.Code);
+            cmbCourseClass.DisplayMember = nameof(Course.Name);
             cmbCourseClass.ValueMember = nameof(Course.Id);
-
-            cmbCourseAssign.DataSource = null;
-            cmbCourseAssign.DataSource = _courses.ToList();
-            cmbCourseAssign.DisplayMember = nameof(Course.Code);
-            cmbCourseAssign.ValueMember = nameof(Course.Id);
         }
 
         private void LoadClasses()
@@ -199,6 +191,8 @@ namespace NhatDucSoftware
             cmbClassAttendance.DisplayMember = nameof(ClassInfo.ClassName);
             cmbClassAttendance.ValueMember = nameof(ClassInfo.Id);
 
+            LoadPaymentClassFilter();
+
             cmbClassEvaluate.DataSource = null;
             cmbClassEvaluate.DataSource = _classes.ToList();
             cmbClassEvaluate.DisplayMember = nameof(ClassInfo.ClassName);
@@ -209,8 +203,8 @@ namespace NhatDucSoftware
             cmbClassAddStudent.DisplayMember = nameof(ClassInfo.ClassName);
             cmbClassAddStudent.ValueMember = nameof(ClassInfo.Id);
 
-            var teacherClasses = _currentUser.Role == "Teacher"
-                ? _classes.Where(c => c.TeacherId == _currentUser.TeacherId).ToList()
+            var teacherClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
                 : _classes;
             dgvTeacherClasses.DataSource = null;
             dgvTeacherClasses.DataSource = teacherClasses;
@@ -234,7 +228,6 @@ namespace NhatDucSoftware
                     FullName = txtStudentName.Text.Trim(),
                     Phone = txtStudentPhone.Text.Trim(),
                     Email = txtStudentEmail.Text.Trim(),
-                    Language = cmbStudentLanguage.Text,
                     Status = cmbStudentStatus.Text
                 });
                 LoadStudents();
@@ -257,7 +250,6 @@ namespace NhatDucSoftware
                 s.FullName = txtStudentName.Text.Trim();
                 s.Phone = txtStudentPhone.Text.Trim();
                 s.Email = txtStudentEmail.Text.Trim();
-                s.Language = cmbStudentLanguage.Text;
                 s.Status = cmbStudentStatus.Text;
                 _studentService.Update(s);
                 LoadStudents();
@@ -289,7 +281,6 @@ namespace NhatDucSoftware
             txtStudentName.Text = s.FullName;
             txtStudentPhone.Text = s.Phone;
             txtStudentEmail.Text = s.Email;
-            cmbStudentLanguage.Text = s.Language;
             cmbStudentStatus.Text = s.Status;
         }
 
@@ -297,25 +288,29 @@ namespace NhatDucSoftware
         {
             _courseService.Add(new Course
             {
-                Code = txtCourseCode.Text.Trim(),
                 Name = txtCourseName.Text.Trim(),
-                Language = cmbCourseLanguage.Text,
                 TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0,
-                DurationHours = int.TryParse(txtCourseDuration.Text, out var duration) ? duration : 0,
                 Status = "Active"
             });
             LoadCoursesToCombos();
         }
 
-        private void btnAssignCourse_Click(object sender, EventArgs e)
+        private void btnUpdateCourse_Click(object sender, EventArgs e)
         {
-            if (dgvStudents.CurrentRow?.DataBoundItem is not Student s || cmbCourseAssign.SelectedValue is not int courseId)
-            {
-                return;
-            }
+            if (dgvCourses.CurrentRow?.DataBoundItem is not Course c) return;
 
-            _studentService.AssignCourse(s.Id, courseId);
-            MessageBox.Show("Đã gán khóa học cho học viên.");
+            c.Name = txtCourseName.Text.Trim();
+            c.TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0;
+            _courseService.Update(c);
+            LoadCoursesToCombos();
+            MessageBox.Show("Đã cập nhật khóa học.");
+        }
+
+        private void dgvCourses_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvCourses.CurrentRow?.DataBoundItem is not Course c) return;
+            txtCourseName.Text = c.Name;
+            txtCourseFee.Text = c.TuitionFee.ToString();
         }
 
         private void btnCreateClass_Click(object sender, EventArgs e)
@@ -326,7 +321,6 @@ namespace NhatDucSoftware
                 txtClassName.Text.Trim(),
                 cmbCourseClass.SelectedValue is int courseId ? courseId : 0,
                 teacherId,
-                int.TryParse(txtClassMaxSize.Text, out var maxSize) ? maxSize : 20,
                 "Active");
 
             LoadClasses();
@@ -343,11 +337,69 @@ namespace NhatDucSoftware
 
                 _classService.AddStudentToClass(classId, studentId);
                 LoadClasses();
+                LoadClassStudents();
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private void btnUpdateClass_Click(object sender, EventArgs e)
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+            int? teacherId = cmbTeacherClass.SelectedValue is int tid ? tid : null;
+            _classService.UpdateClass(c.Id, txtClassName.Text.Trim(),
+                cmbCourseClass.SelectedValue is int cid ? cid : 0, teacherId);
+            LoadClasses();
+            MessageBox.Show("Đã cập nhật lớp học.");
+        }
+
+        private void btnDeleteClass_Click(object sender, EventArgs e)
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+            if (MessageBox.Show($"Xóa lớp '{c.ClassName}'?", "Xác nhận", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            _classService.DeleteClass(c.Id);
+            LoadClasses();
+        }
+
+        private void dgvClasses_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+            txtClassName.Text = c.ClassName;
+            LoadClassStudents();
+        }
+
+        private void LoadClassStudents()
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c)
+            {
+                dgvClassStudents.DataSource = null;
+                return;
+            }
+
+            var students = _classService.GetStudentsInClass(c.Id)
+                .Select(s => new { s.StudentId, s.FullName }).ToList();
+            dgvClassStudents.DataSource = students;
+        }
+
+        private void btnRemoveStudentFromClass_Click(object sender, EventArgs e)
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+            if (dgvClassStudents.CurrentRow is null) return;
+
+            var studentId = (int)dgvClassStudents.CurrentRow.Cells["StudentId"].Value;
+            _classService.RemoveStudentFromClass(c.Id, studentId);
+            LoadClasses();
+            LoadClassStudents();
+        }
+
+        private void btnClassSchedule_Click(object sender, EventArgs e)
+        {
+            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+            using var form = new ClassScheduleForm(c.Id, c.ClassName);
+            form.ShowDialog();
+            LoadClasses();
         }
 
         private void btnAddTeacher_Click(object sender, EventArgs e)
@@ -444,10 +496,71 @@ namespace NhatDucSoftware
             var total = _paymentService.GetTotalTuitionByStudent(studentId);
             var paid = _paymentService.GetPaidAmount(studentId);
             var remaining = total - paid;
+            var (totalSessions, attended, absent) = _paymentService.GetAttendanceSummary(studentId);
 
-            lblPaymentNeed.Text = $"Cần đóng: {total:N0}";
+            lblPaymentNeed.Text = $"Cần đóng: {total:N0} | Buổi học: {totalSessions} (Có mặt: {attended}, Vắng: {absent})";
             lblPaymentPaid.Text = $"Đã đóng: {paid:N0}";
             lblPaymentRemain.Text = $"Còn lại: {remaining:N0}";
+
+            // Load attendance detail
+            var details = _paymentService.GetAttendanceDetails(studentId);
+            dgvAttendanceDetail.DataSource = null;
+            dgvAttendanceDetail.DataSource = details;
+            if (dgvAttendanceDetail.Columns.Count > 0)
+            {
+                dgvAttendanceDetail.Columns["Ngay"].HeaderText = "Ngày";
+                dgvAttendanceDetail.Columns["Lop"].HeaderText = "Lớp";
+                dgvAttendanceDetail.Columns["TrangThai"].HeaderText = "Trạng thái";
+            }
+        }
+
+        private void LoadPaymentClassFilter()
+        {
+            var allItem = new ClassInfo { Id = 0, ClassName = "-- Tất cả --" };
+            var items = new List<ClassInfo> { allItem };
+            items.AddRange(_classes);
+            cmbPaymentFilterClass.DataSource = null;
+            cmbPaymentFilterClass.DataSource = items;
+            cmbPaymentFilterClass.DisplayMember = nameof(ClassInfo.ClassName);
+            cmbPaymentFilterClass.ValueMember = nameof(ClassInfo.Id);
+        }
+
+        private void cmbPaymentFilterClass_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            FilterPaymentStudents();
+        }
+
+        private void txtSearchStudent_TextChanged(object sender, EventArgs e)
+        {
+            FilterPaymentStudents();
+        }
+
+        private void FilterPaymentStudents()
+        {
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            var search = txtSearchStudent.Text.Trim().ToLower();
+
+            List<Student> filtered;
+            if (classId > 0)
+            {
+                var studentsInClass = _classService.GetStudentsInClass(classId);
+                var ids = studentsInClass.Select(s => s.StudentId).ToHashSet();
+                filtered = _students.Where(s => ids.Contains(s.Id)).ToList();
+            }
+            else
+            {
+                filtered = _students.ToList();
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                filtered = filtered.Where(s => s.FullName.ToLower().Contains(search)).ToList();
+            }
+
+            cmbStudentPayment.DataSource = null;
+            cmbStudentPayment.DataSource = filtered;
+            cmbStudentPayment.DisplayMember = nameof(Student.FullName);
+            cmbStudentPayment.ValueMember = nameof(Student.Id);
         }
 
         private void btnCollectPayment_Click(object sender, EventArgs e)
@@ -471,7 +584,7 @@ namespace NhatDucSoftware
             }
 
             var students = _attendanceService.GetStudentsByClass(classId)
-                .Select(x => new AttendanceRow { StudentId = x.StudentId, StudentName = x.FullName, Status = "Present" })
+                .Select(x => new AttendanceRow { StudentId = x.StudentId, StudentName = x.FullName, Status = "C" })
                 .ToList();
             dgvAttendance.DataSource = null;
             dgvAttendance.DataSource = students;
@@ -597,6 +710,83 @@ namespace NhatDucSoftware
             LoadTimesheet();
         }
 
+        private void btnLoadTeacherSchedule_Click(object sender, EventArgs e)
+        {
+            LoadTeacherWeeklySchedule();
+        }
+
+        private void LoadTeacherWeeklySchedule()
+        {
+            if (_currentUser.TeacherId is not int teacherId) return;
+
+            var monday = Models.ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
+            var schedule = _classScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
+
+            // Build pivot table: rows = days, columns = shifts
+            var table = new System.Data.DataTable();
+            table.Columns.Add("Ngày", typeof(string));
+            for (int s = 1; s <= 5; s++)
+                table.Columns.Add(Models.TeacherTimesheet.GetShiftDescription(s), typeof(string));
+
+            for (int d = 0; d < 7; d++)
+            {
+                var row = table.NewRow();
+                row["Ngày"] = Models.ClassWeeklySchedule.GetDayName(d);
+                for (int s = 1; s <= 5; s++)
+                {
+                    var classes = schedule.Where(x => x.DayOfWeek == d && x.ShiftNumber == s)
+                        .Select(x => x.ClassName).ToList();
+                    row[s] = classes.Count > 0 ? string.Join(", ", classes) : "";
+                }
+                table.Rows.Add(row);
+            }
+
+            dgvTeacherWeeklySchedule.DataSource = table;
+        }
+
+        private void InitPayrollCombos()
+        {
+            cmbPayrollMonth.Items.Clear();
+            for (int i = 1; i <= 12; i++)
+                cmbPayrollMonth.Items.Add(i);
+            cmbPayrollMonth.SelectedItem = DateTime.Now.Month;
+
+            cmbPayrollYear.Items.Clear();
+            for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+                cmbPayrollYear.Items.Add(y);
+            cmbPayrollYear.SelectedItem = DateTime.Now.Year;
+        }
+
+        private void btnLoadPayroll_Click(object sender, EventArgs e)
+        {
+            LoadPayroll();
+        }
+
+        private void LoadPayroll()
+        {
+            if (cmbPayrollMonth.SelectedItem is not int month) return;
+            if (cmbPayrollYear.SelectedItem is not int year) return;
+
+            var teachers = _teacherService.GetAll();
+            var table = new System.Data.DataTable();
+            table.Columns.Add("Giáo viên", typeof(string));
+            table.Columns.Add("Tổng ca", typeof(int));
+            table.Columns.Add("Lương (VNĐ)", typeof(string));
+
+            foreach (var teacher in teachers)
+            {
+                var totalShifts = _timesheetService.GetTotalShiftsInMonth(teacher.Id, year, month);
+                var pay = totalShifts * Models.TeacherTimesheet.PayPerShift;
+                var row = table.NewRow();
+                row["Giáo viên"] = teacher.FullName;
+                row["Tổng ca"] = totalShifts;
+                row["Lương (VNĐ)"] = pay.ToString("N0");
+                table.Rows.Add(row);
+            }
+
+            dgvPayroll.DataSource = table;
+        }
+
         private void btnLogout_Click(object sender, EventArgs e)
         {
             RequestLogout = true;
@@ -608,6 +798,6 @@ namespace NhatDucSoftware
     {
         public int StudentId { get; set; }
         public string StudentName { get; set; } = string.Empty;
-        public string Status { get; set; } = "Present";
+        public string Status { get; set; } = "C"; // C = Có mặt, V = Vắng
     }
 }

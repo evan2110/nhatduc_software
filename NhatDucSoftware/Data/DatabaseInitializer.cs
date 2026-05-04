@@ -69,6 +69,16 @@ CREATE TABLE IF NOT EXISTS ClassSchedules (
     FOREIGN KEY (ClassId) REFERENCES Classes(Id)
 );
 
+CREATE TABLE IF NOT EXISTS ClassWeeklySchedules (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ClassId INTEGER NOT NULL,
+    WeekStartDate TEXT NOT NULL,
+    DayOfWeek INTEGER NOT NULL CHECK(DayOfWeek BETWEEN 0 AND 6),
+    ShiftNumber INTEGER NOT NULL CHECK(ShiftNumber BETWEEN 1 AND 5),
+    FOREIGN KEY (ClassId) REFERENCES Classes(Id),
+    UNIQUE (ClassId, WeekStartDate, DayOfWeek, ShiftNumber)
+);
+
 CREATE TABLE IF NOT EXISTS StudentCourses (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     StudentId INTEGER NOT NULL,

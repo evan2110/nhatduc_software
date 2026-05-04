@@ -13,7 +13,7 @@ public class StudentService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FullName, Phone, Email, Language, Status FROM Students ORDER BY Id DESC;";
+        command.CommandText = "SELECT Id, FullName, Phone, Email, Status FROM Students ORDER BY Id DESC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -23,8 +23,7 @@ public class StudentService
                 FullName = reader.GetString(1),
                 Phone = reader.GetString(2),
                 Email = reader.IsDBNull(3) ? null : reader.GetString(3),
-                Language = reader.GetString(4),
-                Status = reader.GetString(5)
+                Status = reader.GetString(4)
             });
         }
 
@@ -43,11 +42,10 @@ public class StudentService
 
         using var command = connection.CreateCommand();
         command.CommandText = @"INSERT INTO Students(FullName, Phone, Email, Language, Status, CreatedAt)
-VALUES(@name, @phone, @mail, @lang, @status, @createdAt);";
+VALUES(@name, @phone, @mail, '', @status, @createdAt);";
         command.Parameters.AddWithValue("@name", student.FullName);
         command.Parameters.AddWithValue("@phone", student.Phone);
         command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
-        command.Parameters.AddWithValue("@lang", student.Language);
         command.Parameters.AddWithValue("@status", student.Status);
         command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
         command.ExecuteNonQuery();
@@ -65,13 +63,12 @@ VALUES(@name, @phone, @mail, @lang, @status, @createdAt);";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"UPDATE Students
-SET FullName = @name, Phone = @phone, Email = @mail, Language = @lang, Status = @status
+SET FullName = @name, Phone = @phone, Email = @mail, Status = @status
 WHERE Id = @id;";
         command.Parameters.AddWithValue("@id", student.Id);
         command.Parameters.AddWithValue("@name", student.FullName);
         command.Parameters.AddWithValue("@phone", student.Phone);
         command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
-        command.Parameters.AddWithValue("@lang", student.Language);
         command.Parameters.AddWithValue("@status", student.Status);
         command.ExecuteNonQuery();
     }

@@ -41,3 +41,4 @@ D:\Tool\NhatDucSoftware\NhatDucSoftware\obj\Debug\net8.0-windows\refint\NhatDucS
 D:\Tool\NhatDucSoftware\NhatDucSoftware\obj\Debug\net8.0-windows\NhatDucSoftware.pdb
 D:\Tool\NhatDucSoftware\NhatDucSoftware\obj\Debug\net8.0-windows\NhatDucSoftware.genruntimeconfig.cache
 D:\Tool\NhatDucSoftware\NhatDucSoftware\obj\Debug\net8.0-windows\ref\NhatDucSoftware.dll
+D:\Tool\NhatDucSoftware\NhatDucSoftware\obj\Debug\net8.0-windows\NhatDucSoftware.TeacherManagementForm.resources
