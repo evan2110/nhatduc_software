@@ -1,0 +1,382 @@
+﻿namespace NhatDucSoftware
+{
+    partial class Form1
+    {
+        private System.ComponentModel.IContainer components = null;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        private void InitializeComponent()
+        {
+            tabMain = new TabControl();
+            tabAdmin = new TabPage();
+            tabTeacher = new TabPage();
+
+            tabAdminFunctions = new TabControl();
+            tabAdminStudents = new TabPage();
+            tabAdminCourses = new TabPage();
+            tabAdminClasses = new TabPage();
+            tabAdminPayments = new TabPage();
+            tabAdminReports = new TabPage();
+
+            tabTeacherFunctions = new TabControl();
+            tabTeacherSchedule = new TabPage();
+            tabTeacherAttendance = new TabPage();
+            tabTeacherEvaluation = new TabPage();
+
+            dgvStudents = new DataGridView();
+            txtStudentName = new TextBox();
+            txtStudentPhone = new TextBox();
+            txtStudentEmail = new TextBox();
+            cmbStudentLanguage = new ComboBox();
+            cmbStudentStatus = new ComboBox();
+            btnAddStudent = new Button();
+            btnUpdateStudent = new Button();
+            btnDeleteStudent = new Button();
+            cmbCourseAssign = new ComboBox();
+            btnAssignCourse = new Button();
+
+            dgvCourses = new DataGridView();
+            txtCourseCode = new TextBox();
+            txtCourseName = new TextBox();
+            cmbCourseLanguage = new ComboBox();
+            txtCourseFee = new TextBox();
+            txtCourseDuration = new TextBox();
+            btnAddCourse = new Button();
+
+            dgvClasses = new DataGridView();
+            txtClassName = new TextBox();
+            cmbCourseClass = new ComboBox();
+            cmbTeacherClass = new ComboBox();
+            txtClassMaxSize = new TextBox();
+            btnCreateClass = new Button();
+            cmbClassAddStudent = new ComboBox();
+            cmbStudentClass = new ComboBox();
+            btnAddStudentToClass = new Button();
+
+            cmbStudentPayment = new ComboBox();
+            lblPaymentNeed = new Label();
+            lblPaymentPaid = new Label();
+            lblPaymentRemain = new Label();
+            txtPaymentAmount = new TextBox();
+            txtPaymentNote = new TextBox();
+            btnLoadPayment = new Button();
+            btnCollectPayment = new Button();
+
+            lblTotalStudents = new Label();
+            lblTotalRevenue = new Label();
+            lblActiveClasses = new Label();
+
+            dgvTeacherClasses = new DataGridView();
+            cmbClassAttendance = new ComboBox();
+            dtpSessionDate = new DateTimePicker();
+            btnLoadAttendanceStudents = new Button();
+            dgvAttendance = new DataGridView();
+            btnSaveAttendance = new Button();
+            cmbClassEvaluate = new ComboBox();
+            cmbStudentEvaluate = new ComboBox();
+            txtScore = new TextBox();
+            txtComment = new TextBox();
+            btnSaveEvaluation = new Button();
+
+            SuspendLayout();
+
+            tabMain.Dock = DockStyle.Fill;
+            tabMain.Controls.Add(tabAdmin);
+            tabMain.Controls.Add(tabTeacher);
+
+            tabAdmin.Text = "Admin";
+            tabTeacher.Text = "Teacher";
+
+            tabAdminFunctions.Dock = DockStyle.Fill;
+            tabAdminFunctions.Controls.Add(tabAdminStudents);
+            tabAdminFunctions.Controls.Add(tabAdminCourses);
+            tabAdminFunctions.Controls.Add(tabAdminClasses);
+            tabAdminFunctions.Controls.Add(tabAdminPayments);
+            tabAdminFunctions.Controls.Add(tabAdminReports);
+            tabAdmin.Controls.Add(tabAdminFunctions);
+
+            tabTeacherFunctions.Dock = DockStyle.Fill;
+            tabTeacherFunctions.Controls.Add(tabTeacherSchedule);
+            tabTeacherFunctions.Controls.Add(tabTeacherAttendance);
+            tabTeacherFunctions.Controls.Add(tabTeacherEvaluation);
+            tabTeacher.Controls.Add(tabTeacherFunctions);
+
+            tabAdminStudents.Text = "Học viên";
+            tabAdminCourses.Text = "Khóa học";
+            tabAdminClasses.Text = "Lớp học";
+            tabAdminPayments.Text = "Học phí";
+            tabAdminReports.Text = "Báo cáo";
+
+            tabTeacherSchedule.Text = "Lịch dạy / Lớp";
+            tabTeacherAttendance.Text = "Điểm danh";
+            tabTeacherEvaluation.Text = "Nhận xét / Điểm";
+
+            dgvStudents.Location = new Point(10, 10);
+            dgvStudents.Size = new Size(650, 430);
+            dgvStudents.SelectionChanged += dgvStudents_SelectionChanged;
+
+            txtStudentName.Location = new Point(680, 30);
+            txtStudentName.Size = new Size(300, 23);
+            txtStudentPhone.Location = new Point(680, 65);
+            txtStudentPhone.Size = new Size(300, 23);
+            txtStudentEmail.Location = new Point(680, 100);
+            txtStudentEmail.Size = new Size(300, 23);
+            cmbStudentLanguage.Location = new Point(680, 135);
+            cmbStudentLanguage.Size = new Size(145, 23);
+            cmbStudentLanguage.Items.AddRange(new object[] { "JP", "DE" });
+            cmbStudentLanguage.Text = "JP";
+            cmbStudentStatus.Location = new Point(835, 135);
+            cmbStudentStatus.Size = new Size(145, 23);
+            cmbStudentStatus.Items.AddRange(new object[] { "Active", "Inactive" });
+            cmbStudentStatus.Text = "Active";
+            btnAddStudent.Location = new Point(680, 170);
+            btnAddStudent.Size = new Size(95, 30);
+            btnAddStudent.Text = "Thêm";
+            btnAddStudent.Click += btnAddStudent_Click;
+            btnUpdateStudent.Location = new Point(782, 170);
+            btnUpdateStudent.Size = new Size(95, 30);
+            btnUpdateStudent.Text = "Sửa";
+            btnUpdateStudent.Click += btnUpdateStudent_Click;
+            btnDeleteStudent.Location = new Point(885, 170);
+            btnDeleteStudent.Size = new Size(95, 30);
+            btnDeleteStudent.Text = "Xóa";
+            btnDeleteStudent.Click += btnDeleteStudent_Click;
+            cmbCourseAssign.Location = new Point(680, 215);
+            cmbCourseAssign.Size = new Size(200, 23);
+            btnAssignCourse.Location = new Point(885, 212);
+            btnAssignCourse.Size = new Size(95, 28);
+            btnAssignCourse.Text = "Gán khóa";
+            btnAssignCourse.Click += btnAssignCourse_Click;
+
+            tabAdminStudents.Controls.AddRange(new Control[]
+            {
+                dgvStudents, txtStudentName, txtStudentPhone, txtStudentEmail, cmbStudentLanguage,
+                cmbStudentStatus, btnAddStudent, btnUpdateStudent, btnDeleteStudent, cmbCourseAssign, btnAssignCourse
+            });
+
+            dgvCourses.Location = new Point(10, 10);
+            dgvCourses.Size = new Size(700, 430);
+            txtCourseCode.Location = new Point(730, 40);
+            txtCourseCode.Size = new Size(120, 23);
+            txtCourseName.Location = new Point(860, 40);
+            txtCourseName.Size = new Size(140, 23);
+            cmbCourseLanguage.Location = new Point(730, 75);
+            cmbCourseLanguage.Size = new Size(120, 23);
+            cmbCourseLanguage.Items.AddRange(new object[] { "JP", "DE" });
+            cmbCourseLanguage.Text = "JP";
+            txtCourseFee.Location = new Point(860, 75);
+            txtCourseFee.Size = new Size(140, 23);
+            txtCourseDuration.Location = new Point(730, 110);
+            txtCourseDuration.Size = new Size(120, 23);
+            btnAddCourse.Location = new Point(860, 108);
+            btnAddCourse.Size = new Size(140, 28);
+            btnAddCourse.Text = "Thêm khóa";
+            btnAddCourse.Click += btnAddCourse_Click;
+
+            tabAdminCourses.Controls.AddRange(new Control[]
+            {
+                dgvCourses, txtCourseCode, txtCourseName, cmbCourseLanguage, txtCourseFee, txtCourseDuration, btnAddCourse
+            });
+
+            dgvClasses.Location = new Point(10, 10);
+            dgvClasses.Size = new Size(700, 430);
+            txtClassName.Location = new Point(730, 40);
+            txtClassName.Size = new Size(270, 23);
+            cmbCourseClass.Location = new Point(730, 75);
+            cmbCourseClass.Size = new Size(130, 23);
+            cmbTeacherClass.Location = new Point(870, 75);
+            cmbTeacherClass.Size = new Size(130, 23);
+            txtClassMaxSize.Location = new Point(730, 110);
+            txtClassMaxSize.Size = new Size(130, 23);
+            txtClassMaxSize.Text = "20";
+            btnCreateClass.Location = new Point(870, 108);
+            btnCreateClass.Size = new Size(130, 28);
+            btnCreateClass.Text = "Tạo lớp";
+            btnCreateClass.Click += btnCreateClass_Click;
+            cmbClassAddStudent.Location = new Point(730, 155);
+            cmbClassAddStudent.Size = new Size(130, 23);
+            cmbStudentClass.Location = new Point(870, 155);
+            cmbStudentClass.Size = new Size(130, 23);
+            btnAddStudentToClass.Location = new Point(730, 188);
+            btnAddStudentToClass.Size = new Size(270, 30);
+            btnAddStudentToClass.Text = "Thêm học viên vào lớp";
+            btnAddStudentToClass.Click += btnAddStudentToClass_Click;
+
+            tabAdminClasses.Controls.AddRange(new Control[]
+            {
+                dgvClasses, txtClassName, cmbCourseClass, cmbTeacherClass, txtClassMaxSize, btnCreateClass,
+                cmbClassAddStudent, cmbStudentClass, btnAddStudentToClass
+            });
+
+            cmbStudentPayment.Location = new Point(20, 30);
+            cmbStudentPayment.Size = new Size(260, 23);
+            btnLoadPayment.Location = new Point(290, 27);
+            btnLoadPayment.Size = new Size(120, 28);
+            btnLoadPayment.Text = "Xem học phí";
+            btnLoadPayment.Click += btnLoadPayment_Click;
+            lblPaymentNeed.Location = new Point(20, 70);
+            lblPaymentNeed.Size = new Size(300, 24);
+            lblPaymentNeed.Text = "Cần đóng: 0";
+            lblPaymentPaid.Location = new Point(20, 95);
+            lblPaymentPaid.Size = new Size(300, 24);
+            lblPaymentPaid.Text = "Đã đóng: 0";
+            lblPaymentRemain.Location = new Point(20, 120);
+            lblPaymentRemain.Size = new Size(300, 24);
+            lblPaymentRemain.Text = "Còn lại: 0";
+            txtPaymentAmount.Location = new Point(20, 160);
+            txtPaymentAmount.Size = new Size(390, 23);
+            txtPaymentNote.Location = new Point(20, 195);
+            txtPaymentNote.Size = new Size(390, 23);
+            btnCollectPayment.Location = new Point(20, 230);
+            btnCollectPayment.Size = new Size(390, 30);
+            btnCollectPayment.Text = "Thu học phí";
+            btnCollectPayment.Click += btnCollectPayment_Click;
+
+            tabAdminPayments.Controls.AddRange(new Control[]
+            {
+                cmbStudentPayment, btnLoadPayment, lblPaymentNeed, lblPaymentPaid, lblPaymentRemain,
+                txtPaymentAmount, txtPaymentNote, btnCollectPayment
+            });
+
+            lblTotalStudents.Location = new Point(20, 40);
+            lblTotalStudents.Size = new Size(300, 30);
+            lblTotalStudents.Text = "Tổng học viên: 0";
+            lblTotalRevenue.Location = new Point(20, 80);
+            lblTotalRevenue.Size = new Size(300, 30);
+            lblTotalRevenue.Text = "Doanh thu: 0";
+            lblActiveClasses.Location = new Point(20, 120);
+            lblActiveClasses.Size = new Size(300, 30);
+            lblActiveClasses.Text = "Lớp hoạt động: 0";
+
+            tabAdminReports.Controls.AddRange(new Control[]
+            {
+                lblTotalStudents, lblTotalRevenue, lblActiveClasses
+            });
+
+            dgvTeacherClasses.Location = new Point(10, 10);
+            dgvTeacherClasses.Size = new Size(1000, 430);
+            tabTeacherSchedule.Controls.Add(dgvTeacherClasses);
+
+            cmbClassAttendance.Location = new Point(10, 20);
+            cmbClassAttendance.Size = new Size(240, 23);
+            dtpSessionDate.Location = new Point(260, 20);
+            dtpSessionDate.Size = new Size(240, 23);
+            btnLoadAttendanceStudents.Location = new Point(510, 17);
+            btnLoadAttendanceStudents.Size = new Size(180, 28);
+            btnLoadAttendanceStudents.Text = "Tải DS điểm danh";
+            btnLoadAttendanceStudents.Click += btnLoadAttendanceStudents_Click;
+            dgvAttendance.Location = new Point(10, 55);
+            dgvAttendance.Size = new Size(1000, 350);
+            btnSaveAttendance.Location = new Point(10, 410);
+            btnSaveAttendance.Size = new Size(1000, 30);
+            btnSaveAttendance.Text = "Lưu điểm danh";
+            btnSaveAttendance.Click += btnSaveAttendance_Click;
+
+            tabTeacherAttendance.Controls.AddRange(new Control[]
+            {
+                cmbClassAttendance, dtpSessionDate, btnLoadAttendanceStudents, dgvAttendance, btnSaveAttendance
+            });
+
+            cmbClassEvaluate.Location = new Point(20, 30);
+            cmbClassEvaluate.Size = new Size(250, 23);
+            cmbStudentEvaluate.Location = new Point(280, 30);
+            cmbStudentEvaluate.Size = new Size(250, 23);
+            txtScore.Location = new Point(20, 70);
+            txtScore.Size = new Size(250, 23);
+            txtComment.Location = new Point(20, 105);
+            txtComment.Size = new Size(980, 280);
+            txtComment.Multiline = true;
+            btnSaveEvaluation.Location = new Point(20, 395);
+            btnSaveEvaluation.Size = new Size(980, 30);
+            btnSaveEvaluation.Text = "Lưu nhận xét/điểm";
+            btnSaveEvaluation.Click += btnSaveEvaluation_Click;
+
+            tabTeacherEvaluation.Controls.AddRange(new Control[]
+            {
+                cmbClassEvaluate, cmbStudentEvaluate, txtScore, txtComment, btnSaveEvaluation
+            });
+
+            Controls.Add(tabMain);
+            ClientSize = new Size(1040, 560);
+            Text = "Nhat Duc Software";
+            Load += Form1_Load;
+
+            ResumeLayout(false);
+        }
+
+        #endregion
+
+        private TabControl tabMain;
+        private TabPage tabAdmin;
+        private TabPage tabTeacher;
+        private TabControl tabAdminFunctions;
+        private TabPage tabAdminStudents;
+        private TabPage tabAdminCourses;
+        private TabPage tabAdminClasses;
+        private TabPage tabAdminPayments;
+        private TabPage tabAdminReports;
+        private TabControl tabTeacherFunctions;
+        private TabPage tabTeacherSchedule;
+        private TabPage tabTeacherAttendance;
+        private TabPage tabTeacherEvaluation;
+        private DataGridView dgvStudents;
+        private TextBox txtStudentName;
+        private TextBox txtStudentPhone;
+        private TextBox txtStudentEmail;
+        private ComboBox cmbStudentLanguage;
+        private ComboBox cmbStudentStatus;
+        private Button btnAddStudent;
+        private Button btnUpdateStudent;
+        private Button btnDeleteStudent;
+        private ComboBox cmbCourseAssign;
+        private Button btnAssignCourse;
+        private DataGridView dgvCourses;
+        private TextBox txtCourseCode;
+        private TextBox txtCourseName;
+        private ComboBox cmbCourseLanguage;
+        private TextBox txtCourseFee;
+        private TextBox txtCourseDuration;
+        private Button btnAddCourse;
+        private DataGridView dgvClasses;
+        private TextBox txtClassName;
+        private ComboBox cmbCourseClass;
+        private ComboBox cmbTeacherClass;
+        private TextBox txtClassMaxSize;
+        private Button btnCreateClass;
+        private ComboBox cmbClassAddStudent;
+        private ComboBox cmbStudentClass;
+        private Button btnAddStudentToClass;
+        private ComboBox cmbStudentPayment;
+        private Label lblPaymentNeed;
+        private Label lblPaymentPaid;
+        private Label lblPaymentRemain;
+        private TextBox txtPaymentAmount;
+        private TextBox txtPaymentNote;
+        private Button btnLoadPayment;
+        private Button btnCollectPayment;
+        private Label lblTotalStudents;
+        private Label lblTotalRevenue;
+        private Label lblActiveClasses;
+        private DataGridView dgvTeacherClasses;
+        private ComboBox cmbClassAttendance;
+        private DateTimePicker dtpSessionDate;
+        private Button btnLoadAttendanceStudents;
+        private DataGridView dgvAttendance;
+        private Button btnSaveAttendance;
+        private ComboBox cmbClassEvaluate;
+        private ComboBox cmbStudentEvaluate;
+        private TextBox txtScore;
+        private TextBox txtComment;
+        private Button btnSaveEvaluation;
+    }
+}

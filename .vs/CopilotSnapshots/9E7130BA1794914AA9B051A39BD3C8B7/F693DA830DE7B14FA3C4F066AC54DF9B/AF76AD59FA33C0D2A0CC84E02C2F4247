@@ -1,0 +1,74 @@
+﻿using NhatDucSoftware.Data;
+using NhatDucSoftware.Models;
+
+namespace NhatDucSoftware.Services;
+
+public class TeacherService
+{
+    public List<Teacher> GetAll()
+    {
+        var result = new List<Teacher>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, FullName, Phone, Email, Status FROM Teachers ORDER BY Id DESC;";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new Teacher
+            {
+                Id = reader.GetInt32(0),
+                FullName = reader.GetString(1),
+                Phone = reader.IsDBNull(2) ? null : reader.GetString(2),
+                Email = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Status = reader.GetString(4)
+            });
+        }
+
+        return result;
+    }
+
+    public void Add(Teacher teacher)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"INSERT INTO Teachers(FullName, Phone, Email, Status)
+VALUES(@name, @phone, @email, @status);";
+        command.Parameters.AddWithValue("@name", teacher.FullName);
+        command.Parameters.AddWithValue("@phone", (object?)teacher.Phone ?? DBNull.Value);
+        command.Parameters.AddWithValue("@email", (object?)teacher.Email ?? DBNull.Value);
+        command.Parameters.AddWithValue("@status", teacher.Status);
+        command.ExecuteNonQuery();
+    }
+
+    public void Update(Teacher teacher)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"UPDATE Teachers
+SET FullName = @name, Phone = @phone, Email = @email, Status = @status
+WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", teacher.Id);
+        command.Parameters.AddWithValue("@name", teacher.FullName);
+        command.Parameters.AddWithValue("@phone", (object?)teacher.Phone ?? DBNull.Value);
+        command.Parameters.AddWithValue("@email", (object?)teacher.Email ?? DBNull.Value);
+        command.Parameters.AddWithValue("@status", teacher.Status);
+        command.ExecuteNonQuery();
+    }
+
+    public void Delete(int teacherId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Teachers WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", teacherId);
+        command.ExecuteNonQuery();
+    }
+}
