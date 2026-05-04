@@ -3,16 +3,36 @@
   "WorkspaceRootPath": "D:\\Tool\\NhatDucSoftware\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\attendanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\attendanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\paymentservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\paymentservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\evaluationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\evaluationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\classscheduleservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\classscheduleservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\models\\student.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\models\\student.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\teachermanagementform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
@@ -79,32 +99,12 @@
       "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\data\\dbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.designer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\loginform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\loginform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\reportservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\reportservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\evaluationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\evaluationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\attendanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\attendanceservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\paymentservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|solutionrelative:nhatducsoftware\\services\\paymentservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{76010E62-24C7-48EA-D829-6ADD747A0762}|NhatDucSoftware\\NhatDucSoftware.csproj|d:\\tool\\nhatducsoftware\\nhatducsoftware\\services\\courseservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -138,8 +138,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Form1.cs",
+              "ViewState": "AgIAAM4CAAAAAAAAAAAAAOcCAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:57:14.923Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 31,
@@ -148,14 +161,79 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\ClassScheduleForm.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\ClassScheduleForm.cs",
               "RelativeToolTip": "NhatDucSoftware\\ClassScheduleForm.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAGwAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACgAAAAAAAAAAABRwGwAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-04T15:24:26.82Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 10,
+              "Title": "DatabaseInitializer.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DatabaseInitializer.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DatabaseInitializer.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
+              "ViewState": "AgIAADcAAAAAAAAAAAAAwJgAAAAOAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:55:07.354Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "PaymentService.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\PaymentService.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\PaymentService.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\PaymentService.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Services\\PaymentService.cs",
+              "ViewState": "AgIAAB0AAAAAAAAAAAAuwEYAAAA7AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:56:07.538Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Form1.Designer.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.Designer.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.Designer.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.Designer.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Form1.Designer.cs",
+              "ViewState": "AgIAAHACAAAAAAAAAAAAAHsFAAAmAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:58:20.433Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "AttendanceService.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\AttendanceService.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\AttendanceService.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\AttendanceService.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Services\\AttendanceService.cs",
+              "ViewState": "AgIAADQAAAAAAAAAAAAAAEMAAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:56:13.483Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "EvaluationService.cs",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\EvaluationService.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\EvaluationService.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\EvaluationService.cs",
+              "RelativeToolTip": "NhatDucSoftware\\Services\\EvaluationService.cs",
+              "ViewState": "AgIAABwAAAAAAAAAAAAswEAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-03T23:56:18.054Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
               "Title": "ClassScheduleService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\ClassScheduleService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\ClassScheduleService.cs",
@@ -181,7 +259,19 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 5,
+              "Title": "Form1.cs [Design]",
+              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
+              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
+              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs [Design]",
+              "RelativeToolTip": "NhatDucSoftware\\Form1.cs [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-04T00:23:41.509Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 16,
               "Title": "AuthenticatedUser.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Models\\AuthenticatedUser.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Models\\AuthenticatedUser.cs",
@@ -193,20 +283,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "DatabaseInitializer.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DatabaseInitializer.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DatabaseInitializer.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
-              "ViewState": "AgIAADcAAAAAAAAAAAAAwJgAAAAOAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:55:07.354Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 12,
               "Title": "TeacherTimesheet.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Models\\TeacherTimesheet.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Models\\TeacherTimesheet.cs",
@@ -219,7 +296,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 7,
               "Title": "Student.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Models\\Student.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Models\\Student.cs",
@@ -232,19 +309,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "Form1.cs [Design]",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs [Design]",
-              "RelativeToolTip": "NhatDucSoftware\\Form1.cs [Design]",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-04T00:23:41.509Z",
-              "EditorCaption": " [Design]"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 9,
               "Title": "TeacherService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\TeacherService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\TeacherService.cs",
@@ -257,7 +322,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 8,
               "Title": "TeacherManagementForm.cs [Design]",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\TeacherManagementForm.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\TeacherManagementForm.cs",
@@ -269,7 +334,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 14,
               "Title": "Form1.cs [Design]",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
@@ -280,7 +345,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 13,
               "Title": ".gitignore",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\.gitignore",
               "RelativeDocumentMoniker": ".gitignore",
@@ -293,7 +358,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 11,
               "Title": "TeacherTimesheetService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\TeacherTimesheetService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\TeacherTimesheetService.cs",
@@ -306,7 +371,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 17,
               "Title": "ClassService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\ClassService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\ClassService.cs",
@@ -319,7 +384,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 18,
               "Title": "AuthService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\AuthService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\AuthService.cs",
@@ -331,7 +396,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 15,
               "Title": "Teacher.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Models\\Teacher.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Models\\Teacher.cs",
@@ -343,20 +408,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 19,
               "Title": "TeacherManagementForm.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\TeacherManagementForm.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\TeacherManagementForm.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\TeacherManagementForm.cs",
               "RelativeToolTip": "NhatDucSoftware\\TeacherManagementForm.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAABaAAAAAAAAAA==",
+              "ViewState": "AgIAABcAAAAAAAAAAEBVwBwAAABaAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-04T00:13:21.086Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 20,
               "Title": "Program.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Program.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Program.cs",
@@ -368,7 +433,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 21,
               "Title": "NhatDucSoftware.csproj",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
               "RelativeDocumentMoniker": "NhatDucSoftware\\NhatDucSoftware.csproj",
@@ -380,7 +445,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 22,
               "Title": "StudentService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\StudentService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\StudentService.cs",
@@ -393,7 +458,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 23,
               "Title": "DbContext.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DbContext.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Data\\DbContext.cs",
@@ -405,33 +470,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
-              "Title": "Form1.Designer.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.Designer.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.Designer.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.Designer.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Form1.Designer.cs",
-              "ViewState": "AgIAADoFAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:58:20.433Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 20,
-              "Title": "Form1.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Form1.cs",
-              "ViewState": "AgIAAMAAAAAAAAAAAABBwCMDAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:57:14.923Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 24,
               "Title": "LoginForm.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\LoginForm.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\LoginForm.cs",
@@ -443,7 +482,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 25,
               "Title": "ReportService.cs",
               "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\ReportService.cs",
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\ReportService.cs",
@@ -452,43 +491,6 @@
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-03T23:56:22.331Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 23,
-              "Title": "EvaluationService.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\EvaluationService.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\EvaluationService.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\EvaluationService.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Services\\EvaluationService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:56:18.054Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 24,
-              "Title": "AttendanceService.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\AttendanceService.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\AttendanceService.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\AttendanceService.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Services\\AttendanceService.cs",
-              "ViewState": "AgIAAEEAAAAAAAAAAABRwEQAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:56:13.483Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 25,
-              "Title": "PaymentService.cs",
-              "DocumentMoniker": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\PaymentService.cs",
-              "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\PaymentService.cs",
-              "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\PaymentService.cs",
-              "RelativeToolTip": "NhatDucSoftware\\Services\\PaymentService.cs",
-              "ViewState": "AgIAAHcAAAAAAAAAAEBTwHoAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:56:07.538Z",
-              "EditorCaption": ""
             },
             {
               "$type": "Document",

@@ -69,8 +69,14 @@ SELECT
     COUNT(*) AS Total,
     SUM(CASE WHEN Status = 'C' THEN 1 ELSE 0 END) AS Attended,
     SUM(CASE WHEN Status = 'V' THEN 1 ELSE 0 END) AS Absent
-FROM AttendanceRecords
-WHERE StudentId = @studentId;";
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+WHERE ar.StudentId = @studentId
+  AND ats.Id = (
+      SELECT s2.Id FROM AttendanceSessions s2
+      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
+      Order BY s2.Id DESC LIMIT 1
+  );";
         command.Parameters.AddWithValue("@studentId", studentId);
 
         using var reader = command.ExecuteReader();
@@ -96,6 +102,11 @@ FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
 INNER JOIN Classes c ON c.Id = ats.ClassId
 WHERE ar.StudentId = @studentId
+  AND ats.Id = (
+      SELECT s2.Id FROM AttendanceSessions s2
+      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
+      ORDER BY s2.Id DESC LIMIT 1
+  )
 ORDER BY ats.SessionDate DESC;";
         command.Parameters.AddWithValue("@studentId", studentId);
 

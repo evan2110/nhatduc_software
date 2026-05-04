@@ -284,6 +284,47 @@ namespace NhatDucSoftware
             cmbStudentStatus.Text = s.Status;
         }
 
+        private void btnViewEvaluations_Click(object sender, EventArgs e)
+        {
+            if (dgvStudents.CurrentRow?.DataBoundItem is not Student s)
+            {
+                return;
+            }
+
+            var evaluations = _evaluationService.GetByStudent(s.Id);
+
+            var form = new Form
+            {
+                Text = $"Điểm / Nhận xét - {s.FullName}",
+                Size = new Size(700, 450),
+                StartPosition = FormStartPosition.CenterParent
+            };
+
+            var dgv = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                DataSource = evaluations
+            };
+
+            form.Controls.Add(dgv);
+            form.Shown += (_, _) =>
+            {
+                if (dgv.Columns.Count > 0)
+                {
+                    dgv.Columns["Lop"].HeaderText = "Lớp";
+                    dgv.Columns["GiaoVien"].HeaderText = "Giáo viên";
+                    dgv.Columns["Diem"].HeaderText = "Điểm";
+                    dgv.Columns["NhanXet"].HeaderText = "Nhận xét";
+                    dgv.Columns["Ngay"].HeaderText = "Ngày";
+                }
+            };
+
+            form.ShowDialog(this);
+        }
+
         private void btnAddCourse_Click(object sender, EventArgs e)
         {
             _courseService.Add(new Course
@@ -583,9 +624,16 @@ namespace NhatDucSoftware
                 return;
             }
 
+            var savedRecords = _attendanceService.GetAttendanceByClassAndDate(classId, dtpSessionDate.Value);
             var students = _attendanceService.GetStudentsByClass(classId)
-                .Select(x => new AttendanceRow { StudentId = x.StudentId, StudentName = x.FullName, Status = "C" })
+                .Select(x => new AttendanceRow
+                {
+                    StudentId = x.StudentId,
+                    StudentName = x.FullName,
+                    Status = savedRecords.TryGetValue(x.StudentId, out var status) ? status : string.Empty
+                })
                 .ToList();
+
             dgvAttendance.DataSource = null;
             dgvAttendance.DataSource = students;
             ApplyAttendanceHeaders();
@@ -660,16 +708,21 @@ namespace NhatDucSoftware
             table.Columns.Add("Ngày", typeof(string));
             for (int s = 1; s <= 5; s++)
                 table.Columns.Add(Models.TeacherTimesheet.GetShiftDescription(s), typeof(string));
+            table.Columns.Add("Ghi chú", typeof(string));
 
             for (int d = 1; d <= daysInMonth; d++)
             {
                 var row = table.NewRow();
                 row["Ngày"] = $"{d:D2}/{month:D2}/{year}";
+                string dayNote = "";
                 for (int s = 1; s <= 5; s++)
                 {
                     var rec = records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s);
                     row[s] = rec != null ? (rec.IsPresent ? "✓" : "✗") : "";
+                    if (rec?.Note is not null && rec.Note.Length > 0 && dayNote.Length == 0)
+                        dayNote = rec.Note;
                 }
+                row["Ghi chú"] = dayNote;
                 table.Rows.Add(row);
             }
 
@@ -680,8 +733,7 @@ namespace NhatDucSoftware
                 dgvTimesheet.Columns[0].ReadOnly = true;
 
             var totalShifts = records.Count(r => r.IsPresent);
-            var pay = totalShifts * Models.TeacherTimesheet.PayPerShift;
-            lblTimesheetSummary.Text = $"Tổng ca: {totalShifts} | Lương tháng: {pay:N0} VNĐ";
+            lblTimesheetSummary.Text = $"Tổng ca: {totalShifts}";
         }
 
         private void btnSaveTimesheet_Click(object sender, EventArgs e)
@@ -694,6 +746,7 @@ namespace NhatDucSoftware
             {
                 int day = rowIdx + 1;
                 var workDate = new DateTime(year, month, day);
+                var note = dgvTimesheet.Rows[rowIdx].Cells["Ghi chú"].Value?.ToString()?.Trim() ?? "";
 
                 for (int shift = 1; shift <= 5; shift++)
                 {
@@ -701,7 +754,7 @@ namespace NhatDucSoftware
                     bool isPresent = cellValue == "C" || cellValue == "✓";
                     if (cellValue == "C" || cellValue == "✓" || cellValue == "✗")
                     {
-                        _timesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent);
+                        _timesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent, note.Length > 0 ? note : null);
                     }
                 }
             }
@@ -769,6 +822,7 @@ namespace NhatDucSoftware
 
             var teachers = _teacherService.GetAll();
             var table = new System.Data.DataTable();
+            table.Columns.Add("TeacherId", typeof(int));
             table.Columns.Add("Giáo viên", typeof(string));
             table.Columns.Add("Tổng ca", typeof(int));
             table.Columns.Add("Lương (VNĐ)", typeof(string));
@@ -778,6 +832,7 @@ namespace NhatDucSoftware
                 var totalShifts = _timesheetService.GetTotalShiftsInMonth(teacher.Id, year, month);
                 var pay = totalShifts * Models.TeacherTimesheet.PayPerShift;
                 var row = table.NewRow();
+                row["TeacherId"] = teacher.Id;
                 row["Giáo viên"] = teacher.FullName;
                 row["Tổng ca"] = totalShifts;
                 row["Lương (VNĐ)"] = pay.ToString("N0");
@@ -785,6 +840,36 @@ namespace NhatDucSoftware
             }
 
             dgvPayroll.DataSource = table;
+            if (dgvPayroll.Columns.Contains("TeacherId"))
+                dgvPayroll.Columns["TeacherId"].Visible = false;
+        }
+
+        private void dgvPayroll_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dgvPayroll.CurrentRow is null) return;
+            if (cmbPayrollMonth.SelectedItem is not int month) return;
+            if (cmbPayrollYear.SelectedItem is not int year) return;
+
+            var teacherId = Convert.ToInt32(dgvPayroll.CurrentRow.Cells["TeacherId"].Value);
+            var records = _timesheetService.GetTimesheetByMonth(teacherId, year, month);
+
+            var detailTable = new System.Data.DataTable();
+            detailTable.Columns.Add("Ngày", typeof(string));
+            detailTable.Columns.Add("Ca", typeof(int));
+            detailTable.Columns.Add("Trạng thái", typeof(string));
+            detailTable.Columns.Add("Ghi chú", typeof(string));
+
+            foreach (var r in records)
+            {
+                var row = detailTable.NewRow();
+                row["Ngày"] = r.WorkDate.ToString("yyyy-MM-dd");
+                row["Ca"] = r.ShiftNumber;
+                row["Trạng thái"] = r.IsPresent ? "Có mặt" : "Vắng";
+                row["Ghi chú"] = r.Note ?? "";
+                detailTable.Rows.Add(row);
+            }
+
+            dgvPayrollDetail.DataSource = detailTable;
         }
 
         private void btnLogout_Click(object sender, EventArgs e)
@@ -798,6 +883,6 @@ namespace NhatDucSoftware
     {
         public int StudentId { get; set; }
         public string StudentName { get; set; } = string.Empty;
-        public string Status { get; set; } = "C"; // C = Có mặt, V = Vắng
+        public string Status { get; set; } = string.Empty;
     }
 }
