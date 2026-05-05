@@ -250,4 +250,22 @@ ORDER BY s.FullName;";
 
         return result;
     }
+
+    public int? GetTeacherIdByClass(int classId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT TeacherId FROM Classes WHERE Id = @classId LIMIT 1;";
+        command.Parameters.AddWithValue("@classId", classId);
+
+        var value = command.ExecuteScalar();
+        if (value is null || value == DBNull.Value)
+        {
+            return null;
+        }
+
+        return Convert.ToInt32(value);
+    }
 }

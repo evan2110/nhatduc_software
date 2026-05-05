@@ -57,6 +57,7 @@ namespace NhatDucSoftware
             else
             {
                 tabTeacher.Parent = null;
+                InitializeAdminMakeupFeatures();
             }
 
             LoadCoursesToCombos();
@@ -73,6 +74,197 @@ namespace NhatDucSoftware
                 LoadTimesheet();
                 LoadTeacherWeeklySchedule();
             }
+        }
+
+        private void InitializeAdminMakeupFeatures()
+        {
+            if (tabAdminPayroll.Controls.ContainsKey("btnAdminMakeupTimesheet") || tabAdminPayroll.Controls.ContainsKey("btnAdminMakeupAttendance"))
+            {
+                return;
+            }
+
+            var btnAdminMakeupTimesheet = new Button
+            {
+                Name = "btnAdminMakeupTimesheet",
+                Text = "Chấm công bù GV",
+                Location = new Point(320, 11),
+                Size = new Size(150, 25),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            btnAdminMakeupTimesheet.Click += btnAdminMakeupTimesheet_Click;
+
+            var btnAdminMakeupAttendance = new Button
+            {
+                Name = "btnAdminMakeupAttendance",
+                Text = "Điểm danh bù HS",
+                Location = new Point(480, 11),
+                Size = new Size(170, 25),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            btnAdminMakeupAttendance.Click += btnAdminMakeupAttendance_Click;
+
+            tabAdminPayroll.Controls.Add(btnAdminMakeupTimesheet);
+            tabAdminPayroll.Controls.Add(btnAdminMakeupAttendance);
+        }
+
+        private void btnAdminMakeupTimesheet_Click(object? sender, EventArgs e)
+        {
+            if (dgvPayroll.CurrentRow is null || !dgvPayroll.Columns.Contains("TeacherId"))
+            {
+                MessageBox.Show("Vui lòng chọn giáo viên ở bảng ngày công.");
+                return;
+            }
+
+            var teacherId = Convert.ToInt32(dgvPayroll.CurrentRow.Cells["TeacherId"].Value);
+            var teacherName = dgvPayroll.CurrentRow.Cells["Giáo viên"].Value?.ToString() ?? "Giáo viên";
+
+            using var form = new Form
+            {
+                Text = $"Chấm công bù - {teacherName}",
+                StartPosition = FormStartPosition.CenterParent,
+                Size = new Size(420, 340),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            var lblDate = new Label { Text = "Ngày", Location = new Point(20, 20), Size = new Size(120, 20) };
+            var dtpDate = new DateTimePicker { Location = new Point(20, 42), Size = new Size(360, 23), Format = DateTimePickerFormat.Short };
+
+            var lblShift = new Label { Text = "Ca", Location = new Point(20, 75), Size = new Size(120, 20) };
+            var cmbShift = new ComboBox { Location = new Point(20, 97), Size = new Size(360, 23), DropDownStyle = ComboBoxStyle.DropDownList };
+            for (int s = 1; s <= 5; s++) cmbShift.Items.Add(s);
+            cmbShift.SelectedIndex = 0;
+
+            var chkPresent = new CheckBox { Text = "Có mặt", Location = new Point(20, 130), Size = new Size(120, 23), Checked = true };
+
+            var lblNote = new Label { Text = "Ghi chú", Location = new Point(20, 156), Size = new Size(120, 20) };
+            var txtNote = new TextBox { Location = new Point(20, 178), Size = new Size(360, 23) };
+
+            var btnSave = new Button { Text = "Lưu chấm công bù", Location = new Point(20, 208), Size = new Size(360, 30) };
+            btnSave.Click += (_, _) =>
+            {
+                if (cmbShift.SelectedItem is not int shift)
+                {
+                    MessageBox.Show("Vui lòng chọn ca.");
+                    return;
+                }
+
+                _timesheetService.SaveTimesheet(teacherId, dtpDate.Value.Date, shift, chkPresent.Checked, string.IsNullOrWhiteSpace(txtNote.Text) ? null : txtNote.Text.Trim());
+                MessageBox.Show("Đã lưu chấm công bù.");
+                form.DialogResult = DialogResult.OK;
+                form.Close();
+            };
+
+            form.Controls.Add(lblDate);
+            form.Controls.Add(dtpDate);
+            form.Controls.Add(lblShift);
+            form.Controls.Add(cmbShift);
+            form.Controls.Add(chkPresent);
+            form.Controls.Add(lblNote);
+            form.Controls.Add(txtNote);
+            form.Controls.Add(btnSave);
+
+            if (form.ShowDialog(this) == DialogResult.OK)
+            {
+                LoadPayroll();
+            }
+        }
+
+        private void btnAdminMakeupAttendance_Click(object? sender, EventArgs e)
+        {
+            using var form = new Form
+            {
+                Text = "Điểm danh bù học sinh (Admin)",
+                StartPosition = FormStartPosition.CenterParent,
+                Size = new Size(900, 560)
+            };
+
+            var lblClass = new Label { Text = "Lớp", Location = new Point(10, 10), Size = new Size(120, 20) };
+            var cmbClass = new ComboBox { Location = new Point(10, 32), Size = new Size(300, 23), DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbClass.DataSource = _classes.Select(c => new ClassInfo { Id = c.Id, ClassName = c.ClassName }).ToList();
+            cmbClass.DisplayMember = nameof(ClassInfo.ClassName);
+            cmbClass.ValueMember = nameof(ClassInfo.Id);
+
+            var lblDate = new Label { Text = "Ngày học", Location = new Point(320, 10), Size = new Size(120, 20) };
+            var dtpDate = new DateTimePicker { Location = new Point(320, 32), Size = new Size(180, 23), Format = DateTimePickerFormat.Short };
+
+            var btnLoad = new Button { Text = "Tải danh sách", Location = new Point(510, 31), Size = new Size(120, 25) };
+            var btnSave = new Button { Text = "Lưu điểm danh bù", Location = new Point(640, 31), Size = new Size(240, 25) };
+
+            var dgv = new DataGridView
+            {
+                Location = new Point(10, 65),
+                Size = new Size(870, 445),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = false
+            };
+
+            void LoadStudentsForMakeup()
+            {
+                if (cmbClass.SelectedValue is not int classId)
+                {
+                    return;
+                }
+
+                var savedRecords = _attendanceService.GetAttendanceByClassAndDate(classId, dtpDate.Value.Date);
+                var students = _attendanceService.GetStudentsByClass(classId)
+                    .Select(x => new AttendanceRow
+                    {
+                        StudentId = x.StudentId,
+                        StudentName = x.FullName,
+                        Status = savedRecords.TryGetValue(x.StudentId, out var status) ? status : string.Empty
+                    })
+                    .ToList();
+
+                dgv.DataSource = null;
+                dgv.DataSource = students;
+
+                if (dgv.Columns.Contains(nameof(AttendanceRow.StudentId))) dgv.Columns[nameof(AttendanceRow.StudentId)].HeaderText = "Mã học viên";
+                if (dgv.Columns.Contains(nameof(AttendanceRow.StudentName))) dgv.Columns[nameof(AttendanceRow.StudentName)].HeaderText = "Tên học viên";
+                if (dgv.Columns.Contains(nameof(AttendanceRow.Status))) dgv.Columns[nameof(AttendanceRow.Status)].HeaderText = "Điểm danh (C/V)";
+            }
+
+            btnLoad.Click += (_, _) => LoadStudentsForMakeup();
+
+            btnSave.Click += (_, _) =>
+            {
+                if (cmbClass.SelectedValue is not int classId)
+                {
+                    MessageBox.Show("Vui lòng chọn lớp.");
+                    return;
+                }
+
+                var teacherId = _classService.GetTeacherIdByClass(classId);
+                if (teacherId is null)
+                {
+                    MessageBox.Show("Lớp chưa có giáo viên phụ trách, không thể lưu điểm danh bù.");
+                    return;
+                }
+
+                var rows = dgv.DataSource as List<AttendanceRow>;
+                if (rows is null || rows.Count == 0)
+                {
+                    MessageBox.Show("Chưa có dữ liệu điểm danh.");
+                    return;
+                }
+
+                var records = rows.ToDictionary(x => x.StudentId, x => x.Status);
+                _attendanceService.SaveAttendance(classId, teacherId.Value, dtpDate.Value.Date, records);
+                MessageBox.Show("Đã lưu điểm danh bù.");
+            };
+
+            form.Controls.Add(lblClass);
+            form.Controls.Add(cmbClass);
+            form.Controls.Add(lblDate);
+            form.Controls.Add(dtpDate);
+            form.Controls.Add(btnLoad);
+            form.Controls.Add(btnSave);
+            form.Controls.Add(dgv);
+
+            form.Shown += (_, _) => LoadStudentsForMakeup();
+            form.ShowDialog(this);
         }
 
         private void SetGridHeaders(DataGridView grid, Dictionary<string, string> headers)
@@ -665,6 +857,12 @@ namespace NhatDucSoftware
             var students = _classService.GetStudentsInClass(c.Id)
                 .Select(s => new { s.StudentId, s.FullName }).ToList();
             dgvClassStudents.DataSource = students;
+
+            if (dgvClassStudents.Columns.Count > 0)
+            {
+                dgvClassStudents.Columns["StudentId"].HeaderText = "Mã học viên";
+                dgvClassStudents.Columns["FullName"].HeaderText = "Họ và tên";
+            }
         }
 
         private void btnRemoveStudentFromClass_Click(object sender, EventArgs e)
@@ -920,6 +1118,12 @@ namespace NhatDucSoftware
                 return;
             }
 
+            if (_currentUser.Role == "Teacher" && dtpSessionDate.Value.Date < DateTime.Today)
+            {
+                MessageBox.Show("Tài khoản giáo viên chỉ được điểm danh từ hôm nay trở về sau.");
+                return;
+            }
+
             var rows = dgvAttendance.DataSource as List<AttendanceRow>;
             if (rows is null || rows.Count == 0)
             {
@@ -975,7 +1179,6 @@ namespace NhatDucSoftware
 
             var records = _timesheetService.GetTimesheetByMonth(teacherId, year, month);
 
-            // Build pivot table: rows = dates, columns = Ca 1..5
             var daysInMonth = DateTime.DaysInMonth(year, month);
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));
@@ -1001,7 +1204,6 @@ namespace NhatDucSoftware
 
             dgvTimesheet.DataSource = table;
 
-            // Make "Ngày" column readonly
             if (dgvTimesheet.Columns.Count > 0)
                 dgvTimesheet.Columns[0].ReadOnly = true;
 
@@ -1015,10 +1217,19 @@ namespace NhatDucSoftware
             if (cmbTimesheetMonth.SelectedItem is not int month) return;
             if (cmbTimesheetYear.SelectedItem is not int year) return;
 
+            var skippedPastDates = 0;
+
             for (int rowIdx = 0; rowIdx < dgvTimesheet.Rows.Count; rowIdx++)
             {
                 int day = rowIdx + 1;
                 var workDate = new DateTime(year, month, day);
+
+                if (_currentUser.Role == "Teacher" && workDate.Date < DateTime.Today)
+                {
+                    skippedPastDates++;
+                    continue;
+                }
+
                 var note = dgvTimesheet.Rows[rowIdx].Cells["Ghi chú"].Value?.ToString()?.Trim() ?? "";
 
                 for (int shift = 1; shift <= 5; shift++)
@@ -1032,7 +1243,15 @@ namespace NhatDucSoftware
                 }
             }
 
-            MessageBox.Show("Đã lưu chấm công thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (skippedPastDates > 0)
+            {
+                MessageBox.Show("Đã lưu chấm công. Các ngày trước hôm nay không được phép sửa bằng tài khoản giáo viên.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Đã lưu chấm công thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
             LoadTimesheet();
         }
 
