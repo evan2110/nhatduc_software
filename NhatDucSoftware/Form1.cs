@@ -55,6 +55,17 @@ namespace NhatDucSoftware
                 tabAdmin.Parent = null;
                 dtpTeacherWeek.ValueChanged += (_, _) => LoadTeacherWeeklySchedule();
                 btnLoadTeacherSchedule.Visible = false;
+
+                btnSaveAttendance.Enabled = false;
+                dgvAttendance.CurrentCellDirtyStateChanged += (_, _) =>
+                {
+                    if (dgvAttendance.IsCurrentCellDirty)
+                    {
+                        dgvAttendance.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                    }
+                };
+                dgvAttendance.CellEndEdit += dgvAttendance_CellEndEdit;
+                dgvAttendance.CellValueChanged += (_, _) => UpdateTeacherAttendanceSaveButtonState();
             }
             else
             {
@@ -76,6 +87,35 @@ namespace NhatDucSoftware
                 LoadTimesheet();
                 LoadTeacherWeeklySchedule();
             }
+        }
+
+        private static bool IsValidAttendanceStatus(string? status)
+        {
+            var normalized = (status ?? string.Empty).Trim().ToUpperInvariant();
+            return normalized is "C" or "V";
+        }
+
+        private void UpdateTeacherAttendanceSaveButtonState()
+        {
+            var rows = dgvAttendance.DataSource as List<AttendanceRow>;
+            btnSaveAttendance.Enabled = rows is { Count: > 0 } && rows.All(x => IsValidAttendanceStatus(x.Status));
+        }
+
+        private void dgvAttendance_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+            {
+                return;
+            }
+
+            if (dgvAttendance.Columns[e.ColumnIndex].DataPropertyName == nameof(AttendanceRow.Status)
+                && dgvAttendance.Rows[e.RowIndex].DataBoundItem is AttendanceRow row)
+            {
+                row.Status = (row.Status ?? string.Empty).Trim().ToUpperInvariant();
+                dgvAttendance.Refresh();
+            }
+
+            UpdateTeacherAttendanceSaveButtonState();
         }
 
         private void InitializeAdminMakeupFeatures()
@@ -1171,6 +1211,7 @@ namespace NhatDucSoftware
             dgvAttendance.DataSource = null;
             dgvAttendance.DataSource = students;
             ApplyAttendanceHeaders();
+            UpdateTeacherAttendanceSaveButtonState();
         }
 
         private void btnSaveAttendance_Click(object sender, EventArgs e)
@@ -1187,15 +1228,26 @@ namespace NhatDucSoftware
                 return;
             }
 
+            dgvAttendance.EndEdit();
+
             var rows = dgvAttendance.DataSource as List<AttendanceRow>;
             if (rows is null or { Count: 0 })
             {
                 return;
             }
 
-            var records = rows.ToDictionary(x => x.StudentId, x => x.Status);
+            var invalidRow = rows.FirstOrDefault(x => !IsValidAttendanceStatus(x.Status));
+            if (invalidRow is not null)
+            {
+                MessageBox.Show($"Học viên '{invalidRow.StudentName}' phải nhập điểm danh là C hoặc V.");
+                UpdateTeacherAttendanceSaveButtonState();
+                return;
+            }
+
+            var records = rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
             _attendanceService.SaveAttendance(classId, _currentUser.TeacherId.Value, dtpSessionDate.Value, records);
             MessageBox.Show("Đã lưu điểm danh.");
+            UpdateTeacherAttendanceSaveButtonState();
         }
 
         private void btnSaveEvaluation_Click(object sender, EventArgs e)
