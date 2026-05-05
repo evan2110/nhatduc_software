@@ -67,8 +67,8 @@ VALUES(@studentId, NULL, @amount, @date, @note, @createdBy);";
         command.CommandText = @"
 SELECT 
     COUNT(*) AS Total,
-    SUM(CASE WHEN Status = 'C' THEN 1 ELSE 0 END) AS Attended,
-    SUM(CASE WHEN Status = 'V' THEN 1 ELSE 0 END) AS Absent
+    COALESCE(SUM(CASE WHEN Status = 'C' THEN 1 ELSE 0 END), 0) AS Attended,
+    COALESCE(SUM(CASE WHEN Status = 'V' THEN 1 ELSE 0 END), 0) AS Absent
 FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
 WHERE ar.StudentId = @studentId

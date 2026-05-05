@@ -43,6 +43,7 @@ public class ClassScheduleForm : Form
             Height = 320,
             AllowUserToAddRows = false,
             RowHeadersVisible = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
         };
 

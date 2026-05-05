@@ -15,9 +15,9 @@ public class LoginForm : Form
     public LoginForm()
     {
         Text = "Đăng nhập";
-        Width = 360;
-        Height = 220;
-        MinimumSize = new Size(360, 220);
+        Width = 500;
+        Height = 360;
+        MinimumSize = new Size(500, 360);
         StartPosition = FormStartPosition.CenterScreen;
         UiBackgroundHelper.ApplyBackground(this);
 
@@ -27,7 +27,7 @@ public class LoginForm : Form
         _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "admin", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
         _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "123456", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
-        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập", Anchor = AnchorStyles.Top };
+        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _btnLogin.Click += BtnLogin_Click;
 
         var lblCopyright = new Label

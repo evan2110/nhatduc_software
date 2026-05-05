@@ -236,6 +236,7 @@
             lblStudentName.Size = new Size(120, 15);
             lblStudentName.TabIndex = 0;
             lblStudentName.Text = "Họ và tên";
+            lblStudentName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblStudentPhone
             // 
@@ -244,6 +245,7 @@
             lblStudentPhone.Size = new Size(120, 15);
             lblStudentPhone.TabIndex = 1;
             lblStudentPhone.Text = "Số điện thoại";
+            lblStudentPhone.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblStudentEmail
             // 
@@ -252,6 +254,7 @@
             lblStudentEmail.Size = new Size(120, 15);
             lblStudentEmail.TabIndex = 2;
             lblStudentEmail.Text = "Email";
+            lblStudentEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblStudentStatus
             // 
@@ -260,6 +263,7 @@
             lblStudentStatus.Size = new Size(120, 15);
             lblStudentStatus.TabIndex = 4;
             lblStudentStatus.Text = "Trạng thái";
+            lblStudentStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // dgvStudents
             // 
@@ -267,7 +271,9 @@
             dgvStudents.Name = "dgvStudents";
             dgvStudents.Size = new Size(650, 430);
             dgvStudents.TabIndex = 6;
+            dgvStudents.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvStudents.SelectionChanged += dgvStudents_SelectionChanged;
+            dgvStudents.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // txtStudentName
             // 
@@ -275,6 +281,7 @@
             txtStudentName.Name = "txtStudentName";
             txtStudentName.Size = new Size(300, 23);
             txtStudentName.TabIndex = 7;
+            txtStudentName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtStudentPhone
             // 
@@ -282,6 +289,7 @@
             txtStudentPhone.Name = "txtStudentPhone";
             txtStudentPhone.Size = new Size(300, 23);
             txtStudentPhone.TabIndex = 8;
+            txtStudentPhone.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtStudentEmail
             // 
@@ -289,6 +297,7 @@
             txtStudentEmail.Name = "txtStudentEmail";
             txtStudentEmail.Size = new Size(300, 23);
             txtStudentEmail.TabIndex = 9;
+            txtStudentEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbStudentStatus
             // 
@@ -298,6 +307,7 @@
             cmbStudentStatus.Size = new Size(145, 23);
             cmbStudentStatus.TabIndex = 11;
             cmbStudentStatus.Text = "Active";
+            cmbStudentStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnAddStudent
             // 
@@ -307,6 +317,7 @@
             btnAddStudent.TabIndex = 12;
             btnAddStudent.Text = "Thêm";
             btnAddStudent.Click += btnAddStudent_Click;
+            btnAddStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateStudent
             // 
@@ -316,6 +327,7 @@
             btnUpdateStudent.TabIndex = 13;
             btnUpdateStudent.Text = "Sửa";
             btnUpdateStudent.Click += btnUpdateStudent_Click;
+            btnUpdateStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnDeleteStudent
             // 
@@ -325,6 +337,7 @@
             btnDeleteStudent.TabIndex = 14;
             btnDeleteStudent.Text = "Xóa";
             btnDeleteStudent.Click += btnDeleteStudent_Click;
+            btnDeleteStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnViewEvaluations
             // 
@@ -334,6 +347,7 @@
             btnViewEvaluations.TabIndex = 15;
             btnViewEvaluations.Text = "Xem Điểm / Nhận xét";
             btnViewEvaluations.Click += btnViewEvaluations_Click;
+            btnViewEvaluations.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // tabAdminCourses
             // 
@@ -357,6 +371,7 @@
             lblCourseName.Size = new Size(120, 15);
             lblCourseName.TabIndex = 0;
             lblCourseName.Text = "Tên khóa học";
+            lblCourseName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblCourseFee
             // 
@@ -365,6 +380,7 @@
             lblCourseFee.Size = new Size(120, 15);
             lblCourseFee.TabIndex = 1;
             lblCourseFee.Text = "Học phí";
+            lblCourseFee.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // dgvCourses
             // 
@@ -372,7 +388,9 @@
             dgvCourses.Name = "dgvCourses";
             dgvCourses.Size = new Size(700, 430);
             dgvCourses.TabIndex = 2;
+            dgvCourses.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvCourses.SelectionChanged += dgvCourses_SelectionChanged;
+            dgvCourses.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // txtCourseName
             // 
@@ -380,6 +398,7 @@
             txtCourseName.Name = "txtCourseName";
             txtCourseName.Size = new Size(270, 23);
             txtCourseName.TabIndex = 3;
+            txtCourseName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtCourseFee
             // 
@@ -387,6 +406,7 @@
             txtCourseFee.Name = "txtCourseFee";
             txtCourseFee.Size = new Size(270, 23);
             txtCourseFee.TabIndex = 4;
+            txtCourseFee.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnAddCourse
             // 
@@ -396,6 +416,7 @@
             btnAddCourse.TabIndex = 5;
             btnAddCourse.Text = "Thêm khóa";
             btnAddCourse.Click += btnAddCourse_Click;
+            btnAddCourse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateCourse
             // 
@@ -405,6 +426,7 @@
             btnUpdateCourse.TabIndex = 6;
             btnUpdateCourse.Text = "Sửa học phí";
             btnUpdateCourse.Click += btnUpdateCourse_Click;
+            btnUpdateCourse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // tabAdminClasses
             // 
@@ -439,6 +461,7 @@
             lblClassName.Size = new Size(120, 15);
             lblClassName.TabIndex = 0;
             lblClassName.Text = "Tên lớp";
+            lblClassName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblClassCourse
             // 
@@ -447,6 +470,7 @@
             lblClassCourse.Size = new Size(120, 15);
             lblClassCourse.TabIndex = 1;
             lblClassCourse.Text = "Khóa học";
+            lblClassCourse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblClassTeacher
             // 
@@ -455,6 +479,7 @@
             lblClassTeacher.Size = new Size(120, 15);
             lblClassTeacher.TabIndex = 2;
             lblClassTeacher.Text = "Giáo viên";
+            lblClassTeacher.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblSelectClass
             // 
@@ -463,6 +488,7 @@
             lblSelectClass.Size = new Size(120, 15);
             lblSelectClass.TabIndex = 4;
             lblSelectClass.Text = "Chọn lớp";
+            lblSelectClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblSelectStudent
             // 
@@ -471,6 +497,7 @@
             lblSelectStudent.Size = new Size(120, 15);
             lblSelectStudent.TabIndex = 5;
             lblSelectStudent.Text = "Chọn học viên";
+            lblSelectStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // dgvClasses
             // 
@@ -478,7 +505,9 @@
             dgvClasses.Name = "dgvClasses";
             dgvClasses.Size = new Size(700, 230);
             dgvClasses.TabIndex = 6;
+            dgvClasses.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvClasses.SelectionChanged += dgvClasses_SelectionChanged;
+            dgvClasses.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // txtClassName
             // 
@@ -486,6 +515,7 @@
             txtClassName.Name = "txtClassName";
             txtClassName.Size = new Size(270, 23);
             txtClassName.TabIndex = 7;
+            txtClassName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbCourseClass
             // 
@@ -493,6 +523,7 @@
             cmbCourseClass.Name = "cmbCourseClass";
             cmbCourseClass.Size = new Size(130, 23);
             cmbCourseClass.TabIndex = 8;
+            cmbCourseClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbTeacherClass
             // 
@@ -500,6 +531,7 @@
             cmbTeacherClass.Name = "cmbTeacherClass";
             cmbTeacherClass.Size = new Size(130, 23);
             cmbTeacherClass.TabIndex = 9;
+            cmbTeacherClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnCreateClass
             // 
@@ -509,6 +541,7 @@
             btnCreateClass.TabIndex = 10;
             btnCreateClass.Text = "Tạo lớp";
             btnCreateClass.Click += btnCreateClass_Click;
+            btnCreateClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateClass
             // 
@@ -518,6 +551,7 @@
             btnUpdateClass.TabIndex = 11;
             btnUpdateClass.Text = "Sửa lớp";
             btnUpdateClass.Click += btnUpdateClass_Click;
+            btnUpdateClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnDeleteClass
             // 
@@ -527,6 +561,7 @@
             btnDeleteClass.TabIndex = 12;
             btnDeleteClass.Text = "Xóa lớp";
             btnDeleteClass.Click += btnDeleteClass_Click;
+            btnDeleteClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbClassAddStudent
             // 
@@ -534,6 +569,7 @@
             cmbClassAddStudent.Name = "cmbClassAddStudent";
             cmbClassAddStudent.Size = new Size(130, 23);
             cmbClassAddStudent.TabIndex = 13;
+            cmbClassAddStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbStudentClass
             // 
@@ -541,6 +577,7 @@
             cmbStudentClass.Name = "cmbStudentClass";
             cmbStudentClass.Size = new Size(130, 23);
             cmbStudentClass.TabIndex = 14;
+            cmbStudentClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnAddStudentToClass
             // 
@@ -550,6 +587,7 @@
             btnAddStudentToClass.TabIndex = 15;
             btnAddStudentToClass.Text = "Thêm học viên vào lớp";
             btnAddStudentToClass.Click += btnAddStudentToClass_Click;
+            btnAddStudentToClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // dgvClassStudents
             // 
@@ -559,6 +597,8 @@
             dgvClassStudents.ReadOnly = true;
             dgvClassStudents.Size = new Size(700, 200);
             dgvClassStudents.TabIndex = 16;
+            dgvClassStudents.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvClassStudents.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // btnRemoveStudentFromClass
             // 
@@ -568,6 +608,7 @@
             btnRemoveStudentFromClass.TabIndex = 17;
             btnRemoveStudentFromClass.Text = "Xóa học viên khỏi lớp";
             btnRemoveStudentFromClass.Click += btnRemoveStudentFromClass_Click;
+            btnRemoveStudentFromClass.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnClassSchedule
             // 
@@ -577,6 +618,7 @@
             btnClassSchedule.TabIndex = 18;
             btnClassSchedule.Text = "Thiết lập lịch học";
             btnClassSchedule.Click += btnClassSchedule_Click;
+            btnClassSchedule.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // tabAdminPayments
             // 
@@ -608,6 +650,7 @@
             lblPaymentFilterClass.Size = new Size(80, 15);
             lblPaymentFilterClass.TabIndex = 0;
             lblPaymentFilterClass.Text = "Lọc theo lớp:";
+            lblPaymentFilterClass.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbPaymentFilterClass
             // 
@@ -617,6 +660,7 @@
             cmbPaymentFilterClass.Size = new Size(180, 23);
             cmbPaymentFilterClass.TabIndex = 1;
             cmbPaymentFilterClass.SelectedIndexChanged += cmbPaymentFilterClass_SelectedIndexChanged;
+            cmbPaymentFilterClass.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentStudent
             // 
@@ -625,6 +669,7 @@
             lblPaymentStudent.Size = new Size(70, 15);
             lblPaymentStudent.TabIndex = 0;
             lblPaymentStudent.Text = "Tìm HV:";
+            lblPaymentStudent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // txtSearchStudent
             // 
@@ -634,6 +679,7 @@
             txtSearchStudent.Size = new Size(150, 23);
             txtSearchStudent.TabIndex = 2;
             txtSearchStudent.TextChanged += txtSearchStudent_TextChanged;
+            txtSearchStudent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbStudentPayment
             // 
@@ -641,6 +687,7 @@
             cmbStudentPayment.Name = "cmbStudentPayment";
             cmbStudentPayment.Size = new Size(260, 23);
             cmbStudentPayment.TabIndex = 3;
+            cmbStudentPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnLoadPayment
             // 
@@ -650,6 +697,7 @@
             btnLoadPayment.TabIndex = 4;
             btnLoadPayment.Text = "Xem học phí";
             btnLoadPayment.Click += btnLoadPayment_Click;
+            btnLoadPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentNeed
             // 
@@ -658,6 +706,7 @@
             lblPaymentNeed.Size = new Size(390, 20);
             lblPaymentNeed.TabIndex = 5;
             lblPaymentNeed.Text = "Cần đóng: 0";
+            lblPaymentNeed.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentPaid
             // 
@@ -666,6 +715,7 @@
             lblPaymentPaid.Size = new Size(300, 20);
             lblPaymentPaid.TabIndex = 6;
             lblPaymentPaid.Text = "Đã đóng: 0";
+            lblPaymentPaid.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentRemain
             // 
@@ -674,6 +724,7 @@
             lblPaymentRemain.Size = new Size(300, 20);
             lblPaymentRemain.TabIndex = 7;
             lblPaymentRemain.Text = "Còn lại: 0";
+            lblPaymentRemain.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentAmount
             // 
@@ -682,6 +733,7 @@
             lblPaymentAmount.Size = new Size(160, 15);
             lblPaymentAmount.TabIndex = 1;
             lblPaymentAmount.Text = "Số tiền thu";
+            lblPaymentAmount.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // txtPaymentAmount
             // 
@@ -689,6 +741,7 @@
             txtPaymentAmount.Name = "txtPaymentAmount";
             txtPaymentAmount.Size = new Size(390, 23);
             txtPaymentAmount.TabIndex = 8;
+            txtPaymentAmount.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentNote
             // 
@@ -697,6 +750,7 @@
             lblPaymentNote.Size = new Size(160, 15);
             lblPaymentNote.TabIndex = 2;
             lblPaymentNote.Text = "Ghi chú";
+            lblPaymentNote.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // txtPaymentNote
             // 
@@ -704,6 +758,7 @@
             txtPaymentNote.Name = "txtPaymentNote";
             txtPaymentNote.Size = new Size(390, 23);
             txtPaymentNote.TabIndex = 9;
+            txtPaymentNote.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnCollectPayment
             // 
@@ -713,6 +768,7 @@
             btnCollectPayment.TabIndex = 10;
             btnCollectPayment.Text = "Thu học phí";
             btnCollectPayment.Click += btnCollectPayment_Click;
+            btnCollectPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvAttendanceDetail
             // 
@@ -722,6 +778,8 @@
             dgvAttendanceDetail.ReadOnly = true;
             dgvAttendanceDetail.Size = new Size(580, 450);
             dgvAttendanceDetail.TabIndex = 11;
+            dgvAttendanceDetail.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvAttendanceDetail.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // tabAdminReports
             // 
@@ -741,6 +799,7 @@
             lblTotalStudents.Size = new Size(300, 30);
             lblTotalStudents.TabIndex = 0;
             lblTotalStudents.Text = "Tổng học viên: 0";
+            lblTotalStudents.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblTotalRevenue
             // 
@@ -749,6 +808,7 @@
             lblTotalRevenue.Size = new Size(300, 30);
             lblTotalRevenue.TabIndex = 1;
             lblTotalRevenue.Text = "Doanh thu: 0";
+            lblTotalRevenue.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblActiveClasses
             // 
@@ -757,6 +817,7 @@
             lblActiveClasses.Size = new Size(300, 30);
             lblActiveClasses.TabIndex = 2;
             lblActiveClasses.Text = "Lớp hoạt động: 0";
+            lblActiveClasses.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // tabAdminTeachers
             // 
@@ -790,6 +851,7 @@
             lblTeacherName.Size = new Size(120, 15);
             lblTeacherName.TabIndex = 0;
             lblTeacherName.Text = "Họ và tên giáo viên";
+            lblTeacherName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblTeacherPhone
             // 
@@ -798,6 +860,7 @@
             lblTeacherPhone.Size = new Size(120, 15);
             lblTeacherPhone.TabIndex = 1;
             lblTeacherPhone.Text = "Số điện thoại";
+            lblTeacherPhone.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblTeacherEmail
             // 
@@ -806,6 +869,7 @@
             lblTeacherEmail.Size = new Size(120, 15);
             lblTeacherEmail.TabIndex = 2;
             lblTeacherEmail.Text = "Email";
+            lblTeacherEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblTeacherStatus
             // 
@@ -814,6 +878,7 @@
             lblTeacherStatus.Size = new Size(120, 15);
             lblTeacherStatus.TabIndex = 3;
             lblTeacherStatus.Text = "Trạng thái";
+            lblTeacherStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // dgvTeachers
             // 
@@ -821,7 +886,9 @@
             dgvTeachers.Name = "dgvTeachers";
             dgvTeachers.Size = new Size(650, 430);
             dgvTeachers.TabIndex = 4;
+            dgvTeachers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvTeachers.SelectionChanged += dgvTeachers_SelectionChanged;
+            dgvTeachers.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // txtTeacherName
             // 
@@ -829,6 +896,7 @@
             txtTeacherName.Name = "txtTeacherName";
             txtTeacherName.Size = new Size(300, 23);
             txtTeacherName.TabIndex = 5;
+            txtTeacherName.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtTeacherPhone
             // 
@@ -836,6 +904,7 @@
             txtTeacherPhone.Name = "txtTeacherPhone";
             txtTeacherPhone.Size = new Size(300, 23);
             txtTeacherPhone.TabIndex = 6;
+            txtTeacherPhone.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtTeacherEmail
             // 
@@ -843,6 +912,7 @@
             txtTeacherEmail.Name = "txtTeacherEmail";
             txtTeacherEmail.Size = new Size(300, 23);
             txtTeacherEmail.TabIndex = 7;
+            txtTeacherEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // cmbTeacherStatus
             // 
@@ -852,6 +922,7 @@
             cmbTeacherStatus.Size = new Size(145, 23);
             cmbTeacherStatus.TabIndex = 8;
             cmbTeacherStatus.Text = "Active";
+            cmbTeacherStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnAddTeacher
             // 
@@ -861,6 +932,7 @@
             btnAddTeacher.TabIndex = 9;
             btnAddTeacher.Text = "Thêm";
             btnAddTeacher.Click += btnAddTeacher_Click;
+            btnAddTeacher.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateTeacher
             // 
@@ -870,6 +942,7 @@
             btnUpdateTeacher.TabIndex = 10;
             btnUpdateTeacher.Text = "Sửa";
             btnUpdateTeacher.Click += btnUpdateTeacher_Click;
+            btnUpdateTeacher.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnDeleteTeacher
             // 
@@ -879,6 +952,7 @@
             btnDeleteTeacher.TabIndex = 11;
             btnDeleteTeacher.Text = "Xóa";
             btnDeleteTeacher.Click += btnDeleteTeacher_Click;
+            btnDeleteTeacher.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblTeacherAccount
             // 
@@ -887,6 +961,7 @@
             lblTeacherAccount.Size = new Size(120, 15);
             lblTeacherAccount.TabIndex = 12;
             lblTeacherAccount.Text = "Tài khoản";
+            lblTeacherAccount.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtTeacherUsername
             // 
@@ -895,6 +970,7 @@
             txtTeacherUsername.ReadOnly = true;
             txtTeacherUsername.Size = new Size(300, 23);
             txtTeacherUsername.TabIndex = 13;
+            txtTeacherUsername.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // lblTeacherPassword
             // 
@@ -903,6 +979,7 @@
             lblTeacherPassword.Size = new Size(120, 15);
             lblTeacherPassword.TabIndex = 14;
             lblTeacherPassword.Text = "Mật khẩu";
+            lblTeacherPassword.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // txtTeacherPassword
             // 
@@ -910,6 +987,7 @@
             txtTeacherPassword.Name = "txtTeacherPassword";
             txtTeacherPassword.Size = new Size(300, 23);
             txtTeacherPassword.TabIndex = 15;
+            txtTeacherPassword.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateTeacherPassword
             // 
@@ -919,6 +997,7 @@
             btnUpdateTeacherPassword.TabIndex = 16;
             btnUpdateTeacherPassword.Text = "Cập nhật mật khẩu";
             btnUpdateTeacherPassword.Click += btnUpdateTeacherPassword_Click;
+            btnUpdateTeacherPassword.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // tabAdminPayroll
             // 
@@ -943,6 +1022,7 @@
             lblPayrollMonth.Size = new Size(50, 15);
             lblPayrollMonth.TabIndex = 0;
             lblPayrollMonth.Text = "Tháng:";
+            lblPayrollMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbPayrollMonth
             // 
@@ -951,6 +1031,7 @@
             cmbPayrollMonth.Name = "cmbPayrollMonth";
             cmbPayrollMonth.Size = new Size(60, 23);
             cmbPayrollMonth.TabIndex = 1;
+            cmbPayrollMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbPayrollYear
             // 
@@ -959,6 +1040,7 @@
             cmbPayrollYear.Name = "cmbPayrollYear";
             cmbPayrollYear.Size = new Size(80, 23);
             cmbPayrollYear.TabIndex = 2;
+            cmbPayrollYear.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnLoadPayroll
             // 
@@ -968,6 +1050,7 @@
             btnLoadPayroll.TabIndex = 3;
             btnLoadPayroll.Text = "Xem";
             btnLoadPayroll.Click += btnLoadPayroll_Click;
+            btnLoadPayroll.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvPayroll
             // 
@@ -977,7 +1060,9 @@
             dgvPayroll.ReadOnly = true;
             dgvPayroll.Size = new Size(360, 440);
             dgvPayroll.TabIndex = 4;
+            dgvPayroll.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvPayroll.SelectionChanged += dgvPayroll_SelectionChanged;
+            dgvPayroll.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             // 
             // dgvPayrollDetail
             // 
@@ -987,6 +1072,8 @@
             dgvPayrollDetail.ReadOnly = true;
             dgvPayrollDetail.Size = new Size(630, 440);
             dgvPayrollDetail.TabIndex = 5;
+            dgvPayrollDetail.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvPayrollDetail.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // btnLogoutAdmin
             // 
@@ -1044,6 +1131,7 @@
             lblTimesheetMonth.Size = new Size(44, 15);
             lblTimesheetMonth.TabIndex = 0;
             lblTimesheetMonth.Text = "Tháng:";
+            lblTimesheetMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbTimesheetMonth
             // 
@@ -1052,6 +1140,7 @@
             cmbTimesheetMonth.Name = "cmbTimesheetMonth";
             cmbTimesheetMonth.Size = new Size(60, 23);
             cmbTimesheetMonth.TabIndex = 1;
+            cmbTimesheetMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbTimesheetYear
             // 
@@ -1060,6 +1149,7 @@
             cmbTimesheetYear.Name = "cmbTimesheetYear";
             cmbTimesheetYear.Size = new Size(80, 23);
             cmbTimesheetYear.TabIndex = 2;
+            cmbTimesheetYear.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnLoadTimesheet
             // 
@@ -1069,6 +1159,7 @@
             btnLoadTimesheet.TabIndex = 3;
             btnLoadTimesheet.Text = "Xem";
             btnLoadTimesheet.Click += btnLoadTimesheet_Click;
+            btnLoadTimesheet.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnSaveTimesheet
             // 
@@ -1078,6 +1169,7 @@
             btnSaveTimesheet.TabIndex = 4;
             btnSaveTimesheet.Text = "Lưu chấm công";
             btnSaveTimesheet.Click += btnSaveTimesheet_Click;
+            btnSaveTimesheet.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvTimesheet
             // 
@@ -1087,6 +1179,7 @@
             dgvTimesheet.Name = "dgvTimesheet";
             dgvTimesheet.Size = new Size(1000, 400);
             dgvTimesheet.TabIndex = 5;
+            dgvTimesheet.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // lblTimesheetSummary
             // 
@@ -1096,6 +1189,7 @@
             lblTimesheetSummary.Name = "lblTimesheetSummary";
             lblTimesheetSummary.Size = new Size(0, 15);
             lblTimesheetSummary.TabIndex = 6;
+            lblTimesheetSummary.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             // 
             // tabTeacherSchedule
             // 
@@ -1117,6 +1211,7 @@
             lblTeacherWeek.Size = new Size(50, 15);
             lblTeacherWeek.TabIndex = 0;
             lblTeacherWeek.Text = "Tuần:";
+            lblTeacherWeek.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dtpTeacherWeek
             // 
@@ -1125,6 +1220,7 @@
             dtpTeacherWeek.Name = "dtpTeacherWeek";
             dtpTeacherWeek.Size = new Size(150, 23);
             dtpTeacherWeek.TabIndex = 1;
+            dtpTeacherWeek.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnLoadTeacherSchedule
             // 
@@ -1134,6 +1230,7 @@
             btnLoadTeacherSchedule.TabIndex = 2;
             btnLoadTeacherSchedule.Text = "Xem";
             btnLoadTeacherSchedule.Click += btnLoadTeacherSchedule_Click;
+            btnLoadTeacherSchedule.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvTeacherWeeklySchedule
             // 
@@ -1143,6 +1240,8 @@
             dgvTeacherWeeklySchedule.ReadOnly = true;
             dgvTeacherWeeklySchedule.Size = new Size(1000, 230);
             dgvTeacherWeeklySchedule.TabIndex = 3;
+            dgvTeacherWeeklySchedule.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvTeacherWeeklySchedule.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // dgvTeacherClasses
             // 
@@ -1150,6 +1249,8 @@
             dgvTeacherClasses.Name = "dgvTeacherClasses";
             dgvTeacherClasses.Size = new Size(1000, 210);
             dgvTeacherClasses.TabIndex = 0;
+            dgvTeacherClasses.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvTeacherClasses.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // tabTeacherAttendance
             // 
@@ -1173,6 +1274,7 @@
             lblAttendanceClass.Size = new Size(120, 15);
             lblAttendanceClass.TabIndex = 0;
             lblAttendanceClass.Text = "Chọn lớp";
+            lblAttendanceClass.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblAttendanceDate
             // 
@@ -1181,6 +1283,7 @@
             lblAttendanceDate.Size = new Size(120, 15);
             lblAttendanceDate.TabIndex = 1;
             lblAttendanceDate.Text = "Ngày học";
+            lblAttendanceDate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbClassAttendance
             // 
@@ -1188,6 +1291,7 @@
             cmbClassAttendance.Name = "cmbClassAttendance";
             cmbClassAttendance.Size = new Size(240, 23);
             cmbClassAttendance.TabIndex = 2;
+            cmbClassAttendance.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dtpSessionDate
             // 
@@ -1195,6 +1299,7 @@
             dtpSessionDate.Name = "dtpSessionDate";
             dtpSessionDate.Size = new Size(240, 23);
             dtpSessionDate.TabIndex = 3;
+            dtpSessionDate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnLoadAttendanceStudents
             // 
@@ -1204,6 +1309,7 @@
             btnLoadAttendanceStudents.TabIndex = 4;
             btnLoadAttendanceStudents.Text = "Tải DS điểm danh";
             btnLoadAttendanceStudents.Click += btnLoadAttendanceStudents_Click;
+            btnLoadAttendanceStudents.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvAttendance
             // 
@@ -1211,6 +1317,8 @@
             dgvAttendance.Name = "dgvAttendance";
             dgvAttendance.Size = new Size(1000, 350);
             dgvAttendance.TabIndex = 5;
+            dgvAttendance.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvAttendance.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // btnSaveAttendance
             // 
@@ -1220,6 +1328,7 @@
             btnSaveAttendance.TabIndex = 6;
             btnSaveAttendance.Text = "Lưu điểm danh";
             btnSaveAttendance.Click += btnSaveAttendance_Click;
+            btnSaveAttendance.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // tabTeacherEvaluation
             // 
@@ -1245,6 +1354,7 @@
             lblEvaluateClass.Size = new Size(120, 15);
             lblEvaluateClass.TabIndex = 0;
             lblEvaluateClass.Text = "Lớp học";
+            lblEvaluateClass.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblEvaluateStudent
             // 
@@ -1253,6 +1363,7 @@
             lblEvaluateStudent.Size = new Size(120, 15);
             lblEvaluateStudent.TabIndex = 1;
             lblEvaluateStudent.Text = "Học viên";
+            lblEvaluateStudent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblEvaluateScore
             // 
@@ -1261,6 +1372,7 @@
             lblEvaluateScore.Size = new Size(120, 15);
             lblEvaluateScore.TabIndex = 2;
             lblEvaluateScore.Text = "Điểm";
+            lblEvaluateScore.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblEvaluateComment
             // 
@@ -1269,6 +1381,7 @@
             lblEvaluateComment.Size = new Size(120, 15);
             lblEvaluateComment.TabIndex = 3;
             lblEvaluateComment.Text = "Nhận xét";
+            lblEvaluateComment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbClassEvaluate
             // 
@@ -1276,6 +1389,7 @@
             cmbClassEvaluate.Name = "cmbClassEvaluate";
             cmbClassEvaluate.Size = new Size(250, 23);
             cmbClassEvaluate.TabIndex = 4;
+            cmbClassEvaluate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbStudentEvaluate
             // 
@@ -1283,6 +1397,7 @@
             cmbStudentEvaluate.Name = "cmbStudentEvaluate";
             cmbStudentEvaluate.Size = new Size(250, 23);
             cmbStudentEvaluate.TabIndex = 5;
+            cmbStudentEvaluate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // txtScore
             // 
@@ -1290,6 +1405,7 @@
             txtScore.Name = "txtScore";
             txtScore.Size = new Size(250, 23);
             txtScore.TabIndex = 6;
+            txtScore.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // txtComment
             // 
@@ -1298,6 +1414,7 @@
             txtComment.Name = "txtComment";
             txtComment.Size = new Size(980, 280);
             txtComment.TabIndex = 7;
+            txtComment.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // btnSaveEvaluation
             // 
@@ -1307,6 +1424,7 @@
             btnSaveEvaluation.TabIndex = 8;
             btnSaveEvaluation.Text = "Lưu nhận xét/điểm";
             btnSaveEvaluation.Click += btnSaveEvaluation_Click;
+            btnSaveEvaluation.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // btnLogoutTeacher
             // 
@@ -1332,6 +1450,7 @@
             // Form1
             // 
             ClientSize = new Size(1040, 560);
+            MinimumSize = new Size(900, 520);
             Controls.Add(btnLogoutGlobal);
             Controls.Add(tabMain);
             Name = "Form1";
@@ -1467,12 +1586,6 @@
         private Label lblPaymentStudent;
         private Label lblPaymentAmount;
         private Label lblPaymentNote;
-        private Label lblAttendanceClass;
-        private Label lblAttendanceDate;
-        private Label lblEvaluateClass;
-        private Label lblEvaluateStudent;
-        private Label lblEvaluateScore;
-        private Label lblEvaluateComment;
         private Label lblTeacherName;
         private Label lblTeacherPhone;
         private Label lblTeacherEmail;
@@ -1485,23 +1598,29 @@
         private Button btnAddTeacher;
         private Button btnUpdateTeacher;
         private Button btnDeleteTeacher;
-        private Button btnLogoutAdmin;
-        private Button btnLogoutTeacher;
-        private Button btnLogoutGlobal;
-        private TabPage tabTeacherTimesheet;
-        private DataGridView dgvTimesheet;
-        private Label lblTimesheetMonth;
-        private ComboBox cmbTimesheetMonth;
-        private ComboBox cmbTimesheetYear;
-        private Button btnLoadTimesheet;
-        private Button btnSaveTimesheet;
-        private Label lblTimesheetSummary;
-        private DataGridView dgvPayrollDetail;
-        private Button btnViewEvaluations;
         private Label lblTeacherAccount;
         private TextBox txtTeacherUsername;
         private Label lblTeacherPassword;
         private TextBox txtTeacherPassword;
         private Button btnUpdateTeacherPassword;
+        private TabPage tabTeacherTimesheet;
+        private Label lblTimesheetMonth;
+        private ComboBox cmbTimesheetMonth;
+        private ComboBox cmbTimesheetYear;
+        private Button btnLoadTimesheet;
+        private Button btnSaveTimesheet;
+        private DataGridView dgvTimesheet;
+        private Label lblTimesheetSummary;
+        private Label lblAttendanceClass;
+        private Label lblAttendanceDate;
+        private Label lblEvaluateClass;
+        private Label lblEvaluateStudent;
+        private Label lblEvaluateScore;
+        private Label lblEvaluateComment;
+        private Button btnLogoutAdmin;
+        private Button btnLogoutTeacher;
+        private Button btnLogoutGlobal;
+        private DataGridView dgvPayrollDetail;
+        private Button btnViewEvaluations;
     }
 }

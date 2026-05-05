@@ -26,6 +26,7 @@ public class TeacherManagementForm : Form
 
         _dgvTeachers.Location = new Point(10, 10);
         _dgvTeachers.Size = new Size(600, 450);
+        _dgvTeachers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         _dgvTeachers.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         _dgvTeachers.SelectionChanged += DgvTeachers_SelectionChanged;
 
