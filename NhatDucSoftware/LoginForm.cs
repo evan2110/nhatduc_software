@@ -19,6 +19,7 @@ public class LoginForm : Form
         Height = 220;
         MinimumSize = new Size(360, 220);
         StartPosition = FormStartPosition.CenterScreen;
+        UiBackgroundHelper.ApplyBackground(this);
 
         var lblUser = new Label { Left = 20, Top = 25, Width = 90, Text = "Tài khoản", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         var lblPass = new Label { Left = 20, Top = 65, Width = 90, Text = "Mật khẩu", Anchor = AnchorStyles.Top | AnchorStyles.Left };

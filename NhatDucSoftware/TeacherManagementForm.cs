@@ -22,6 +22,7 @@ public class TeacherManagementForm : Form
         Height = 520;
         MinimumSize = new Size(980, 520);
         StartPosition = FormStartPosition.CenterParent;
+        UiBackgroundHelper.ApplyBackground(this);
 
         _dgvTeachers.Location = new Point(10, 10);
         _dgvTeachers.Size = new Size(600, 450);

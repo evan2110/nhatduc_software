@@ -29,6 +29,7 @@ namespace NhatDucSoftware
             _currentUser = user;
             InitializeComponent();
             Text = $"Nhat Duc Software - {_currentUser.Role}: {_currentUser.Username}";
+            UiBackgroundHelper.ApplyBackground(this);
             AddCopyrightLabel();
         }
 
@@ -532,6 +533,8 @@ namespace NhatDucSoftware
         {
             if (dgvTeachers.CurrentRow?.DataBoundItem is not Teacher teacher)
             {
+                txtTeacherUsername.Text = string.Empty;
+                txtTeacherPassword.Text = string.Empty;
                 return;
             }
 
@@ -539,6 +542,33 @@ namespace NhatDucSoftware
             txtTeacherPhone.Text = teacher.Phone;
             txtTeacherEmail.Text = teacher.Email;
             cmbTeacherStatus.Text = teacher.Status;
+
+            var account = _teacherService.GetAccountInfo(teacher.Id);
+            txtTeacherUsername.Text = account?.Username ?? string.Empty;
+            txtTeacherPassword.Text = account?.Password ?? string.Empty;
+        }
+
+        private void btnUpdateTeacherPassword_Click(object sender, EventArgs e)
+        {
+            if (dgvTeachers.CurrentRow?.DataBoundItem is not Teacher teacher)
+            {
+                MessageBox.Show("Vui lòng chọn giáo viên.");
+                return;
+            }
+
+            try
+            {
+                _teacherService.UpdatePassword(teacher.Id, txtTeacherPassword.Text);
+                MessageBox.Show("Đã cập nhật mật khẩu.");
+
+                var account = _teacherService.GetAccountInfo(teacher.Id);
+                txtTeacherUsername.Text = account?.Username ?? string.Empty;
+                txtTeacherPassword.Text = account?.Password ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void btnLoadPayment_Click(object sender, EventArgs e)

@@ -93,6 +93,11 @@
             btnAddTeacher = new Button();
             btnUpdateTeacher = new Button();
             btnDeleteTeacher = new Button();
+            lblTeacherAccount = new Label();
+            txtTeacherUsername = new TextBox();
+            lblTeacherPassword = new Label();
+            txtTeacherPassword = new TextBox();
+            btnUpdateTeacherPassword = new Button();
             tabAdminPayroll = new TabPage();
             lblPayrollMonth = new Label();
             cmbPayrollMonth = new ComboBox();
@@ -767,6 +772,11 @@
             tabAdminTeachers.Controls.Add(btnAddTeacher);
             tabAdminTeachers.Controls.Add(btnUpdateTeacher);
             tabAdminTeachers.Controls.Add(btnDeleteTeacher);
+            tabAdminTeachers.Controls.Add(lblTeacherAccount);
+            tabAdminTeachers.Controls.Add(txtTeacherUsername);
+            tabAdminTeachers.Controls.Add(lblTeacherPassword);
+            tabAdminTeachers.Controls.Add(txtTeacherPassword);
+            tabAdminTeachers.Controls.Add(btnUpdateTeacherPassword);
             tabAdminTeachers.Location = new Point(4, 24);
             tabAdminTeachers.Name = "tabAdminTeachers";
             tabAdminTeachers.Size = new Size(1024, 504);
@@ -869,6 +879,46 @@
             btnDeleteTeacher.TabIndex = 11;
             btnDeleteTeacher.Text = "Xóa";
             btnDeleteTeacher.Click += btnDeleteTeacher_Click;
+            // 
+            // lblTeacherAccount
+            // 
+            lblTeacherAccount.Location = new Point(680, 245);
+            lblTeacherAccount.Name = "lblTeacherAccount";
+            lblTeacherAccount.Size = new Size(120, 15);
+            lblTeacherAccount.TabIndex = 12;
+            lblTeacherAccount.Text = "Tài khoản";
+            // 
+            // txtTeacherUsername
+            // 
+            txtTeacherUsername.Location = new Point(680, 263);
+            txtTeacherUsername.Name = "txtTeacherUsername";
+            txtTeacherUsername.ReadOnly = true;
+            txtTeacherUsername.Size = new Size(300, 23);
+            txtTeacherUsername.TabIndex = 13;
+            // 
+            // lblTeacherPassword
+            // 
+            lblTeacherPassword.Location = new Point(680, 292);
+            lblTeacherPassword.Name = "lblTeacherPassword";
+            lblTeacherPassword.Size = new Size(120, 15);
+            lblTeacherPassword.TabIndex = 14;
+            lblTeacherPassword.Text = "Mật khẩu";
+            // 
+            // txtTeacherPassword
+            // 
+            txtTeacherPassword.Location = new Point(680, 310);
+            txtTeacherPassword.Name = "txtTeacherPassword";
+            txtTeacherPassword.Size = new Size(300, 23);
+            txtTeacherPassword.TabIndex = 15;
+            // 
+            // btnUpdateTeacherPassword
+            // 
+            btnUpdateTeacherPassword.Location = new Point(680, 340);
+            btnUpdateTeacherPassword.Name = "btnUpdateTeacherPassword";
+            btnUpdateTeacherPassword.Size = new Size(300, 30);
+            btnUpdateTeacherPassword.TabIndex = 16;
+            btnUpdateTeacherPassword.Text = "Cập nhật mật khẩu";
+            btnUpdateTeacherPassword.Click += btnUpdateTeacherPassword_Click;
             // 
             // tabAdminPayroll
             // 
@@ -1448,5 +1498,10 @@
         private Label lblTimesheetSummary;
         private DataGridView dgvPayrollDetail;
         private Button btnViewEvaluations;
+        private Label lblTeacherAccount;
+        private TextBox txtTeacherUsername;
+        private Label lblTeacherPassword;
+        private TextBox txtTeacherPassword;
+        private Button btnUpdateTeacherPassword;
     }
 }

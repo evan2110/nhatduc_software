@@ -29,6 +29,54 @@ public class TeacherService
         return result;
     }
 
+    public TeacherAccountInfo? GetAccountInfo(int teacherId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"SELECT Username, PasswordHash
+FROM Users
+WHERE TeacherId = @teacherId
+LIMIT 1;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return new TeacherAccountInfo
+        {
+            Username = reader.GetString(0),
+            Password = reader.GetString(1)
+        };
+    }
+
+    public void UpdatePassword(int teacherId, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            throw new InvalidOperationException("Mật khẩu không được để trống.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"UPDATE Users
+SET PasswordHash = @password
+WHERE TeacherId = @teacherId;";
+        command.Parameters.AddWithValue("@password", newPassword.Trim());
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản đăng nhập của giáo viên này.");
+        }
+    }
+
     /// <summary>
     /// Thêm giáo viên mới và tự động tạo tài khoản đăng nhập.
     /// Username = tên viết thường không dấu, Password mặc định = "123456".
@@ -178,4 +226,10 @@ WHERE Id = @id;";
 
         transaction.Commit();
     }
+}
+
+public class TeacherAccountInfo
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }

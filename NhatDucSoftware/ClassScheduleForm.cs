@@ -23,6 +23,7 @@ public class ClassScheduleForm : Form
         Height = 420;
         MinimumSize = new Size(750, 420);
         StartPosition = FormStartPosition.CenterParent;
+        UiBackgroundHelper.ApplyBackground(this);
 
         var lblWeek = new Label { Left = 10, Top = 15, Width = 60, Text = "Tuần:", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _dtpWeek = new DateTimePicker { Left = 75, Top = 12, Width = 150, Format = DateTimePickerFormat.Short, Anchor = AnchorStyles.Top | AnchorStyles.Left };
