@@ -41,6 +41,11 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
 
     public void Collect(int studentId, decimal amount, int createdBy, string? note)
     {
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
+        }
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
         using var transaction = connection.BeginTransaction();

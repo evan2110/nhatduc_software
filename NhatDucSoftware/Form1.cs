@@ -53,6 +53,8 @@ namespace NhatDucSoftware
             if (_currentUser.Role == "Teacher")
             {
                 tabAdmin.Parent = null;
+                dtpTeacherWeek.ValueChanged += (_, _) => LoadTeacherWeeklySchedule();
+                btnLoadTeacherSchedule.Visible = false;
             }
             else
             {
@@ -189,8 +191,7 @@ namespace NhatDucSoftware
             var lblDate = new Label { Text = "Ngày học", Location = new Point(320, 10), Size = new Size(120, 20) };
             var dtpDate = new DateTimePicker { Location = new Point(320, 32), Size = new Size(180, 23), Format = DateTimePickerFormat.Short };
 
-            var btnLoad = new Button { Text = "Tải danh sách", Location = new Point(510, 31), Size = new Size(120, 25) };
-            var btnSave = new Button { Text = "Lưu điểm danh bù", Location = new Point(640, 31), Size = new Size(240, 25) };
+            var btnSave = new Button { Text = "Lưu điểm danh bù", Location = new Point(510, 31), Size = new Size(370, 25), Enabled = false };
 
             var dgv = new DataGridView
             {
@@ -201,10 +202,24 @@ namespace NhatDucSoftware
                 AllowUserToAddRows = false
             };
 
+            static bool IsValidAttendanceStatus(string? status)
+            {
+                var normalized = (status ?? string.Empty).Trim().ToUpperInvariant();
+                return normalized is "C" or "V";
+            }
+
+            void UpdateSaveButtonState()
+            {
+                var rows = dgv.DataSource as List<AttendanceRow>;
+                btnSave.Enabled = rows is { Count: > 0 } && rows.All(x => IsValidAttendanceStatus(x.Status));
+            }
+
             void LoadStudentsForMakeup()
             {
                 if (cmbClass.SelectedValue is not int classId)
                 {
+                    dgv.DataSource = null;
+                    btnSave.Enabled = false;
                     return;
                 }
 
@@ -223,10 +238,41 @@ namespace NhatDucSoftware
 
                 if (dgv.Columns.Contains(nameof(AttendanceRow.StudentId))) dgv.Columns[nameof(AttendanceRow.StudentId)].HeaderText = "Mã học viên";
                 if (dgv.Columns.Contains(nameof(AttendanceRow.StudentName))) dgv.Columns[nameof(AttendanceRow.StudentName)].HeaderText = "Tên học viên";
-                if (dgv.Columns.Contains(nameof(AttendanceRow.Status))) dgv.Columns[nameof(AttendanceRow.Status)].HeaderText = "Điểm danh (C/V)";
+                if (dgv.Columns.Contains(nameof(AttendanceRow.Status)))
+                {
+                    dgv.Columns[nameof(AttendanceRow.Status)].HeaderText = "Điểm danh (C/V)";
+                    dgv.Columns[nameof(AttendanceRow.Status)].ToolTipText = "Chỉ nhập C hoặc V";
+                }
+
+                UpdateSaveButtonState();
             }
 
-            btnLoad.Click += (_, _) => LoadStudentsForMakeup();
+            cmbClass.SelectedIndexChanged += (_, _) => LoadStudentsForMakeup();
+            dtpDate.ValueChanged += (_, _) => LoadStudentsForMakeup();
+
+            dgv.CurrentCellDirtyStateChanged += (_, _) =>
+            {
+                if (dgv.IsCurrentCellDirty)
+                {
+                    dgv.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            };
+
+            dgv.CellValueChanged += (_, e2) =>
+            {
+                if (e2.RowIndex < 0)
+                {
+                    return;
+                }
+
+                if (dgv.Columns[e2.ColumnIndex].DataPropertyName == nameof(AttendanceRow.Status)
+                    && dgv.Rows[e2.RowIndex].DataBoundItem is AttendanceRow row)
+                {
+                    row.Status = (row.Status ?? string.Empty).Trim().ToUpperInvariant();
+                }
+
+                UpdateSaveButtonState();
+            };
 
             btnSave.Click += (_, _) =>
             {
@@ -243,6 +289,8 @@ namespace NhatDucSoftware
                     return;
                 }
 
+                dgv.EndEdit();
+
                 var rows = dgv.DataSource as List<AttendanceRow>;
                 if (rows is null || rows.Count == 0)
                 {
@@ -250,16 +298,24 @@ namespace NhatDucSoftware
                     return;
                 }
 
-                var records = rows.ToDictionary(x => x.StudentId, x => x.Status);
+                var invalidRow = rows.FirstOrDefault(x => !IsValidAttendanceStatus(x.Status));
+                if (invalidRow is not null)
+                {
+                    MessageBox.Show($"Học viên '{invalidRow.StudentName}' phải nhập điểm danh là C hoặc V.");
+                    UpdateSaveButtonState();
+                    return;
+                }
+
+                var records = rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
                 _attendanceService.SaveAttendance(classId, teacherId.Value, dtpDate.Value.Date, records);
                 MessageBox.Show("Đã lưu điểm danh bù.");
+                UpdateSaveButtonState();
             };
 
             form.Controls.Add(lblClass);
             form.Controls.Add(cmbClass);
             form.Controls.Add(lblDate);
             form.Controls.Add(dtpDate);
-            form.Controls.Add(btnLoad);
             form.Controls.Add(btnSave);
             form.Controls.Add(dgv);
 
@@ -1082,7 +1138,14 @@ namespace NhatDucSoftware
                 return;
             }
 
-            var amount = decimal.TryParse(txtPaymentAmount.Text, out var value) ? value : 0;
+            if (!decimal.TryParse(txtPaymentAmount.Text, out var amount) || amount <= 0)
+            {
+                MessageBox.Show("Số tiền thu bắt buộc phải lớn hơn 0.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtPaymentAmount.Focus();
+                txtPaymentAmount.SelectAll();
+                return;
+            }
+
             _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
             btnLoadPayment_Click(sender, e);
             LoadReports();
@@ -1125,7 +1188,7 @@ namespace NhatDucSoftware
             }
 
             var rows = dgvAttendance.DataSource as List<AttendanceRow>;
-            if (rows is null || rows.Count == 0)
+            if (rows is null or { Count: 0 })
             {
                 return;
             }
