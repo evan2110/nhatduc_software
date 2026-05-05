@@ -13,7 +13,7 @@ public class StudentService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FullName, Phone, Email, BirthYear, Address, Status FROM Students ORDER BY Id DESC;";
+        command.CommandText = "SELECT Id, FullName, Phone, Email, BirthYear, Address, Status FROM Students ORDER BY Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {

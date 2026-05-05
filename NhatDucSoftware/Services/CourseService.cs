@@ -12,7 +12,7 @@ public class CourseService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Name, TuitionFee, Status FROM Courses ORDER BY Name;";
+        command.CommandText = "SELECT Id, Name, TuitionFee, Status FROM Courses ORDER BY Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {

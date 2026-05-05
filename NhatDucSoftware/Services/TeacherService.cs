@@ -12,7 +12,7 @@ public class TeacherService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FullName, Phone, Email, Status FROM Teachers ORDER BY Id DESC;";
+        command.CommandText = "SELECT Id, FullName, Phone, Email, Status FROM Teachers ORDER BY Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {

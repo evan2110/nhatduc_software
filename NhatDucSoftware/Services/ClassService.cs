@@ -22,7 +22,7 @@ SELECT c.Id,
 FROM Classes c
 INNER JOIN Courses co ON co.Id = c.CourseId
 LEFT JOIN Teachers t ON t.Id = c.TeacherId
-ORDER BY c.Id DESC;";
+ORDER BY c.Id ASC;";
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
@@ -56,7 +56,7 @@ FROM Classes c
 INNER JOIN Courses co ON co.Id = c.CourseId
 LEFT JOIN Teachers t ON t.Id = c.TeacherId
 WHERE c.TeacherId = @teacherId
-ORDER BY c.Id DESC;";
+ORDER BY c.Id ASC;";
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         using var reader = command.ExecuteReader();
