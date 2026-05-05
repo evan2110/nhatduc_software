@@ -154,14 +154,6 @@ WHERE Id = @id;";
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
-        using var checkUser = connection.CreateCommand();
-        checkUser.CommandText = "SELECT COUNT(1) FROM Users WHERE TeacherId = @teacherId;";
-        checkUser.Parameters.AddWithValue("@teacherId", teacherId);
-        if (Convert.ToInt32(checkUser.ExecuteScalar()) > 0)
-        {
-            throw new InvalidOperationException("Giáo viên đang liên kết tài khoản đăng nhập, không thể xóa.");
-        }
-
         using var checkClass = connection.CreateCommand();
         checkClass.CommandText = "SELECT COUNT(1) FROM Classes WHERE TeacherId = @teacherId;";
         checkClass.Parameters.AddWithValue("@teacherId", teacherId);
@@ -170,9 +162,20 @@ WHERE Id = @id;";
             throw new InvalidOperationException("Giáo viên đang được gán lớp học, không thể xóa.");
         }
 
-        using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Teachers WHERE Id = @id;";
-        command.Parameters.AddWithValue("@id", teacherId);
-        command.ExecuteNonQuery();
+        using var transaction = connection.BeginTransaction();
+
+        using var deleteUser = connection.CreateCommand();
+        deleteUser.Transaction = transaction;
+        deleteUser.CommandText = "DELETE FROM Users WHERE TeacherId = @teacherId;";
+        deleteUser.Parameters.AddWithValue("@teacherId", teacherId);
+        deleteUser.ExecuteNonQuery();
+
+        using var deleteTeacher = connection.CreateCommand();
+        deleteTeacher.Transaction = transaction;
+        deleteTeacher.CommandText = "DELETE FROM Teachers WHERE Id = @id;";
+        deleteTeacher.Parameters.AddWithValue("@id", teacherId);
+        deleteTeacher.ExecuteNonQuery();
+
+        transaction.Commit();
     }
 }

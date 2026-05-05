@@ -29,6 +29,20 @@ namespace NhatDucSoftware
             _currentUser = user;
             InitializeComponent();
             Text = $"Nhat Duc Software - {_currentUser.Role}: {_currentUser.Username}";
+            AddCopyrightLabel();
+        }
+
+        private void AddCopyrightLabel()
+        {
+            var lblCopyright = new Label
+            {
+                AutoSize = true,
+                Text = "Make by Nhật Đức",
+                Location = new Point(10, ClientSize.Height - 22),
+                Anchor = AnchorStyles.Left | AnchorStyles.Bottom
+            };
+            Controls.Add(lblCopyright);
+            lblCopyright.BringToFront();
         }
 
         private void Form1_Load(object sender, EventArgs e)

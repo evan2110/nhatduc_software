@@ -21,16 +21,17 @@ public class ClassScheduleForm : Form
         Text = $"Lịch học - {className}";
         Width = 750;
         Height = 420;
+        MinimumSize = new Size(750, 420);
         StartPosition = FormStartPosition.CenterParent;
 
-        var lblWeek = new Label { Left = 10, Top = 15, Width = 60, Text = "Tuần:" };
-        _dtpWeek = new DateTimePicker { Left = 75, Top = 12, Width = 150, Format = DateTimePickerFormat.Short };
+        var lblWeek = new Label { Left = 10, Top = 15, Width = 60, Text = "Tuần:", Anchor = AnchorStyles.Top | AnchorStyles.Left };
+        _dtpWeek = new DateTimePicker { Left = 75, Top = 12, Width = 150, Format = DateTimePickerFormat.Short, Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _dtpWeek.Value = ClassWeeklySchedule.GetMondayOfWeek(DateTime.Today);
 
-        _btnLoad = new Button { Left = 235, Top = 11, Width = 80, Height = 25, Text = "Xem" };
+        _btnLoad = new Button { Left = 235, Top = 11, Width = 80, Height = 25, Text = "Xem", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _btnLoad.Click += (_, _) => LoadSchedule();
 
-        _btnSave = new Button { Left = 325, Top = 11, Width = 120, Height = 25, Text = "Lưu lịch tuần này" };
+        _btnSave = new Button { Left = 325, Top = 11, Width = 120, Height = 25, Text = "Lưu lịch tuần này", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _btnSave.Click += BtnSave_Click;
 
         _dgvSchedule = new DataGridView
@@ -40,10 +41,20 @@ public class ClassScheduleForm : Form
             Width = 710,
             Height = 320,
             AllowUserToAddRows = false,
-            RowHeadersVisible = false
+            RowHeadersVisible = false,
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
         };
 
-        Controls.AddRange(new Control[] { lblWeek, _dtpWeek, _btnLoad, _btnSave, _dgvSchedule });
+        var lblCopyright = new Label
+        {
+            AutoSize = true,
+            Text = "Make by Nhật Đức",
+            Left = 10,
+            Top = ClientSize.Height - 22,
+            Anchor = AnchorStyles.Left | AnchorStyles.Bottom
+        };
+
+        Controls.AddRange(new Control[] { lblWeek, _dtpWeek, _btnLoad, _btnSave, _dgvSchedule, lblCopyright });
 
         Load += (_, _) => LoadSchedule();
     }

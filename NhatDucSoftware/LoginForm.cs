@@ -17,22 +17,33 @@ public class LoginForm : Form
         Text = "Đăng nhập";
         Width = 360;
         Height = 220;
+        MinimumSize = new Size(360, 220);
         StartPosition = FormStartPosition.CenterScreen;
 
-        var lblUser = new Label { Left = 20, Top = 25, Width = 90, Text = "Tài khoản" };
-        var lblPass = new Label { Left = 20, Top = 65, Width = 90, Text = "Mật khẩu" };
+        var lblUser = new Label { Left = 20, Top = 25, Width = 90, Text = "Tài khoản", Anchor = AnchorStyles.Top | AnchorStyles.Left };
+        var lblPass = new Label { Left = 20, Top = 65, Width = 90, Text = "Mật khẩu", Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
-        _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "admin" };
-        _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "123456" };
+        _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "admin", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+        _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "123456", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
-        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập" };
+        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập", Anchor = AnchorStyles.Top };
         _btnLogin.Click += BtnLogin_Click;
+
+        var lblCopyright = new Label
+        {
+            AutoSize = true,
+            Text = "Make by Nhật Đức",
+            Left = 10,
+            Top = ClientSize.Height - 22,
+            Anchor = AnchorStyles.Left | AnchorStyles.Bottom
+        };
 
         Controls.Add(lblUser);
         Controls.Add(lblPass);
         Controls.Add(_txtUsername);
         Controls.Add(_txtPassword);
         Controls.Add(_btnLogin);
+        Controls.Add(lblCopyright);
     }
 
     private void BtnLogin_Click(object? sender, EventArgs e)
