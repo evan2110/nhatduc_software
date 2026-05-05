@@ -31,8 +31,10 @@ CREATE TABLE IF NOT EXISTS Users (
 CREATE TABLE IF NOT EXISTS Students (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     FullName TEXT NOT NULL,
-    Phone TEXT NOT NULL UNIQUE,
+    Phone TEXT,
     Email TEXT,
+    BirthYear INTEGER NULL,
+    Address TEXT NULL,
     Language TEXT NOT NULL,
     Status TEXT NOT NULL DEFAULT 'Active',
     CreatedAt TEXT NOT NULL
@@ -112,6 +114,13 @@ CREATE TABLE IF NOT EXISTS Payments (
     FOREIGN KEY (CreatedBy) REFERENCES Users(Id)
 );
 
+CREATE TABLE IF NOT EXISTS RevenueLedger (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    SourcePaymentId INTEGER NULL UNIQUE,
+    Amount REAL NOT NULL,
+    PaymentDate TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS AttendanceSessions (
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
     ClassId INTEGER NOT NULL,
@@ -157,7 +166,104 @@ CREATE TABLE IF NOT EXISTS TeacherTimesheets (
 ";
         command.ExecuteNonQuery();
 
+        MigrateStudentsPhoneColumn(connection);
+        MigrateStudentsBirthYearAndAddress(connection);
+        SyncRevenueLedger(connection);
         Seed(connection);
+    }
+
+    private static void SyncRevenueLedger(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO RevenueLedger(SourcePaymentId, Amount, PaymentDate)
+SELECT p.Id, p.Amount, p.PaymentDate
+FROM Payments p
+WHERE NOT EXISTS (
+    SELECT 1 FROM RevenueLedger r WHERE r.SourcePaymentId = p.Id
+);";
+        command.ExecuteNonQuery();
+    }
+
+    private static void MigrateStudentsPhoneColumn(SqliteConnection connection)
+    {
+        // Check if Phone column still has UNIQUE constraint by inspecting table SQL
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = "SELECT sql FROM sqlite_master WHERE type='table' AND name='Students';";
+        var tableSql = checkCmd.ExecuteScalar()?.ToString() ?? string.Empty;
+
+        // If Phone is still UNIQUE, rebuild the table without that constraint
+        if (!tableSql.Contains("Phone TEXT NOT NULL UNIQUE") && !tableSql.Contains("Phone TEXT UNIQUE"))
+            return;
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+PRAGMA foreign_keys = OFF;
+
+CREATE TABLE IF NOT EXISTS Students_new (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    FullName TEXT NOT NULL,
+    Phone TEXT,
+    Email TEXT,
+    Language TEXT NOT NULL,
+    Status TEXT NOT NULL DEFAULT 'Active',
+    CreatedAt TEXT NOT NULL
+);
+
+INSERT INTO Students_new (Id, FullName, Phone, Email, Language, Status, CreatedAt)
+SELECT Id, FullName, Phone, Email, Language, Status, CreatedAt FROM Students;
+
+DROP TABLE Students;
+
+ALTER TABLE Students_new RENAME TO Students;
+
+PRAGMA foreign_keys = ON;
+";
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void MigrateStudentsBirthYearAndAddress(SqliteConnection connection)
+    {
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = "PRAGMA table_info(Students);";
+
+        var hasBirthYear = false;
+        var hasAddress = false;
+
+        using (var reader = checkCmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                var columnName = reader.GetString(1);
+                if (columnName.Equals("BirthYear", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasBirthYear = true;
+                }
+                else if (columnName.Equals("Address", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasAddress = true;
+                }
+            }
+        }
+
+        if (hasBirthYear && hasAddress)
+        {
+            return;
+        }
+
+        if (!hasBirthYear)
+        {
+            using var addBirthYearCmd = connection.CreateCommand();
+            addBirthYearCmd.CommandText = "ALTER TABLE Students ADD COLUMN BirthYear INTEGER NULL;";
+            addBirthYearCmd.ExecuteNonQuery();
+        }
+
+        if (!hasAddress)
+        {
+            using var addAddressCmd = connection.CreateCommand();
+            addAddressCmd.CommandText = "ALTER TABLE Students ADD COLUMN Address TEXT NULL;";
+            addAddressCmd.ExecuteNonQuery();
+        }
     }
 
     private static void Seed(SqliteConnection connection)

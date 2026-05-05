@@ -1,3 +1,4 @@
+﻿using System.Drawing.Drawing2D;
 using NhatDucSoftware.Models;
 using NhatDucSoftware.Services;
 
@@ -21,6 +22,7 @@ namespace NhatDucSoftware
         private List<Course> _courses = new();
         private List<ClassInfo> _classes = new();
         private List<Teacher> _teachers = new();
+        private List<RevenueByYearStat> _revenueByYear = new();
 
         public bool RequestLogout { get; private set; }
 
@@ -92,6 +94,8 @@ namespace NhatDucSoftware
                 [nameof(Student.FullName)] = "Họ và tên",
                 [nameof(Student.Phone)] = "Số điện thoại",
                 [nameof(Student.Email)] = "Email",
+                [nameof(Student.BirthYear)] = "Năm sinh",
+                [nameof(Student.Address)] = "Địa chỉ",
                 [nameof(Student.Status)] = "Trạng thái"
             });
         }
@@ -140,6 +144,20 @@ namespace NhatDucSoftware
                 [nameof(Teacher.Email)] = "Email",
                 [nameof(Teacher.Status)] = "Trạng thái"
             });
+        }
+
+        private void ApplyRevenueByYearHeaders()
+        {
+            SetGridHeaders(dgvRevenueByYear, new Dictionary<string, string>
+            {
+                [nameof(RevenueByYearStat.Year)] = "Năm",
+                [nameof(RevenueByYearStat.TotalRevenue)] = "Doanh thu"
+            });
+
+            if (dgvRevenueByYear.Columns[nameof(RevenueByYearStat.TotalRevenue)] is DataGridViewColumn revenueCol)
+            {
+                revenueCol.DefaultCellStyle.Format = "N0";
+            }
         }
 
         private void LoadTeachers()
@@ -232,6 +250,108 @@ namespace NhatDucSoftware
             lblTotalStudents.Text = $"Tổng học viên: {summary.TotalStudents}";
             lblTotalRevenue.Text = $"Doanh thu: {summary.TotalRevenue:N0}";
             lblActiveClasses.Text = $"Lớp hoạt động: {summary.ActiveClasses}";
+
+            _revenueByYear = _reportService.GetRevenueByYear();
+            dgvRevenueByYear.DataSource = null;
+            dgvRevenueByYear.DataSource = _revenueByYear;
+            ApplyRevenueByYearHeaders();
+            pnlRevenueChart.Invalidate();
+        }
+
+        private void pnlRevenueChart_Paint(object? sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
+
+            var chartArea = pnlRevenueChart.ClientRectangle;
+            if (chartArea.Width < 120 || chartArea.Height < 120)
+            {
+                return;
+            }
+
+            if (_revenueByYear.Count == 0)
+            {
+                using var emptyBrush = new SolidBrush(Color.Gray);
+                using var emptyFont = new Font("Segoe UI", 10f);
+                var text = "Chưa có dữ liệu doanh thu";
+                var size = g.MeasureString(text, emptyFont);
+                g.DrawString(text, emptyFont, emptyBrush,
+                    (chartArea.Width - size.Width) / 2,
+                    (chartArea.Height - size.Height) / 2);
+                return;
+            }
+
+            var data = _revenueByYear.OrderBy(x => x.Year).ToList();
+
+            const int leftPad = 60;
+            const int rightPad = 20;
+            const int topPad = 20;
+            const int bottomPad = 50;
+
+            var plot = new Rectangle(
+                leftPad,
+                topPad,
+                chartArea.Width - leftPad - rightPad,
+                chartArea.Height - topPad - bottomPad);
+
+            using var axisPen = new Pen(Color.DimGray, 1.2f);
+            g.DrawLine(axisPen, plot.Left, plot.Bottom, plot.Right, plot.Bottom);
+            g.DrawLine(axisPen, plot.Left, plot.Top, plot.Left, plot.Bottom);
+
+            var maxRevenue = data.Max(x => x.TotalRevenue);
+            if (maxRevenue <= 0)
+            {
+                maxRevenue = 1;
+            }
+
+            using var gridPen = new Pen(Color.Gainsboro, 1f);
+            using var labelBrush = new SolidBrush(Color.DimGray);
+            using var axisFont = new Font("Segoe UI", 8.5f);
+
+            const int gridLines = 4;
+            for (int i = 0; i <= gridLines; i++)
+            {
+                var ratio = i / (float)gridLines;
+                var y = plot.Bottom - ratio * plot.Height;
+                g.DrawLine(gridPen, plot.Left, y, plot.Right, y);
+
+                var value = maxRevenue * (decimal)ratio;
+                var yLabel = $"{value:N0}";
+                var ySize = g.MeasureString(yLabel, axisFont);
+                g.DrawString(yLabel, axisFont, labelBrush, plot.Left - ySize.Width - 6, y - ySize.Height / 2);
+            }
+
+            var slotWidth = plot.Width / (float)data.Count;
+            var barWidth = Math.Max(16f, slotWidth * 0.55f);
+
+            using var barBrush = new SolidBrush(Color.FromArgb(66, 133, 244));
+            using var valueFont = new Font("Segoe UI", 8f, FontStyle.Bold);
+            using var valueBrush = new SolidBrush(Color.FromArgb(40, 40, 40));
+
+            for (int i = 0; i < data.Count; i++)
+            {
+                var item = data[i];
+                var barHeight = (float)((double)(item.TotalRevenue / maxRevenue) * plot.Height);
+                var x = plot.Left + i * slotWidth + (slotWidth - barWidth) / 2;
+                var y = plot.Bottom - barHeight;
+
+                g.FillRectangle(barBrush, x, y, barWidth, barHeight);
+
+                var yearText = item.Year.ToString();
+                var yearSize = g.MeasureString(yearText, axisFont);
+                g.DrawString(yearText, axisFont, labelBrush, x + (barWidth - yearSize.Width) / 2, plot.Bottom + 6);
+
+                var valueText = item.TotalRevenue.ToString("N0");
+                var valueSize = g.MeasureString(valueText, valueFont);
+                var valueX = x + (barWidth - valueSize.Width) / 2;
+                var valueY = y - valueSize.Height - 3;
+
+                if (valueY > plot.Top - valueSize.Height)
+                {
+                    g.DrawString(valueText, valueFont, valueBrush, valueX, valueY);
+                }
+            }
         }
 
         private void btnAddStudent_Click(object sender, EventArgs e)
@@ -243,6 +363,8 @@ namespace NhatDucSoftware
                     FullName = txtStudentName.Text.Trim(),
                     Phone = txtStudentPhone.Text.Trim(),
                     Email = txtStudentEmail.Text.Trim(),
+                    BirthYear = int.TryParse(txtStudentBirthYear.Text.Trim(), out var birthYear) ? birthYear : null,
+                    Address = txtStudentAddress.Text.Trim(),
                     Status = cmbStudentStatus.Text
                 });
                 LoadStudents();
@@ -251,6 +373,93 @@ namespace NhatDucSoftware
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private void btnImportStudents_Click(object sender, EventArgs e)
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                Title = "Chọn file danh sách học viên"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            var imported = 0;
+            var skipped = 0;
+            var errors = new List<string>();
+
+            foreach (var item in File.ReadLines(dialog.FileName).Select((line, index) => new { line, index }))
+            {
+                var raw = item.line.Trim();
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var parts = raw.Split('-', 5);
+                var fullName = parts.Length > 0 ? parts[0].Trim() : string.Empty;
+                var phone = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+                var email = parts.Length > 2 ? parts[2].Trim() : string.Empty;
+                var birthYearText = parts.Length > 3 ? parts[3].Trim() : string.Empty;
+                var address = parts.Length > 4 ? parts[4].Trim() : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(fullName))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                int? birthYear = null;
+                if (!string.IsNullOrWhiteSpace(birthYearText))
+                {
+                    if (!int.TryParse(birthYearText, out var yearValue))
+                    {
+                        skipped++;
+                        errors.Add($"Dòng {item.index + 1}: Năm sinh không hợp lệ '{birthYearText}'.");
+                        continue;
+                    }
+                    birthYear = yearValue;
+                }
+
+                try
+                {
+                    _studentService.Add(new Student
+                    {
+                        FullName = fullName,
+                        Phone = phone,
+                        Email = string.IsNullOrWhiteSpace(email) ? null : email,
+                        BirthYear = birthYear,
+                        Address = string.IsNullOrWhiteSpace(address) ? null : address,
+                        Status = "Active"
+                    });
+                    imported++;
+                }
+                catch (Exception ex)
+                {
+                    skipped++;
+                    errors.Add($"Dòng {item.index + 1}: {ex.Message}");
+                }
+            }
+
+            LoadStudents();
+
+            var message = $"Đã nhập {imported} học viên. Bỏ qua {skipped} dòng.";
+            if (errors.Count > 0)
+            {
+                var preview = string.Join("\n", errors.Take(5));
+                message += $"\n\nChi tiết lỗi:\n{preview}";
+                if (errors.Count > 5)
+                {
+                    message += "\n...";
+                }
+            }
+
+            MessageBox.Show(message, "Nhập hàng loạt học viên", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void btnUpdateStudent_Click(object sender, EventArgs e)
@@ -265,6 +474,8 @@ namespace NhatDucSoftware
                 s.FullName = txtStudentName.Text.Trim();
                 s.Phone = txtStudentPhone.Text.Trim();
                 s.Email = txtStudentEmail.Text.Trim();
+                s.BirthYear = int.TryParse(txtStudentBirthYear.Text.Trim(), out var birthYear) ? birthYear : null;
+                s.Address = txtStudentAddress.Text.Trim();
                 s.Status = cmbStudentStatus.Text;
                 _studentService.Update(s);
                 LoadStudents();
@@ -296,6 +507,8 @@ namespace NhatDucSoftware
             txtStudentName.Text = s.FullName;
             txtStudentPhone.Text = s.Phone;
             txtStudentEmail.Text = s.Email;
+            txtStudentBirthYear.Text = s.BirthYear?.ToString() ?? string.Empty;
+            txtStudentAddress.Text = s.Address ?? string.Empty;
             cmbStudentStatus.Text = s.Status;
         }
 
@@ -342,13 +555,20 @@ namespace NhatDucSoftware
 
         private void btnAddCourse_Click(object sender, EventArgs e)
         {
-            _courseService.Add(new Course
+            try
             {
-                Name = txtCourseName.Text.Trim(),
-                TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0,
-                Status = "Active"
-            });
-            LoadCoursesToCombos();
+                _courseService.Add(new Course
+                {
+                    Name = txtCourseName.Text.Trim(),
+                    TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0,
+                    Status = "Active"
+                });
+                LoadCoursesToCombos();
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Lỗi trùng khóa học", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void btnUpdateCourse_Click(object sender, EventArgs e)
@@ -357,9 +577,17 @@ namespace NhatDucSoftware
 
             c.Name = txtCourseName.Text.Trim();
             c.TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0;
-            _courseService.Update(c);
-            LoadCoursesToCombos();
-            MessageBox.Show("Đã cập nhật khóa học.");
+
+            try
+            {
+                _courseService.Update(c);
+                LoadCoursesToCombos();
+                MessageBox.Show("Đã cập nhật khóa học.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Lỗi trùng khóa học", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void dgvCourses_SelectionChanged(object sender, EventArgs e)
@@ -587,15 +815,16 @@ namespace NhatDucSoftware
             lblPaymentPaid.Text = $"Đã đóng: {paid:N0}";
             lblPaymentRemain.Text = $"Còn lại: {remaining:N0}";
 
-            // Load attendance detail
-            var details = _paymentService.GetAttendanceDetails(studentId);
+            var history = _paymentService.GetPaymentHistory(studentId);
             dgvAttendanceDetail.DataSource = null;
-            dgvAttendanceDetail.DataSource = details;
+            dgvAttendanceDetail.DataSource = history;
             if (dgvAttendanceDetail.Columns.Count > 0)
             {
-                dgvAttendanceDetail.Columns["Ngay"].HeaderText = "Ngày";
-                dgvAttendanceDetail.Columns["Lop"].HeaderText = "Lớp";
-                dgvAttendanceDetail.Columns["TrangThai"].HeaderText = "Trạng thái";
+                dgvAttendanceDetail.Columns["NgayThu"].HeaderText = "Ngày thu";
+                dgvAttendanceDetail.Columns["SoTien"].HeaderText = "Số tiền";
+                dgvAttendanceDetail.Columns["NguoiThu"].HeaderText = "Người thu";
+                dgvAttendanceDetail.Columns["GhiChu"].HeaderText = "Ghi chú";
+                dgvAttendanceDetail.Columns["SoTien"].DefaultCellStyle.Format = "N0";
             }
         }
 

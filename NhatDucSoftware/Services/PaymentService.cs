@@ -43,16 +43,39 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
+        using var transaction = connection.BeginTransaction();
 
-        using var command = connection.CreateCommand();
-        command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
+        long paymentId;
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
 VALUES(@studentId, NULL, @amount, @date, @note, @createdBy);";
-        command.Parameters.AddWithValue("@studentId", studentId);
-        command.Parameters.AddWithValue("@amount", amount);
-        command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
-        command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
-        command.Parameters.AddWithValue("@createdBy", createdBy);
-        command.ExecuteNonQuery();
+            command.Parameters.AddWithValue("@studentId", studentId);
+            command.Parameters.AddWithValue("@amount", amount);
+            command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
+            command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+            command.Parameters.AddWithValue("@createdBy", createdBy);
+            command.ExecuteNonQuery();
+        }
+
+        using (var idCmd = connection.CreateCommand())
+        {
+            idCmd.Transaction = transaction;
+            idCmd.CommandText = "SELECT last_insert_rowid();";
+            paymentId = Convert.ToInt64(idCmd.ExecuteScalar());
+        }
+
+        using (var ledgerCmd = connection.CreateCommand())
+        {
+            ledgerCmd.Transaction = transaction;
+            ledgerCmd.CommandText = @"INSERT INTO RevenueLedger(SourcePaymentId, Amount, PaymentDate)
+SELECT Id, Amount, PaymentDate FROM Payments WHERE Id = @paymentId;";
+            ledgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            ledgerCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>
@@ -123,6 +146,44 @@ ORDER BY ats.SessionDate DESC;";
         }
         return results;
     }
+
+    public List<PaymentHistoryRow> GetPaymentHistory(int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT p.PaymentDate,
+       p.Amount,
+       IFNULL(u.Username, ''),
+       IFNULL(p.Note, '')
+FROM Payments p
+LEFT JOIN Users u ON u.Id = p.CreatedBy
+WHERE p.StudentId = @studentId
+ORDER BY p.PaymentDate DESC, p.Id DESC;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+
+        var results = new List<PaymentHistoryRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var rawDate = reader.GetString(0);
+            var displayDate = DateTime.TryParse(rawDate, out var parsed)
+                ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                : rawDate;
+
+            results.Add(new PaymentHistoryRow
+            {
+                NgayThu = displayDate,
+                SoTien = Convert.ToDecimal(reader.GetDouble(1)),
+                NguoiThu = reader.GetString(2),
+                GhiChu = reader.GetString(3)
+            });
+        }
+
+        return results;
+    }
 }
 
 public class AttendanceDetailRow
@@ -130,4 +191,12 @@ public class AttendanceDetailRow
     public string Ngay { get; set; } = "";
     public string Lop { get; set; } = "";
     public string TrangThai { get; set; } = "";
+}
+
+public class PaymentHistoryRow
+{
+    public string NgayThu { get; set; } = "";
+    public decimal SoTien { get; set; }
+    public string NguoiThu { get; set; } = "";
+    public string GhiChu { get; set; } = "";
 }

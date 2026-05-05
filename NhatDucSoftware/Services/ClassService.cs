@@ -109,16 +109,75 @@ VALUES(@name, @courseId, @teacherId, 999, @status);";
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
+        using var transaction = connection.BeginTransaction();
 
-        using var delStudents = connection.CreateCommand();
-        delStudents.CommandText = "DELETE FROM ClassStudents WHERE ClassId = @id;";
-        delStudents.Parameters.AddWithValue("@id", classId);
-        delStudents.ExecuteNonQuery();
+        using (var clearAttendanceRecords = connection.CreateCommand())
+        {
+            clearAttendanceRecords.Transaction = transaction;
+            clearAttendanceRecords.CommandText = @"
+DELETE FROM AttendanceRecords
+WHERE SessionId IN (SELECT Id FROM AttendanceSessions WHERE ClassId = @id);";
+            clearAttendanceRecords.Parameters.AddWithValue("@id", classId);
+            clearAttendanceRecords.ExecuteNonQuery();
+        }
 
-        using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Classes WHERE Id = @id;";
-        command.Parameters.AddWithValue("@id", classId);
-        command.ExecuteNonQuery();
+        using (var clearAttendanceSessions = connection.CreateCommand())
+        {
+            clearAttendanceSessions.Transaction = transaction;
+            clearAttendanceSessions.CommandText = "DELETE FROM AttendanceSessions WHERE ClassId = @id;";
+            clearAttendanceSessions.Parameters.AddWithValue("@id", classId);
+            clearAttendanceSessions.ExecuteNonQuery();
+        }
+
+        using (var clearEvaluations = connection.CreateCommand())
+        {
+            clearEvaluations.Transaction = transaction;
+            clearEvaluations.CommandText = "DELETE FROM StudentEvaluations WHERE ClassId = @id;";
+            clearEvaluations.Parameters.AddWithValue("@id", classId);
+            clearEvaluations.ExecuteNonQuery();
+        }
+
+        using (var clearStudents = connection.CreateCommand())
+        {
+            clearStudents.Transaction = transaction;
+            clearStudents.CommandText = "DELETE FROM ClassStudents WHERE ClassId = @id;";
+            clearStudents.Parameters.AddWithValue("@id", classId);
+            clearStudents.ExecuteNonQuery();
+        }
+
+        using (var clearSchedules = connection.CreateCommand())
+        {
+            clearSchedules.Transaction = transaction;
+            clearSchedules.CommandText = "DELETE FROM ClassSchedules WHERE ClassId = @id;";
+            clearSchedules.Parameters.AddWithValue("@id", classId);
+            clearSchedules.ExecuteNonQuery();
+        }
+
+        using (var clearWeeklySchedules = connection.CreateCommand())
+        {
+            clearWeeklySchedules.Transaction = transaction;
+            clearWeeklySchedules.CommandText = "DELETE FROM ClassWeeklySchedules WHERE ClassId = @id;";
+            clearWeeklySchedules.Parameters.AddWithValue("@id", classId);
+            clearWeeklySchedules.ExecuteNonQuery();
+        }
+
+        using (var detachPayments = connection.CreateCommand())
+        {
+            detachPayments.Transaction = transaction;
+            detachPayments.CommandText = "UPDATE Payments SET ClassId = NULL WHERE ClassId = @id;";
+            detachPayments.Parameters.AddWithValue("@id", classId);
+            detachPayments.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = "DELETE FROM Classes WHERE Id = @id;";
+            command.Parameters.AddWithValue("@id", classId);
+            command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     public List<Teacher> GetTeachers()

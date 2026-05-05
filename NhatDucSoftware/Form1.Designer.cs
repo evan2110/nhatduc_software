@@ -24,15 +24,20 @@
             lblStudentName = new Label();
             lblStudentPhone = new Label();
             lblStudentEmail = new Label();
+            lblStudentBirthYear = new Label();
+            lblStudentAddress = new Label();
             lblStudentStatus = new Label();
             dgvStudents = new DataGridView();
             txtStudentName = new TextBox();
             txtStudentPhone = new TextBox();
             txtStudentEmail = new TextBox();
+            txtStudentBirthYear = new TextBox();
+            txtStudentAddress = new TextBox();
             cmbStudentStatus = new ComboBox();
             btnAddStudent = new Button();
             btnUpdateStudent = new Button();
             btnDeleteStudent = new Button();
+            btnImportStudents = new Button();
             tabAdminCourses = new TabPage();
             lblCourseName = new Label();
             lblCourseFee = new Label();
@@ -80,6 +85,9 @@
             lblTotalStudents = new Label();
             lblTotalRevenue = new Label();
             lblActiveClasses = new Label();
+            dgvRevenueByYear = new DataGridView();
+            lblRevenueChartTitle = new Label();
+            pnlRevenueChart = new Panel();
             tabAdminTeachers = new TabPage();
             lblTeacherName = new Label();
             lblTeacherPhone = new Label();
@@ -154,6 +162,7 @@
             tabAdminPayments.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvAttendanceDetail).BeginInit();
             tabAdminReports.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvRevenueByYear).BeginInit();
             tabAdminTeachers.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).BeginInit();
             tabAdminPayroll.SuspendLayout();
@@ -213,15 +222,20 @@
             tabAdminStudents.Controls.Add(lblStudentName);
             tabAdminStudents.Controls.Add(lblStudentPhone);
             tabAdminStudents.Controls.Add(lblStudentEmail);
+            tabAdminStudents.Controls.Add(lblStudentBirthYear);
+            tabAdminStudents.Controls.Add(lblStudentAddress);
             tabAdminStudents.Controls.Add(lblStudentStatus);
             tabAdminStudents.Controls.Add(dgvStudents);
             tabAdminStudents.Controls.Add(txtStudentName);
             tabAdminStudents.Controls.Add(txtStudentPhone);
             tabAdminStudents.Controls.Add(txtStudentEmail);
+            tabAdminStudents.Controls.Add(txtStudentBirthYear);
+            tabAdminStudents.Controls.Add(txtStudentAddress);
             tabAdminStudents.Controls.Add(cmbStudentStatus);
             tabAdminStudents.Controls.Add(btnAddStudent);
             tabAdminStudents.Controls.Add(btnUpdateStudent);
             tabAdminStudents.Controls.Add(btnDeleteStudent);
+            tabAdminStudents.Controls.Add(btnImportStudents);
             tabAdminStudents.Controls.Add(btnViewEvaluations);
             tabAdminStudents.Location = new Point(4, 24);
             tabAdminStudents.Name = "tabAdminStudents";
@@ -256,12 +270,30 @@
             lblStudentEmail.Text = "Email";
             lblStudentEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
+            // lblStudentBirthYear
+            // 
+            lblStudentBirthYear.Location = new Point(680, 139);
+            lblStudentBirthYear.Name = "lblStudentBirthYear";
+            lblStudentBirthYear.Size = new Size(120, 15);
+            lblStudentBirthYear.TabIndex = 3;
+            lblStudentBirthYear.Text = "Năm sinh";
+            lblStudentBirthYear.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
+            // lblStudentAddress
+            // 
+            lblStudentAddress.Location = new Point(680, 184);
+            lblStudentAddress.Name = "lblStudentAddress";
+            lblStudentAddress.Size = new Size(120, 15);
+            lblStudentAddress.TabIndex = 4;
+            lblStudentAddress.Text = "Địa chỉ";
+            lblStudentAddress.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
             // lblStudentStatus
             // 
-            lblStudentStatus.Location = new Point(680, 146);
+            lblStudentStatus.Location = new Point(680, 228);
             lblStudentStatus.Name = "lblStudentStatus";
             lblStudentStatus.Size = new Size(120, 15);
-            lblStudentStatus.TabIndex = 4;
+            lblStudentStatus.TabIndex = 5;
             lblStudentStatus.Text = "Trạng thái";
             lblStudentStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
@@ -299,52 +331,78 @@
             txtStudentEmail.TabIndex = 9;
             txtStudentEmail.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
+            // txtStudentBirthYear
+            // 
+            txtStudentBirthYear.Location = new Point(680, 157);
+            txtStudentBirthYear.Name = "txtStudentBirthYear";
+            txtStudentBirthYear.Size = new Size(300, 23);
+            txtStudentBirthYear.TabIndex = 10;
+            txtStudentBirthYear.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
+            // txtStudentAddress
+            // 
+            txtStudentAddress.Location = new Point(680, 202);
+            txtStudentAddress.Name = "txtStudentAddress";
+            txtStudentAddress.Size = new Size(300, 23);
+            txtStudentAddress.TabIndex = 11;
+            txtStudentAddress.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
             // cmbStudentStatus
             // 
             cmbStudentStatus.Items.AddRange(new object[] { "Active", "Inactive" });
-            cmbStudentStatus.Location = new Point(682, 164);
+            cmbStudentStatus.Location = new Point(682, 246);
             cmbStudentStatus.Name = "cmbStudentStatus";
             cmbStudentStatus.Size = new Size(145, 23);
-            cmbStudentStatus.TabIndex = 11;
+            cmbStudentStatus.TabIndex = 12;
             cmbStudentStatus.Text = "Active";
             cmbStudentStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnAddStudent
             // 
-            btnAddStudent.Location = new Point(680, 199);
+            btnAddStudent.Location = new Point(680, 281);
             btnAddStudent.Name = "btnAddStudent";
             btnAddStudent.Size = new Size(95, 30);
-            btnAddStudent.TabIndex = 12;
+            btnAddStudent.TabIndex = 13;
             btnAddStudent.Text = "Thêm";
             btnAddStudent.Click += btnAddStudent_Click;
             btnAddStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnUpdateStudent
             // 
-            btnUpdateStudent.Location = new Point(782, 199);
+            btnUpdateStudent.Location = new Point(782, 281);
             btnUpdateStudent.Name = "btnUpdateStudent";
             btnUpdateStudent.Size = new Size(95, 30);
-            btnUpdateStudent.TabIndex = 13;
+            btnUpdateStudent.TabIndex = 14;
             btnUpdateStudent.Text = "Sửa";
             btnUpdateStudent.Click += btnUpdateStudent_Click;
             btnUpdateStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnDeleteStudent
             // 
-            btnDeleteStudent.Location = new Point(885, 199);
+            btnDeleteStudent.Location = new Point(885, 281);
             btnDeleteStudent.Name = "btnDeleteStudent";
             btnDeleteStudent.Size = new Size(95, 30);
-            btnDeleteStudent.TabIndex = 14;
+            btnDeleteStudent.TabIndex = 15;
             btnDeleteStudent.Text = "Xóa";
             btnDeleteStudent.Click += btnDeleteStudent_Click;
             btnDeleteStudent.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
+            // btnImportStudents
+            // 
+            btnImportStudents.Location = new Point(680, 358);
+            btnImportStudents.Name = "btnImportStudents";
+            btnImportStudents.Size = new Size(300, 30);
+            btnImportStudents.TabIndex = 17;
+            btnImportStudents.Text = "Nhập hàng loạt từ file TXT";
+            btnImportStudents.Click += btnImportStudents_Click;
+            btnImportStudents.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
             // btnViewEvaluations
             // 
-            btnViewEvaluations.Location = new Point(680, 240);
+            btnViewEvaluations.Location = new Point(680, 322);
             btnViewEvaluations.Name = "btnViewEvaluations";
             btnViewEvaluations.Size = new Size(300, 30);
-            btnViewEvaluations.TabIndex = 15;
+            btnViewEvaluations.TabIndex = 16;
             btnViewEvaluations.Text = "Xem Điểm / Nhận xét";
             btnViewEvaluations.Click += btnViewEvaluations_Click;
             btnViewEvaluations.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -424,7 +482,7 @@
             btnUpdateCourse.Name = "btnUpdateCourse";
             btnUpdateCourse.Size = new Size(130, 28);
             btnUpdateCourse.TabIndex = 6;
-            btnUpdateCourse.Text = "Sửa học phí";
+            btnUpdateCourse.Text = "Chỉnh sửa";
             btnUpdateCourse.Click += btnUpdateCourse_Click;
             btnUpdateCourse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
@@ -786,6 +844,9 @@
             tabAdminReports.Controls.Add(lblTotalStudents);
             tabAdminReports.Controls.Add(lblTotalRevenue);
             tabAdminReports.Controls.Add(lblActiveClasses);
+            tabAdminReports.Controls.Add(dgvRevenueByYear);
+            tabAdminReports.Controls.Add(lblRevenueChartTitle);
+            tabAdminReports.Controls.Add(pnlRevenueChart);
             tabAdminReports.Location = new Point(4, 24);
             tabAdminReports.Name = "tabAdminReports";
             tabAdminReports.Size = new Size(1024, 504);
@@ -818,6 +879,38 @@
             lblActiveClasses.TabIndex = 2;
             lblActiveClasses.Text = "Lớp hoạt động: 0";
             lblActiveClasses.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
+            // dgvRevenueByYear
+            // 
+            dgvRevenueByYear.AllowUserToAddRows = false;
+            dgvRevenueByYear.Location = new Point(20, 165);
+            dgvRevenueByYear.Name = "dgvRevenueByYear";
+            dgvRevenueByYear.ReadOnly = true;
+            dgvRevenueByYear.Size = new Size(300, 320);
+            dgvRevenueByYear.TabIndex = 3;
+            dgvRevenueByYear.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvRevenueByYear.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            // 
+            // lblRevenueChartTitle
+            // 
+            lblRevenueChartTitle.Location = new Point(340, 145);
+            lblRevenueChartTitle.Name = "lblRevenueChartTitle";
+            lblRevenueChartTitle.Size = new Size(670, 15);
+            lblRevenueChartTitle.TabIndex = 4;
+            lblRevenueChartTitle.Text = "Biểu đồ doanh thu theo năm";
+            lblRevenueChartTitle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            // 
+            // pnlRevenueChart
+            // 
+            pnlRevenueChart.BackColor = Color.White;
+            pnlRevenueChart.BorderStyle = BorderStyle.FixedSingle;
+            pnlRevenueChart.Location = new Point(340, 165);
+            pnlRevenueChart.Name = "pnlRevenueChart";
+            pnlRevenueChart.Size = new Size(670, 320);
+            pnlRevenueChart.TabIndex = 5;
+            pnlRevenueChart.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            pnlRevenueChart.Paint += pnlRevenueChart_Paint;
+
             // 
             // tabAdminTeachers
             // 
@@ -1473,6 +1566,7 @@
             tabAdminPayments.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvAttendanceDetail).EndInit();
             tabAdminReports.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvRevenueByYear).EndInit();
             tabAdminTeachers.ResumeLayout(false);
             tabAdminTeachers.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).EndInit();
@@ -1520,10 +1614,13 @@
         private TextBox txtStudentName;
         private TextBox txtStudentPhone;
         private TextBox txtStudentEmail;
+        private TextBox txtStudentBirthYear;
+        private TextBox txtStudentAddress;
         private ComboBox cmbStudentStatus;
         private Button btnAddStudent;
         private Button btnUpdateStudent;
         private Button btnDeleteStudent;
+        private Button btnImportStudents;
         private DataGridView dgvCourses;
         private TextBox txtCourseName;
         private TextBox txtCourseFee;
@@ -1554,6 +1651,9 @@
         private Label lblTotalStudents;
         private Label lblTotalRevenue;
         private Label lblActiveClasses;
+        private DataGridView dgvRevenueByYear;
+        private Label lblRevenueChartTitle;
+        private Panel pnlRevenueChart;
         private DataGridView dgvTeacherClasses;
         private Label lblTeacherWeek;
         private DateTimePicker dtpTeacherWeek;
@@ -1572,6 +1672,8 @@
         private Label lblStudentName;
         private Label lblStudentPhone;
         private Label lblStudentEmail;
+        private Label lblStudentBirthYear;
+        private Label lblStudentAddress;
         private Label lblStudentStatus;
         private Label lblCourseName;
         private Label lblCourseFee;
