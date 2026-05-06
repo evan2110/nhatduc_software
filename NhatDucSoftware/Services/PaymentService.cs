@@ -39,11 +39,23 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         return Convert.ToDecimal(command.ExecuteScalar());
     }
 
+    public decimal GetRemainingAmount(int studentId)
+    {
+        var remaining = GetTotalTuitionByStudent(studentId) - GetPaidAmount(studentId);
+        return remaining > 0 ? remaining : 0;
+    }
+
     public void Collect(int studentId, decimal amount, int createdBy, string? note)
     {
         if (amount <= 0)
         {
             throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
+        }
+
+        var remaining = GetRemainingAmount(studentId);
+        if (remaining <= 0)
+        {
+            throw new InvalidOperationException("Học viên không còn học phí cần thu.");
         }
 
         using var connection = DbContext.CreateConnection();

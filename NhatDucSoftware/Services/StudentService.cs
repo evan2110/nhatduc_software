@@ -32,14 +32,32 @@ public class StudentService
         return result;
     }
 
+    private int GetNextAvailableId(SqliteConnection connection)
+    {
+        using var cmd = connection.CreateCommand();
+        // Find the smallest positive integer not currently used as an Id
+        cmd.CommandText = @"
+            WITH RECURSIVE seq(n) AS (
+                SELECT 1
+                UNION ALL
+                SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Students)
+            )
+            SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Students);";
+        var result = cmd.ExecuteScalar();
+        return result is long l ? (int)l : 1;
+    }
+
     public void Add(Student student)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
+        var nextId = GetNextAvailableId(connection);
+
         using var command = connection.CreateCommand();
-        command.CommandText = @"INSERT INTO Students(FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt)
-VALUES(@name, @phone, @mail, @birthYear, @address, '', @status, @createdAt);";
+        command.CommandText = @"INSERT INTO Students(Id, FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt)
+VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt);";
+        command.Parameters.AddWithValue("@id", nextId);
         command.Parameters.AddWithValue("@name", student.FullName);
         command.Parameters.AddWithValue("@phone", student.Phone);
         command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);

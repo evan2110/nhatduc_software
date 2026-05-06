@@ -76,14 +76,31 @@ ORDER BY c.Id ASC;";
         return result;
     }
 
+    private static int GetNextAvailableId(Microsoft.Data.Sqlite.SqliteConnection connection)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            WITH RECURSIVE seq(n) AS (
+                SELECT 1
+                UNION ALL
+                SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Classes)
+            )
+            SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Classes);";
+        var result = cmd.ExecuteScalar();
+        return result is long l ? (int)l : 1;
+    }
+
     public void AddClass(string className, int courseId, int? teacherId, string status)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
+        var nextId = GetNextAvailableId(connection);
+
         using var command = connection.CreateCommand();
-        command.CommandText = @"INSERT INTO Classes(ClassName, CourseId, TeacherId, MaxSize, Status)
-VALUES(@name, @courseId, @teacherId, 999, @status);";
+        command.CommandText = @"INSERT INTO Classes(Id, ClassName, CourseId, TeacherId, MaxSize, Status)
+VALUES(@id, @name, @courseId, @teacherId, 999, @status);";
+        command.Parameters.AddWithValue("@id", nextId);
         command.Parameters.AddWithValue("@name", className);
         command.Parameters.AddWithValue("@courseId", courseId);
         command.Parameters.AddWithValue("@teacherId", (object?)teacherId ?? DBNull.Value);
@@ -239,7 +256,7 @@ SELECT s.Id, s.FullName
 FROM ClassStudents cs
 INNER JOIN Students s ON s.Id = cs.StudentId
 WHERE cs.ClassId = @classId
-ORDER BY s.FullName;";
+ORDER BY s.Id ASC;";
         command.Parameters.AddWithValue("@classId", classId);
 
         using var reader = command.ExecuteReader();

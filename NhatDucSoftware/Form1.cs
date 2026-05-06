@@ -17,12 +17,14 @@ namespace NhatDucSoftware
         private readonly ReportService _reportService = new();
         private readonly TeacherTimesheetService _timesheetService = new();
         private readonly ClassScheduleService _classScheduleService = new();
+        private readonly ExcelExportService _excelExportService = new();
 
         private List<Student> _students = new();
         private List<Course> _courses = new();
         private List<ClassInfo> _classes = new();
         private List<Teacher> _teachers = new();
         private List<RevenueByYearStat> _revenueByYear = new();
+        private List<RevenueByMonthStat> _revenueByMonth = new();
 
         public bool RequestLogout { get; private set; }
 
@@ -71,6 +73,7 @@ namespace NhatDucSoftware
             {
                 tabTeacher.Parent = null;
                 InitializeAdminMakeupFeatures();
+                InitializeReportFeatures();
             }
 
             LoadCoursesToCombos();
@@ -149,6 +152,283 @@ namespace NhatDucSoftware
             tabAdminPayroll.Controls.Add(btnAdminMakeupAttendance);
         }
 
+        private void InitializeReportFeatures()
+        {
+            if (tabAdminReports.Controls.ContainsKey("cmbReportYear"))
+            {
+                return;
+            }
+
+            var lblYearSelect = new Label
+            {
+                Name = "lblYearSelect",
+                Text = "Chọn năm:",
+                Location = new Point(20, 10),
+                Size = new Size(70, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+
+            var cmbReportYear = new ComboBox
+            {
+                Name = "cmbReportYear",
+                Location = new Point(95, 8),
+                Size = new Size(100, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            cmbReportYear.SelectedIndexChanged += CmbReportYear_SelectedIndexChanged;
+
+            var btnExportByMonth = new Button
+            {
+                Name = "btnExportByMonth",
+                Text = "Xuất Excel (tháng)",
+                Location = new Point(210, 7),
+                Size = new Size(140, 26),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            btnExportByMonth.Click += BtnExportByMonth_Click;
+
+            var btnExportByYear = new Button
+            {
+                Name = "btnExportByYear",
+                Text = "Xuất Excel (năm)",
+                Location = new Point(360, 7),
+                Size = new Size(130, 26),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            btnExportByYear.Click += BtnExportByYear_Click;
+
+            tabAdminReports.Controls.Add(lblYearSelect);
+            tabAdminReports.Controls.Add(cmbReportYear);
+            tabAdminReports.Controls.Add(btnExportByMonth);
+            tabAdminReports.Controls.Add(btnExportByYear);
+        }
+
+        private void BindReportYears()
+        {
+            if (tabAdminReports.Controls["cmbReportYear"] is not ComboBox cmbYear)
+            {
+                return;
+            }
+
+            var selectedYear = cmbYear.SelectedItem is int year ? year : DateTime.Now.Year;
+            List<int> years;
+
+            if (_revenueByYear.Count == 0)
+            {
+                years = new List<int> { DateTime.Now.Year };
+            }
+            else
+            {
+                var minYear = _revenueByYear.Min(x => x.Year);
+                var maxYear = Math.Max(_revenueByYear.Max(x => x.Year), DateTime.Now.Year);
+                years = Enumerable.Range(minYear, maxYear - minYear + 1)
+                    .OrderByDescending(x => x)
+                    .ToList();
+            }
+
+            cmbYear.SelectedIndexChanged -= CmbReportYear_SelectedIndexChanged;
+            cmbYear.Items.Clear();
+            foreach (var item in years)
+            {
+                cmbYear.Items.Add(item);
+            }
+
+            var targetYear = years.Contains(selectedYear) ? selectedYear : years.First();
+            cmbYear.SelectedItem = targetYear;
+            cmbYear.SelectedIndexChanged += CmbReportYear_SelectedIndexChanged;
+        }
+
+        private void CmbReportYear_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            LoadMonthlyRevenueData();
+        }
+
+        private void LoadMonthlyRevenueData()
+        {
+            if (tabAdminReports.Controls["cmbReportYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            _revenueByMonth = _reportService.GetRevenueByMonth(year);
+
+            dgvRevenueByYear.DataSource = null;
+            dgvRevenueByYear.DataSource = _revenueByMonth;
+            ApplyRevenueByMonthHeaders(dgvRevenueByYear);
+
+            lblRevenueChartTitle.Text = $"Biểu đồ doanh thu theo tháng năm {year}";
+            pnlRevenueChart.Invalidate();
+        }
+
+        private void ApplyRevenueByMonthHeaders(DataGridView dgv)
+        {
+            SetGridHeaders(dgv, new Dictionary<string, string>
+            {
+                [nameof(RevenueByMonthStat.MonthName)] = "Tháng",
+                [nameof(RevenueByMonthStat.TotalRevenue)] = "Doanh thu"
+            });
+
+            // Hide the Month column as we use MonthName
+            if (dgv.Columns.Contains(nameof(RevenueByMonthStat.Month)))
+            {
+                dgv.Columns[nameof(RevenueByMonthStat.Month)].Visible = false;
+            }
+
+            if (dgv.Columns[nameof(RevenueByMonthStat.TotalRevenue)] is DataGridViewColumn revenueCol)
+            {
+                revenueCol.DefaultCellStyle.Format = "N0";
+            }
+        }
+
+        private void PnlMonthlyChart_Paint(object? sender, PaintEventArgs e)
+        {
+            var panel = (Panel)sender!;
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
+
+            var chartArea = panel.ClientRectangle;
+            if (chartArea.Width < 120 || chartArea.Height < 120 || _revenueByMonth.Count == 0)
+            {
+                using var emptyBrush = new SolidBrush(Color.Gray);
+                using var emptyFont = new Font("Segoe UI", 10f);
+                var text = "Chưa có dữ liệu doanh thu";
+                var size = g.MeasureString(text, emptyFont);
+                g.DrawString(text, emptyFont, emptyBrush,
+                    (chartArea.Width - size.Width) / 2,
+                    (chartArea.Height - size.Height) / 2);
+                return;
+            }
+
+            var data = _revenueByMonth.OrderBy(x => x.Month).ToList();
+
+            const int leftPad = 60;
+            const int rightPad = 20;
+            const int topPad = 20;
+            const int bottomPad = 50;
+
+            var plot = new Rectangle(
+                leftPad,
+                topPad,
+                chartArea.Width - leftPad - rightPad,
+                chartArea.Height - topPad - bottomPad);
+
+            using var axisPen = new Pen(Color.DimGray, 1.2f);
+            g.DrawLine(axisPen, plot.Left, plot.Bottom, plot.Right, plot.Bottom);
+            g.DrawLine(axisPen, plot.Left, plot.Top, plot.Left, plot.Bottom);
+
+            var maxRevenue = data.Max(x => x.TotalRevenue);
+            if (maxRevenue <= 0)
+            {
+                maxRevenue = 1;
+            }
+
+            using var gridPen = new Pen(Color.Gainsboro, 1f);
+            using var labelBrush = new SolidBrush(Color.DimGray);
+            using var axisFont = new Font("Segoe UI", 8.5f);
+
+            const int gridLines = 4;
+            for (int i = 0; i <= gridLines; i++)
+            {
+                var ratio = i / (float)gridLines;
+                var y = plot.Bottom - ratio * plot.Height;
+                g.DrawLine(gridPen, plot.Left, y, plot.Right, y);
+
+                var value = maxRevenue * (decimal)ratio;
+                var yLabel = $"{value:N0}";
+                var ySize = g.MeasureString(yLabel, axisFont);
+                g.DrawString(yLabel, axisFont, labelBrush, plot.Left - ySize.Width - 6, y - ySize.Height / 2);
+            }
+
+            var slotWidth = plot.Width / (float)data.Count;
+            var barWidth = Math.Max(12f, slotWidth * 0.6f);
+
+            using var barBrush = new SolidBrush(Color.FromArgb(34, 177, 76));
+            using var valueFont = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            using var valueBrush = new SolidBrush(Color.FromArgb(40, 40, 40));
+
+            for (int i = 0; i < data.Count; i++)
+            {
+                var item = data[i];
+                var barHeight = (float)((double)(item.TotalRevenue / maxRevenue) * plot.Height);
+                var x = plot.Left + i * slotWidth + (slotWidth - barWidth) / 2;
+                var y = plot.Bottom - barHeight;
+
+                g.FillRectangle(barBrush, x, y, barWidth, barHeight);
+
+                var monthText = $"T{item.Month}";
+                var monthSize = g.MeasureString(monthText, axisFont);
+                g.DrawString(monthText, axisFont, labelBrush, x + (barWidth - monthSize.Width) / 2, plot.Bottom + 6);
+
+                var valueText = item.TotalRevenue.ToString("N0");
+                var valueSize = g.MeasureString(valueText, valueFont);
+                var valueX = x + (barWidth - valueSize.Width) / 2;
+                var valueY = y - valueSize.Height - 3;
+
+                if (valueY > plot.Top - valueSize.Height)
+                {
+                    g.DrawString(valueText, valueFont, valueBrush, valueX, valueY);
+                }
+            }
+        }
+
+        private void BtnExportByMonth_Click(object? sender, EventArgs e)
+        {
+            if (tabAdminReports.Controls["cmbReportYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                MessageBox.Show("Vui lòng chọn năm.");
+                return;
+            }
+
+            using var dialog = new SaveFileDialog
+            {
+                FileName = $"BaoCaoDoanhthuThang_{year}.xlsx",
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                Title = "Lưu báo cáo doanh thu theo tháng"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                _excelExportService.ExportRevenueByMonthToExcel(year, _revenueByMonth, dialog.FileName);
+                MessageBox.Show($"Đã xuất báo cáo thành công:\n{dialog.FileName}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi xuất báo cáo: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnExportByYear_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new SaveFileDialog
+            {
+                FileName = "BaoCaoDoanhthuNam.xlsx",
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                Title = "Lưu báo cáo doanh thu theo năm"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                _excelExportService.ExportRevenueByYearToExcel(_revenueByYear, dialog.FileName);
+                MessageBox.Show($"Đã xuất báo cáo thành công:\n{dialog.FileName}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi xuất báo cáo: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void btnAdminMakeupTimesheet_Click(object? sender, EventArgs e)
         {
             if (dgvPayroll.CurrentRow is null || !dgvPayroll.Columns.Contains("TeacherId"))
@@ -193,7 +473,7 @@ namespace NhatDucSoftware
                 }
 
                 _timesheetService.SaveTimesheet(teacherId, dtpDate.Value.Date, shift, chkPresent.Checked, string.IsNullOrWhiteSpace(txtNote.Text) ? null : txtNote.Text.Trim());
-                MessageBox.Show("Đã lưu chấm công bù.");
+                MessageBox.Show("Đã lưu châm công bù.");
                 form.DialogResult = DialogResult.OK;
                 form.Close();
             };
@@ -502,6 +782,11 @@ namespace NhatDucSoftware
 
         private void LoadClasses()
         {
+            LoadClassesAndRestore(-1);
+        }
+
+        private void LoadClassesAndRestore(int classId)
+        {
             _classes = _classService.GetAll();
             dgvClasses.DataSource = null;
             dgvClasses.DataSource = _classes;
@@ -528,8 +813,25 @@ namespace NhatDucSoftware
                 ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
                 : _classes;
             dgvTeacherClasses.DataSource = null;
-            dgvTeacherClasses.DataSource = teacherClasses;
+            dgvTeacherClasses.DataSource = teacherClasses.ToList();
             ApplyClassHeaders(dgvTeacherClasses);
+
+            if (classId <= 0) return;
+
+            // Restore selection to the class that was modified
+            foreach (DataGridViewRow row in dgvClasses.Rows)
+            {
+                if (row.DataBoundItem is ClassInfo ci && ci.Id == classId)
+                {
+                    dgvClasses.ClearSelection();
+                    row.Selected = true;
+                    dgvClasses.CurrentCell = row.Cells[0];
+                    break;
+                }
+            }
+
+            cmbClassAddStudent.SelectedValue = classId;
+            LoadClassStudents();
         }
 
         private void LoadReports()
@@ -540,10 +842,13 @@ namespace NhatDucSoftware
             lblActiveClasses.Text = $"Lớp hoạt động: {summary.ActiveClasses}";
 
             _revenueByYear = _reportService.GetRevenueByYear();
-            dgvRevenueByYear.DataSource = null;
-            dgvRevenueByYear.DataSource = _revenueByYear;
-            ApplyRevenueByYearHeaders();
-            pnlRevenueChart.Invalidate();
+
+            if (_currentUser.Role != "Teacher")
+            {
+                InitializeReportFeatures();
+                BindReportYears();
+                LoadMonthlyRevenueData();
+            }
         }
 
         private void pnlRevenueChart_Paint(object? sender, PaintEventArgs e)
@@ -558,7 +863,7 @@ namespace NhatDucSoftware
                 return;
             }
 
-            if (_revenueByYear.Count == 0)
+            if (_revenueByMonth.Count == 0)
             {
                 using var emptyBrush = new SolidBrush(Color.Gray);
                 using var emptyFont = new Font("Segoe UI", 10f);
@@ -570,7 +875,7 @@ namespace NhatDucSoftware
                 return;
             }
 
-            var data = _revenueByYear.OrderBy(x => x.Year).ToList();
+            var data = _revenueByMonth.OrderBy(x => x.Month).ToList();
 
             const int leftPad = 60;
             const int rightPad = 20;
@@ -626,9 +931,9 @@ namespace NhatDucSoftware
 
                 g.FillRectangle(barBrush, x, y, barWidth, barHeight);
 
-                var yearText = item.Year.ToString();
-                var yearSize = g.MeasureString(yearText, axisFont);
-                g.DrawString(yearText, axisFont, labelBrush, x + (barWidth - yearSize.Width) / 2, plot.Bottom + 6);
+                var monthText = $"T{item.Month}";
+                var monthSize = g.MeasureString(monthText, axisFont);
+                g.DrawString(monthText, axisFont, labelBrush, x + (barWidth - monthSize.Width) / 2, plot.Bottom + 6);
 
                 var valueText = item.TotalRevenue.ToString("N0");
                 var valueSize = g.MeasureString(valueText, valueFont);
@@ -776,12 +1081,25 @@ namespace NhatDucSoftware
 
         private void btnDeleteStudent_Click(object sender, EventArgs e)
         {
-            if (dgvStudents.CurrentRow?.DataBoundItem is not Student s)
-            {
-                return;
-            }
+            var selected = dgvStudents.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(r => r.DataBoundItem is Student)
+                .Select(r => (Student)r.DataBoundItem!)
+                .ToList();
 
-            _studentService.Delete(s.Id);
+            if (selected.Count == 0) return;
+
+            var confirm = MessageBox.Show(
+                selected.Count == 1
+                    ? $"Xóa học viên '{selected[0].FullName}'?"
+                    : $"Xóa {selected.Count} học viên đã chọn?",
+                "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+
+            foreach (var s in selected)
+            {
+                _studentService.Delete(s.Id);
+            }
             LoadStudents();
         }
 
@@ -908,8 +1226,7 @@ namespace NhatDucSoftware
                 }
 
                 _classService.AddStudentToClass(classId, studentId);
-                LoadClasses();
-                LoadClassStudents();
+                LoadClassesAndRestore(classId);
             }
             catch (Exception ex)
             {
@@ -929,9 +1246,25 @@ namespace NhatDucSoftware
 
         private void btnDeleteClass_Click(object sender, EventArgs e)
         {
-            if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
-            if (MessageBox.Show($"Xóa lớp '{c.ClassName}'?", "Xác nhận", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
-            _classService.DeleteClass(c.Id);
+            var selected = dgvClasses.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(r => r.DataBoundItem is ClassInfo)
+                .Select(r => (ClassInfo)r.DataBoundItem!)
+                .ToList();
+
+            if (selected.Count == 0) return;
+
+            var confirm = MessageBox.Show(
+                selected.Count == 1
+                    ? $"Xóa lớp '{selected[0].ClassName}'?"
+                    : $"Xóa {selected.Count} lớp đã chọn?",
+                "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+
+            foreach (var c in selected)
+            {
+                _classService.DeleteClass(c.Id);
+            }
             LoadClasses();
         }
 
@@ -939,6 +1272,8 @@ namespace NhatDucSoftware
         {
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
             txtClassName.Text = c.ClassName;
+            // Auto-fill "Chọn lớp" combobox
+            cmbClassAddStudent.SelectedValue = c.Id;
             LoadClassStudents();
         }
 
@@ -964,12 +1299,27 @@ namespace NhatDucSoftware
         private void btnRemoveStudentFromClass_Click(object sender, EventArgs e)
         {
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
-            if (dgvClassStudents.CurrentRow is null) return;
 
-            var studentId = (int)dgvClassStudents.CurrentRow.Cells["StudentId"].Value;
-            _classService.RemoveStudentFromClass(c.Id, studentId);
-            LoadClasses();
-            LoadClassStudents();
+            var selected = dgvClassStudents.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(r => r.Cells["StudentId"].Value is int)
+                .Select(r => (int)r.Cells["StudentId"].Value)
+                .ToList();
+
+            if (selected.Count == 0) return;
+
+            var confirm = MessageBox.Show(
+                selected.Count == 1
+                    ? "Xóa học viên đã chọn khỏi lớp?"
+                    : $"Xóa {selected.Count} học viên đã chọn khỏi lớp?",
+                "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+
+            foreach (var studentId in selected)
+            {
+                _classService.RemoveStudentFromClass(c.Id, studentId);
+            }
+            LoadClassesAndRestore(c.Id);
         }
 
         private void btnClassSchedule_Click(object sender, EventArgs e)
@@ -1033,21 +1383,41 @@ namespace NhatDucSoftware
 
         private void btnDeleteTeacher_Click(object sender, EventArgs e)
         {
-            if (dgvTeachers.CurrentRow?.DataBoundItem is not Teacher teacher)
+            var selected = dgvTeachers.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(r => r.DataBoundItem is Teacher)
+                .Select(r => (Teacher)r.DataBoundItem!)
+                .ToList();
+
+            if (selected.Count == 0) return;
+
+            var confirm = MessageBox.Show(
+                selected.Count == 1
+                    ? $"Xóa giáo viên '{selected[0].FullName}'?"
+                    : $"Xóa {selected.Count} giáo viên đã chọn?",
+                "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes) return;
+
+            var errors = new List<string>();
+            foreach (var teacher in selected)
             {
-                return;
+                try
+                {
+                    _teacherService.Delete(teacher.Id);
+                }
+                catch
+                {
+                    errors.Add(teacher.FullName);
+                }
             }
 
-            try
+            LoadTeacherManagement();
+            LoadTeachers();
+            LoadClasses();
+
+            if (errors.Count > 0)
             {
-                _teacherService.Delete(teacher.Id);
-                LoadTeacherManagement();
-                LoadTeachers();
-                LoadClasses();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show($"Không thể xóa {errors.Count} giáo viên đang được sử dụng trong hệ thống:\n{string.Join("\n", errors)}");
             }
         }
 
@@ -1108,6 +1478,7 @@ namespace NhatDucSoftware
             lblPaymentNeed.Text = $"Cần đóng: {total:N0} | Buổi học: {totalSessions} (Có mặt: {attended}, Vắng: {absent})";
             lblPaymentPaid.Text = $"Đã đóng: {paid:N0}";
             lblPaymentRemain.Text = $"Còn lại: {remaining:N0}";
+            btnCollectPayment.Enabled = remaining > 0;
 
             var history = _paymentService.GetPaymentHistory(studentId);
             dgvAttendanceDetail.DataSource = null;
@@ -1164,20 +1535,31 @@ namespace NhatDucSoftware
                 return;
             }
 
-            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+            var selected = dgvAttendanceDetail.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(r => r.DataBoundItem is PaymentHistoryRow)
+                .Select(r => (PaymentHistoryRow)r.DataBoundItem!)
+                .ToList();
+
+            if (selected.Count == 0)
             {
-                MessageBox.Show("Vui lòng chọn một lịch sử thu để xóa.");
+                MessageBox.Show("Vui lòng chọn một hoặc nhiều lịch sử thu để xóa.");
                 return;
             }
 
-            if (MessageBox.Show("Bạn có chắc muốn xóa lịch sử thu đã chọn?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
-            {
-                return;
-            }
+            var confirm = MessageBox.Show(
+                selected.Count == 1
+                    ? "Bạn có chắc muốn xóa lịch sử thu đã chọn?"
+                    : $"Bạn có chắc muốn xóa {selected.Count} lịch sử thu đã chọn?",
+                "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
 
             try
             {
-                _paymentService.DeletePaymentHistory(selected.PaymentId, studentId);
+                foreach (var row in selected)
+                {
+                    _paymentService.DeletePaymentHistory(row.PaymentId, studentId);
+                }
                 btnLoadPayment_Click(sender, e);
                 LoadReports();
                 MessageBox.Show("Đã xóa lịch sử thu.");
@@ -1255,6 +1637,14 @@ namespace NhatDucSoftware
                 return;
             }
 
+            var remaining = _paymentService.GetRemainingAmount(studentId);
+            if (remaining <= 0)
+            {
+                btnCollectPayment.Enabled = false;
+                MessageBox.Show("Học viên đã đóng đủ học phí, không thể thu thêm.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
             if (!decimal.TryParse(txtPaymentAmount.Text, out var amount) || amount <= 0)
             {
                 MessageBox.Show("Số tiền thu bắt buộc phải lớn hơn 0.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1263,9 +1653,16 @@ namespace NhatDucSoftware
                 return;
             }
 
-            _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
-            btnLoadPayment_Click(sender, e);
-            LoadReports();
+            try
+            {
+                _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
+                btnLoadPayment_Click(sender, e);
+                LoadReports();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void btnLoadAttendanceStudents_Click(object sender, EventArgs e)

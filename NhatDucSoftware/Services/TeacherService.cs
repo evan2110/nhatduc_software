@@ -81,6 +81,21 @@ WHERE TeacherId = @teacherId;";
     /// Thêm giáo viên mới và tự động tạo tài khoản đăng nhập.
     /// Username = tên viết thường không dấu, Password mặc định = "123456".
     /// </summary>
+    private static int GetNextAvailableId(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction? transaction = null)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = @"
+            WITH RECURSIVE seq(n) AS (
+                SELECT 1
+                UNION ALL
+                SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Teachers)
+            )
+            SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Teachers);";
+        var result = cmd.ExecuteScalar();
+        return result is long l ? (int)l : 1;
+    }
+
     public (string Username, string Password) Add(Teacher teacher)
     {
         using var connection = DbContext.CreateConnection();
@@ -88,23 +103,21 @@ WHERE TeacherId = @teacherId;";
 
         using var transaction = connection.BeginTransaction();
 
-        // Insert teacher
+        var nextId = GetNextAvailableId(connection, transaction);
+
+        // Insert teacher with explicit Id
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = @"INSERT INTO Teachers(FullName, Phone, Email, Status)
-VALUES(@name, @phone, @email, @status);";
+        command.CommandText = @"INSERT INTO Teachers(Id, FullName, Phone, Email, Status)
+VALUES(@id, @name, @phone, @email, @status);";
+        command.Parameters.AddWithValue("@id", nextId);
         command.Parameters.AddWithValue("@name", teacher.FullName);
         command.Parameters.AddWithValue("@phone", (object?)teacher.Phone ?? DBNull.Value);
         command.Parameters.AddWithValue("@email", (object?)teacher.Email ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", teacher.Status);
         command.ExecuteNonQuery();
 
-        // Get the new teacher Id
-        using var idCmd = connection.CreateCommand();
-        idCmd.Transaction = transaction;
-        idCmd.CommandText = "SELECT last_insert_rowid();";
-        var teacherId = Convert.ToInt32(idCmd.ExecuteScalar());
-        teacher.Id = teacherId;
+        teacher.Id = nextId;
 
         // Generate username from full name
         var username = GenerateUsername(connection, transaction, teacher.FullName);
@@ -117,7 +130,7 @@ VALUES(@name, @phone, @email, @status);";
 VALUES(@username, @password, 'Teacher', @teacherId);";
         userCmd.Parameters.AddWithValue("@username", username);
         userCmd.Parameters.AddWithValue("@password", defaultPassword);
-        userCmd.Parameters.AddWithValue("@teacherId", teacherId);
+        userCmd.Parameters.AddWithValue("@teacherId", nextId);
         userCmd.ExecuteNonQuery();
 
         transaction.Commit();

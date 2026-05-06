@@ -141,19 +141,39 @@ public class TeacherManagementForm : Form
 
     private void BtnDelete_Click(object? sender, EventArgs e)
     {
-        if (_dgvTeachers.CurrentRow?.DataBoundItem is not Teacher t)
+        var selected = _dgvTeachers.SelectedRows
+            .Cast<DataGridViewRow>()
+            .Where(r => r.DataBoundItem is Teacher)
+            .Select(r => (Teacher)r.DataBoundItem!)
+            .ToList();
+
+        if (selected.Count == 0) return;
+
+        var confirm = MessageBox.Show(
+            selected.Count == 1
+                ? $"Xóa giáo viên '{selected[0].FullName}'?"
+                : $"Xóa {selected.Count} giáo viên đã chọn?",
+            "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (confirm != DialogResult.Yes) return;
+
+        var errors = new List<string>();
+        foreach (var t in selected)
         {
-            return;
+            try
+            {
+                _teacherService.Delete(t.Id);
+            }
+            catch
+            {
+                errors.Add(t.FullName);
+            }
         }
 
-        try
+        LoadTeachers();
+
+        if (errors.Count > 0)
         {
-            _teacherService.Delete(t.Id);
-            LoadTeachers();
-        }
-        catch
-        {
-            MessageBox.Show("Không thể xóa giáo viên đang được sử dụng trong hệ thống.");
+            MessageBox.Show($"Không thể xóa {errors.Count} giáo viên đang được sử dụng:\n{string.Join("\n", errors)}");
         }
     }
 }
