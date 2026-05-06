@@ -1114,12 +1114,89 @@ namespace NhatDucSoftware
             dgvAttendanceDetail.DataSource = history;
             if (dgvAttendanceDetail.Columns.Count > 0)
             {
+                dgvAttendanceDetail.Columns["PaymentId"].Visible = false;
                 dgvAttendanceDetail.Columns["NgayThu"].HeaderText = "Ngày thu";
                 dgvAttendanceDetail.Columns["SoTien"].HeaderText = "Số tiền";
                 dgvAttendanceDetail.Columns["NguoiThu"].HeaderText = "Người thu";
                 dgvAttendanceDetail.Columns["GhiChu"].HeaderText = "Ghi chú";
                 dgvAttendanceDetail.Columns["SoTien"].DefaultCellStyle.Format = "N0";
             }
+        }
+
+        private void btnEditPaymentHistory_Click(object sender, EventArgs e)
+        {
+            if (cmbStudentPayment.SelectedValue is not int studentId)
+            {
+                return;
+            }
+
+            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+            {
+                MessageBox.Show("Vui lòng chọn một lịch sử thu để chỉnh sửa.");
+                return;
+            }
+
+            if (!decimal.TryParse(txtPaymentAmount.Text, out var amount) || amount <= 0)
+            {
+                MessageBox.Show("Số tiền thu bắt buộc phải lớn hơn 0.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtPaymentAmount.Focus();
+                txtPaymentAmount.SelectAll();
+                return;
+            }
+
+            try
+            {
+                _paymentService.UpdatePaymentHistory(selected.PaymentId, studentId, amount, txtPaymentNote.Text.Trim());
+                btnLoadPayment_Click(sender, e);
+                LoadReports();
+                MessageBox.Show("Đã cập nhật lịch sử thu.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void btnDeletePaymentHistory_Click(object sender, EventArgs e)
+        {
+            if (cmbStudentPayment.SelectedValue is not int studentId)
+            {
+                return;
+            }
+
+            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+            {
+                MessageBox.Show("Vui lòng chọn một lịch sử thu để xóa.");
+                return;
+            }
+
+            if (MessageBox.Show("Bạn có chắc muốn xóa lịch sử thu đã chọn?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                _paymentService.DeletePaymentHistory(selected.PaymentId, studentId);
+                btnLoadPayment_Click(sender, e);
+                LoadReports();
+                MessageBox.Show("Đã xóa lịch sử thu.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void dgvAttendanceDetail_SelectionChanged(object? sender, EventArgs e)
+        {
+            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+            {
+                return;
+            }
+
+            txtPaymentAmount.Text = selected.SoTien.ToString("0.##");
+            txtPaymentNote.Text = selected.GhiChu;
         }
 
         private void LoadPaymentClassFilter()
@@ -1382,7 +1459,6 @@ namespace NhatDucSoftware
             var monday = Models.ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
             var schedule = _classScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
 
-            // Build pivot table: rows = days, columns = shifts
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));
             for (int s = 1; s <= 5; s++)

@@ -159,7 +159,8 @@ ORDER BY ats.SessionDate DESC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT p.PaymentDate,
+SELECT p.Id,
+       p.PaymentDate,
        p.Amount,
        IFNULL(u.Username, ''),
        IFNULL(p.Note, '')
@@ -173,21 +174,94 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var rawDate = reader.GetString(0);
+            var rawDate = reader.GetString(1);
             var displayDate = DateTime.TryParse(rawDate, out var parsed)
                 ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                 : rawDate;
 
             results.Add(new PaymentHistoryRow
             {
+                PaymentId = reader.GetInt32(0),
                 NgayThu = displayDate,
-                SoTien = Convert.ToDecimal(reader.GetDouble(1)),
-                NguoiThu = reader.GetString(2),
-                GhiChu = reader.GetString(3)
+                SoTien = Convert.ToDecimal(reader.GetDouble(2)),
+                NguoiThu = reader.GetString(3),
+                GhiChu = reader.GetString(4)
             });
         }
 
         return results;
+    }
+
+    public void UpdatePaymentHistory(int paymentId, int studentId, decimal amount, string? note)
+    {
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var updatePaymentCmd = connection.CreateCommand())
+        {
+            updatePaymentCmd.Transaction = transaction;
+            updatePaymentCmd.CommandText = @"UPDATE Payments
+SET Amount = @amount, Note = @note
+WHERE Id = @paymentId AND StudentId = @studentId;";
+            updatePaymentCmd.Parameters.AddWithValue("@amount", amount);
+            updatePaymentCmd.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+            updatePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            updatePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
+
+            if (updatePaymentCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không tìm thấy lịch sử thu để cập nhật.");
+            }
+        }
+
+        using (var updateLedgerCmd = connection.CreateCommand())
+        {
+            updateLedgerCmd.Transaction = transaction;
+            updateLedgerCmd.CommandText = @"UPDATE RevenueLedger
+SET Amount = @amount
+WHERE SourcePaymentId = @paymentId;";
+            updateLedgerCmd.Parameters.AddWithValue("@amount", amount);
+            updateLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            updateLedgerCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public void DeletePaymentHistory(int paymentId, int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var deleteLedgerCmd = connection.CreateCommand())
+        {
+            deleteLedgerCmd.Transaction = transaction;
+            deleteLedgerCmd.CommandText = "DELETE FROM RevenueLedger WHERE SourcePaymentId = @paymentId;";
+            deleteLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            deleteLedgerCmd.ExecuteNonQuery();
+        }
+
+        using (var deletePaymentCmd = connection.CreateCommand())
+        {
+            deletePaymentCmd.Transaction = transaction;
+            deletePaymentCmd.CommandText = "DELETE FROM Payments WHERE Id = @paymentId AND StudentId = @studentId;";
+            deletePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            deletePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
+
+            if (deletePaymentCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không tìm thấy lịch sử thu để xóa.");
+            }
+        }
+
+        transaction.Commit();
     }
 }
 
@@ -200,6 +274,7 @@ public class AttendanceDetailRow
 
 public class PaymentHistoryRow
 {
+    public int PaymentId { get; set; }
     public string NgayThu { get; set; } = "";
     public decimal SoTien { get; set; }
     public string NguoiThu { get; set; } = "";

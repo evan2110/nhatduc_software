@@ -80,6 +80,8 @@
             lblPaymentNote = new Label();
             txtPaymentNote = new TextBox();
             btnCollectPayment = new Button();
+            btnEditPaymentHistory = new Button();
+            btnDeletePaymentHistory = new Button();
             dgvAttendanceDetail = new DataGridView();
             tabAdminReports = new TabPage();
             lblTotalStudents = new Label();
@@ -694,6 +696,8 @@
             tabAdminPayments.Controls.Add(lblPaymentNote);
             tabAdminPayments.Controls.Add(txtPaymentNote);
             tabAdminPayments.Controls.Add(btnCollectPayment);
+            tabAdminPayments.Controls.Add(btnEditPaymentHistory);
+            tabAdminPayments.Controls.Add(btnDeletePaymentHistory);
             tabAdminPayments.Controls.Add(dgvAttendanceDetail);
             tabAdminPayments.Location = new Point(4, 24);
             tabAdminPayments.Name = "tabAdminPayments";
@@ -828,6 +832,26 @@
             btnCollectPayment.Click += btnCollectPayment_Click;
             btnCollectPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
+            // btnEditPaymentHistory
+            // 
+            btnEditPaymentHistory.Location = new Point(20, 274);
+            btnEditPaymentHistory.Name = "btnEditPaymentHistory";
+            btnEditPaymentHistory.Size = new Size(390, 30);
+            btnEditPaymentHistory.TabIndex = 11;
+            btnEditPaymentHistory.Text = "Chỉnh sửa lịch sử thu";
+            btnEditPaymentHistory.Click += btnEditPaymentHistory_Click;
+            btnEditPaymentHistory.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
+            // btnDeletePaymentHistory
+            // 
+            btnDeletePaymentHistory.Location = new Point(20, 310);
+            btnDeletePaymentHistory.Name = "btnDeletePaymentHistory";
+            btnDeletePaymentHistory.Size = new Size(390, 30);
+            btnDeletePaymentHistory.TabIndex = 12;
+            btnDeletePaymentHistory.Text = "Xóa lịch sử thu";
+            btnDeletePaymentHistory.Click += btnDeletePaymentHistory_Click;
+            btnDeletePaymentHistory.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
             // dgvAttendanceDetail
             // 
             dgvAttendanceDetail.AllowUserToAddRows = false;
@@ -835,8 +859,9 @@
             dgvAttendanceDetail.Name = "dgvAttendanceDetail";
             dgvAttendanceDetail.ReadOnly = true;
             dgvAttendanceDetail.Size = new Size(580, 450);
-            dgvAttendanceDetail.TabIndex = 11;
+            dgvAttendanceDetail.TabIndex = 13;
             dgvAttendanceDetail.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvAttendanceDetail.SelectionChanged += dgvAttendanceDetail_SelectionChanged;
             dgvAttendanceDetail.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // tabAdminReports
@@ -1644,6 +1669,8 @@
         private TextBox txtPaymentNote;
         private Button btnLoadPayment;
         private Button btnCollectPayment;
+        private Button btnEditPaymentHistory;
+        private Button btnDeletePaymentHistory;
         private Label lblPaymentFilterClass;
         private ComboBox cmbPaymentFilterClass;
         private TextBox txtSearchStudent;
