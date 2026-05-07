@@ -145,6 +145,8 @@ namespace NhatDucSoftware
                 };
                 dgvAttendance.CellEndEdit += dgvAttendance_CellEndEdit;
                 dgvAttendance.CellValueChanged += (_, _) => UpdateTeacherAttendanceSaveButtonState();
+
+                InitializeTeacherEvaluationPeriodSelectors();
             }
             else
             {
@@ -1204,27 +1206,67 @@ namespace NhatDucSoftware
                 return;
             }
 
-            var evaluations = _evaluationService.GetByStudent(s.Id);
-
             var form = new Form
             {
                 Text = $"Điểm / Nhận xét - {s.FullName}",
-                Size = new Size(700, 450),
+                Size = new Size(900, 500),
                 StartPosition = FormStartPosition.CenterParent
+            };
+
+            var lblMonth = new Label { Text = "Tháng:", Location = new Point(10, 14), Size = new Size(45, 20) };
+            var cmbMonth = new ComboBox
+            {
+                Location = new Point(58, 10),
+                Size = new Size(70, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            for (int i = 1; i <= 12; i++)
+            {
+                cmbMonth.Items.Add(i);
+            }
+
+            var cmbYear = new ComboBox
+            {
+                Location = new Point(135, 10),
+                Size = new Size(90, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+            {
+                cmbYear.Items.Add(y);
+            }
+
+            cmbMonth.SelectedItem = DateTime.Now.Month;
+            cmbYear.SelectedItem = DateTime.Now.Year;
+
+            var btnExport = new Button
+            {
+                Text = "Xuất Excel theo tháng",
+                Location = new Point(240, 9),
+                Size = new Size(160, 25)
             };
 
             var dgv = new DataGridView
             {
-                Dock = DockStyle.Fill,
+                Location = new Point(10, 45),
+                Size = new Size(864, 406),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 AllowUserToAddRows = false,
                 ReadOnly = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                DataSource = evaluations
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
 
-            form.Controls.Add(dgv);
-            form.Shown += (_, _) =>
+            void LoadMonthlyEvaluations()
             {
+                if (cmbMonth.SelectedItem is not int month || cmbYear.SelectedItem is not int year)
+                {
+                    return;
+                }
+
+                var evaluations = _evaluationService.GetByStudentInMonth(s.Id, year, month);
+                dgv.DataSource = null;
+                dgv.DataSource = evaluations;
+
                 if (dgv.Columns.Count > 0)
                 {
                     dgv.Columns["Lop"].HeaderText = "Lớp";
@@ -1233,8 +1275,50 @@ namespace NhatDucSoftware
                     dgv.Columns["NhanXet"].HeaderText = "Nhận xét";
                     dgv.Columns["Ngay"].HeaderText = "Ngày";
                 }
+            }
+
+            cmbMonth.SelectedIndexChanged += (_, _) => LoadMonthlyEvaluations();
+            cmbYear.SelectedIndexChanged += (_, _) => LoadMonthlyEvaluations();
+
+            btnExport.Click += (_, _) =>
+            {
+                if (cmbMonth.SelectedItem is not int month || cmbYear.SelectedItem is not int year)
+                {
+                    MessageBox.Show("Vui lòng chọn tháng và năm.");
+                    return;
+                }
+
+                var evaluations = _evaluationService.GetByStudentInMonth(s.Id, year, month);
+                using var dialog = new SaveFileDialog
+                {
+                    FileName = $"DiemNhanXet_{s.FullName.Replace(" ", string.Empty)}_{month:D2}_{year}.xlsx",
+                    Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                    Title = "Xuất điểm/nhận xét theo tháng"
+                };
+
+                if (dialog.ShowDialog(form) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _excelExportService.ExportStudentEvaluationsByMonthToExcel(s.FullName, year, month, evaluations, dialog.FileName);
+                    MessageBox.Show("Đã xuất file Excel thành công.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Lỗi xuất Excel: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             };
 
+            form.Controls.Add(lblMonth);
+            form.Controls.Add(cmbMonth);
+            form.Controls.Add(cmbYear);
+            form.Controls.Add(btnExport);
+            form.Controls.Add(dgv);
+
+            LoadMonthlyEvaluations();
             form.ShowDialog(this);
         }
 
@@ -1826,12 +1910,20 @@ namespace NhatDucSoftware
                 return;
             }
 
+            if (!TryGetTeacherEvaluationPeriod(out var year, out var month))
+            {
+                MessageBox.Show("Vui lòng chọn tháng và năm đánh giá.");
+                return;
+            }
+
             _evaluationService.Save(
                 cmbStudentEvaluate.SelectedValue is int studentId ? studentId : 0,
                 cmbClassEvaluate.SelectedValue is int classId ? classId : 0,
                 _currentUser.TeacherId.Value,
                 decimal.TryParse(txtScore.Text, out var score) ? score : null,
-                txtComment.Text.Trim());
+                txtComment.Text.Trim(),
+                year,
+                month);
 
             MessageBox.Show("Đã lưu nhận xét/điểm.");
         }
@@ -2054,6 +2146,64 @@ namespace NhatDucSoftware
             }
 
             dgvPayrollDetail.DataSource = detailTable;
+        }
+
+        private void InitializeTeacherEvaluationPeriodSelectors()
+        {
+            if (tabTeacherEvaluation.Controls["cmbEvaluationMonth"] is ComboBox && tabTeacherEvaluation.Controls["cmbEvaluationYear"] is ComboBox)
+            {
+                return;
+            }
+
+            var cmbMonth = new ComboBox
+            {
+                Name = "cmbEvaluationMonth",
+                Location = new Point(540, 30),
+                Size = new Size(80, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            for (int i = 1; i <= 12; i++)
+            {
+                cmbMonth.Items.Add(i);
+            }
+            cmbMonth.SelectedItem = DateTime.Now.Month;
+
+            var cmbYear = new ComboBox
+            {
+                Name = "cmbEvaluationYear",
+                Location = new Point(630, 30),
+                Size = new Size(90, 23),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+            {
+                cmbYear.Items.Add(y);
+            }
+            cmbYear.SelectedItem = DateTime.Now.Year;
+
+            tabTeacherEvaluation.Controls.Add(cmbMonth);
+            tabTeacherEvaluation.Controls.Add(cmbYear);
+            cmbMonth.BringToFront();
+            cmbYear.BringToFront();
+        }
+
+        private bool TryGetTeacherEvaluationPeriod(out int year, out int month)
+        {
+            year = DateTime.Now.Year;
+            month = DateTime.Now.Month;
+
+            var cmbMonth = tabTeacherEvaluation.Controls["cmbEvaluationMonth"] as ComboBox;
+            var cmbYear = tabTeacherEvaluation.Controls["cmbEvaluationYear"] as ComboBox;
+            if (cmbMonth?.SelectedItem is int selectedMonth && cmbYear?.SelectedItem is int selectedYear)
+            {
+                month = selectedMonth;
+                year = selectedYear;
+                return true;
+            }
+
+            return false;
         }
     }
 
