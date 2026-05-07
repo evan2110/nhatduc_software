@@ -69,9 +69,7 @@
             lblPaymentFilterClass = new Label();
             cmbPaymentFilterClass = new ComboBox();
             lblPaymentStudent = new Label();
-            txtSearchStudent = new TextBox();
             cmbStudentPayment = new ComboBox();
-            btnLoadPayment = new Button();
             lblPaymentNeed = new Label();
             lblPaymentPaid = new Label();
             lblPaymentRemain = new Label();
@@ -112,8 +110,8 @@
             lblPayrollMonth = new Label();
             cmbPayrollMonth = new ComboBox();
             cmbPayrollYear = new ComboBox();
-            btnLoadPayroll = new Button();
             dgvPayroll = new DataGridView();
+            dgvPayrollDetail = new DataGridView();
             btnLogoutAdmin = new Button();
             tabTeacher = new TabPage();
             tabTeacherFunctions = new TabControl();
@@ -121,7 +119,6 @@
             lblTimesheetMonth = new Label();
             cmbTimesheetMonth = new ComboBox();
             cmbTimesheetYear = new ComboBox();
-            btnLoadTimesheet = new Button();
             btnSaveTimesheet = new Button();
             dgvTimesheet = new DataGridView();
             lblTimesheetSummary = new Label();
@@ -136,7 +133,6 @@
             lblAttendanceDate = new Label();
             cmbClassAttendance = new ComboBox();
             dtpSessionDate = new DateTimePicker();
-            btnLoadAttendanceStudents = new Button();
             dgvAttendance = new DataGridView();
             btnSaveAttendance = new Button();
             tabTeacherEvaluation = new TabPage();
@@ -169,6 +165,7 @@
             ((System.ComponentModel.ISupportInitialize)dgvTeachers).BeginInit();
             tabAdminPayroll.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvPayroll).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvPayrollDetail).BeginInit();
             tabTeacher.SuspendLayout();
             tabTeacherFunctions.SuspendLayout();
             tabTeacherTimesheet.SuspendLayout();
@@ -685,9 +682,7 @@
             tabAdminPayments.Controls.Add(lblPaymentFilterClass);
             tabAdminPayments.Controls.Add(cmbPaymentFilterClass);
             tabAdminPayments.Controls.Add(lblPaymentStudent);
-            tabAdminPayments.Controls.Add(txtSearchStudent);
             tabAdminPayments.Controls.Add(cmbStudentPayment);
-            tabAdminPayments.Controls.Add(btnLoadPayment);
             tabAdminPayments.Controls.Add(lblPaymentNeed);
             tabAdminPayments.Controls.Add(lblPaymentPaid);
             tabAdminPayments.Controls.Add(lblPaymentRemain);
@@ -730,36 +725,16 @@
             lblPaymentStudent.Name = "lblPaymentStudent";
             lblPaymentStudent.Size = new Size(70, 15);
             lblPaymentStudent.TabIndex = 0;
-            lblPaymentStudent.Text = "Tìm HV:";
+            lblPaymentStudent.Text = "Học viên:";
             lblPaymentStudent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // 
-            // txtSearchStudent
-            // 
-            txtSearchStudent.Location = new Point(375, 9);
-            txtSearchStudent.Name = "txtSearchStudent";
-            txtSearchStudent.PlaceholderText = "Nhập tên...";
-            txtSearchStudent.Size = new Size(150, 23);
-            txtSearchStudent.TabIndex = 2;
-            txtSearchStudent.TextChanged += txtSearchStudent_TextChanged;
-            txtSearchStudent.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbStudentPayment
             // 
-            cmbStudentPayment.Location = new Point(20, 40);
+            cmbStudentPayment.Location = new Point(375, 9);
             cmbStudentPayment.Name = "cmbStudentPayment";
             cmbStudentPayment.Size = new Size(260, 23);
             cmbStudentPayment.TabIndex = 3;
             cmbStudentPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // 
-            // btnLoadPayment
-            // 
-            btnLoadPayment.Location = new Point(290, 38);
-            btnLoadPayment.Name = "btnLoadPayment";
-            btnLoadPayment.Size = new Size(120, 28);
-            btnLoadPayment.TabIndex = 4;
-            btnLoadPayment.Text = "Xem học phí";
-            btnLoadPayment.Click += btnLoadPayment_Click;
-            btnLoadPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // lblPaymentNeed
             // 
@@ -1119,12 +1094,14 @@
             // 
             // tabAdminPayroll
             // 
+            lblPayrollMonth = new Label();
+            cmbPayrollMonth = new ComboBox();
+            cmbPayrollYear = new ComboBox();
+            dgvPayroll = new DataGridView();
             dgvPayrollDetail = new DataGridView();
-            ((System.ComponentModel.ISupportInitialize)dgvPayrollDetail).BeginInit();
             tabAdminPayroll.Controls.Add(lblPayrollMonth);
             tabAdminPayroll.Controls.Add(cmbPayrollMonth);
             tabAdminPayroll.Controls.Add(cmbPayrollYear);
-            tabAdminPayroll.Controls.Add(btnLoadPayroll);
             tabAdminPayroll.Controls.Add(dgvPayroll);
             tabAdminPayroll.Controls.Add(dgvPayrollDetail);
             tabAdminPayroll.Location = new Point(4, 24);
@@ -1149,6 +1126,7 @@
             cmbPayrollMonth.Name = "cmbPayrollMonth";
             cmbPayrollMonth.Size = new Size(60, 23);
             cmbPayrollMonth.TabIndex = 1;
+            cmbPayrollMonth.SelectedIndexChanged += cmbPayrollFilter_SelectedIndexChanged;
             cmbPayrollMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbPayrollYear
@@ -1158,17 +1136,8 @@
             cmbPayrollYear.Name = "cmbPayrollYear";
             cmbPayrollYear.Size = new Size(80, 23);
             cmbPayrollYear.TabIndex = 2;
+            cmbPayrollYear.SelectedIndexChanged += cmbPayrollFilter_SelectedIndexChanged;
             cmbPayrollYear.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // 
-            // btnLoadPayroll
-            // 
-            btnLoadPayroll.Location = new Point(230, 11);
-            btnLoadPayroll.Name = "btnLoadPayroll";
-            btnLoadPayroll.Size = new Size(80, 25);
-            btnLoadPayroll.TabIndex = 3;
-            btnLoadPayroll.Text = "Xem";
-            btnLoadPayroll.Click += btnLoadPayroll_Click;
-            btnLoadPayroll.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvPayroll
             // 
@@ -1231,7 +1200,6 @@
             tabTeacherTimesheet.Controls.Add(lblTimesheetMonth);
             tabTeacherTimesheet.Controls.Add(cmbTimesheetMonth);
             tabTeacherTimesheet.Controls.Add(cmbTimesheetYear);
-            tabTeacherTimesheet.Controls.Add(btnLoadTimesheet);
             tabTeacherTimesheet.Controls.Add(btnSaveTimesheet);
             tabTeacherTimesheet.Controls.Add(dgvTimesheet);
             tabTeacherTimesheet.Controls.Add(lblTimesheetSummary);
@@ -1258,6 +1226,7 @@
             cmbTimesheetMonth.Name = "cmbTimesheetMonth";
             cmbTimesheetMonth.Size = new Size(60, 23);
             cmbTimesheetMonth.TabIndex = 1;
+            cmbTimesheetMonth.SelectedIndexChanged += cmbTimesheetFilter_SelectedIndexChanged;
             cmbTimesheetMonth.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // cmbTimesheetYear
@@ -1267,21 +1236,12 @@
             cmbTimesheetYear.Name = "cmbTimesheetYear";
             cmbTimesheetYear.Size = new Size(80, 23);
             cmbTimesheetYear.TabIndex = 2;
+            cmbTimesheetYear.SelectedIndexChanged += cmbTimesheetFilter_SelectedIndexChanged;
             cmbTimesheetYear.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // 
-            // btnLoadTimesheet
-            // 
-            btnLoadTimesheet.Location = new Point(230, 11);
-            btnLoadTimesheet.Name = "btnLoadTimesheet";
-            btnLoadTimesheet.Size = new Size(80, 25);
-            btnLoadTimesheet.TabIndex = 3;
-            btnLoadTimesheet.Text = "Xem";
-            btnLoadTimesheet.Click += btnLoadTimesheet_Click;
-            btnLoadTimesheet.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnSaveTimesheet
             // 
-            btnSaveTimesheet.Location = new Point(320, 11);
+            btnSaveTimesheet.Location = new Point(230, 11);
             btnSaveTimesheet.Name = "btnSaveTimesheet";
             btnSaveTimesheet.Size = new Size(100, 25);
             btnSaveTimesheet.TabIndex = 4;
@@ -1376,7 +1336,6 @@
             tabTeacherAttendance.Controls.Add(lblAttendanceDate);
             tabTeacherAttendance.Controls.Add(cmbClassAttendance);
             tabTeacherAttendance.Controls.Add(dtpSessionDate);
-            tabTeacherAttendance.Controls.Add(btnLoadAttendanceStudents);
             tabTeacherAttendance.Controls.Add(dgvAttendance);
             tabTeacherAttendance.Controls.Add(btnSaveAttendance);
             tabTeacherAttendance.Location = new Point(4, 24);
@@ -1409,6 +1368,7 @@
             cmbClassAttendance.Name = "cmbClassAttendance";
             cmbClassAttendance.Size = new Size(240, 23);
             cmbClassAttendance.TabIndex = 2;
+            cmbClassAttendance.SelectedIndexChanged += cmbAttendanceFilter_Changed;
             cmbClassAttendance.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dtpSessionDate
@@ -1417,24 +1377,15 @@
             dtpSessionDate.Name = "dtpSessionDate";
             dtpSessionDate.Size = new Size(240, 23);
             dtpSessionDate.TabIndex = 3;
+            dtpSessionDate.ValueChanged += cmbAttendanceFilter_Changed;
             dtpSessionDate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // 
-            // btnLoadAttendanceStudents
-            // 
-            btnLoadAttendanceStudents.Location = new Point(510, 17);
-            btnLoadAttendanceStudents.Name = "btnLoadAttendanceStudents";
-            btnLoadAttendanceStudents.Size = new Size(180, 28);
-            btnLoadAttendanceStudents.TabIndex = 4;
-            btnLoadAttendanceStudents.Text = "Tải DS điểm danh";
-            btnLoadAttendanceStudents.Click += btnLoadAttendanceStudents_Click;
-            btnLoadAttendanceStudents.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvAttendance
             // 
             dgvAttendance.Location = new Point(10, 55);
             dgvAttendance.Name = "dgvAttendance";
             dgvAttendance.Size = new Size(1000, 350);
-            dgvAttendance.TabIndex = 5;
+            dgvAttendance.TabIndex = 4;
             dgvAttendance.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgvAttendance.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
@@ -1629,7 +1580,6 @@
         private Label lblPayrollMonth;
         private ComboBox cmbPayrollMonth;
         private ComboBox cmbPayrollYear;
-        private Button btnLoadPayroll;
         private DataGridView dgvPayroll;
         private TabControl tabTeacherFunctions;
         private TabPage tabTeacherSchedule;
@@ -1667,13 +1617,11 @@
         private Label lblPaymentRemain;
         private TextBox txtPaymentAmount;
         private TextBox txtPaymentNote;
-        private Button btnLoadPayment;
         private Button btnCollectPayment;
         private Button btnEditPaymentHistory;
         private Button btnDeletePaymentHistory;
         private Label lblPaymentFilterClass;
         private ComboBox cmbPaymentFilterClass;
-        private TextBox txtSearchStudent;
         private DataGridView dgvAttendanceDetail;
         private Label lblTotalStudents;
         private Label lblTotalRevenue;
@@ -1688,7 +1636,6 @@
         private DataGridView dgvTeacherWeeklySchedule;
         private ComboBox cmbClassAttendance;
         private DateTimePicker dtpSessionDate;
-        private Button btnLoadAttendanceStudents;
         private DataGridView dgvAttendance;
         private Button btnSaveAttendance;
         private ComboBox cmbClassEvaluate;
@@ -1736,7 +1683,6 @@
         private Label lblTimesheetMonth;
         private ComboBox cmbTimesheetMonth;
         private ComboBox cmbTimesheetYear;
-        private Button btnLoadTimesheet;
         private Button btnSaveTimesheet;
         private DataGridView dgvTimesheet;
         private Label lblTimesheetSummary;

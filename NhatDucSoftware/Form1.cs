@@ -1,4 +1,5 @@
 ﻿using System.Drawing.Drawing2D;
+using System.Globalization;
 using NhatDucSoftware.Models;
 using NhatDucSoftware.Services;
 
@@ -6,6 +7,12 @@ namespace NhatDucSoftware
 {
     public partial class Form1 : Form
     {
+        private static readonly NumberFormatInfo MoneyNumberFormat = new()
+        {
+            NumberDecimalDigits = 0,
+            NumberGroupSeparator = " "
+        };
+
         private readonly AuthenticatedUser _currentUser;
         private readonly StudentService _studentService = new();
         private readonly CourseService _courseService = new();
@@ -25,6 +32,7 @@ namespace NhatDucSoftware
         private List<Teacher> _teachers = new();
         private List<RevenueByYearStat> _revenueByYear = new();
         private List<RevenueByMonthStat> _revenueByMonth = new();
+        private bool _isBindingPaymentStudents;
 
         public bool RequestLogout { get; private set; }
 
@@ -32,9 +40,78 @@ namespace NhatDucSoftware
         {
             _currentUser = user;
             InitializeComponent();
+            InitializeMoneyFormatting();
             Text = $"Nhat Duc Software - {_currentUser.Role}: {_currentUser.Username}";
             UiBackgroundHelper.ApplyBackground(this);
             AddCopyrightLabel();
+        }
+
+        private static string FormatCurrency(decimal amount)
+        {
+            return $"{amount.ToString("N0", MoneyNumberFormat)}đ";
+        }
+
+        private static string FormatMoneyInput(decimal amount)
+        {
+            return amount.ToString("N0", MoneyNumberFormat);
+        }
+
+        private static bool TryParseMoney(string? text, out decimal amount)
+        {
+            var normalized = (text ?? string.Empty)
+                .Replace("đ", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(" ", string.Empty)
+                .Trim();
+
+            return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
+        }
+
+        private void InitializeMoneyFormatting()
+        {
+            WireMoneyInput(txtCourseFee);
+            WireMoneyInput(txtPaymentAmount);
+
+            dgvCourses.CellFormatting += (_, e) => FormatMoneyCell(dgvCourses, e, nameof(Course.TuitionFee));
+            dgvRevenueByYear.CellFormatting += (_, e) => FormatMoneyCell(dgvRevenueByYear, e, nameof(RevenueByYearStat.TotalRevenue), nameof(RevenueByMonthStat.TotalRevenue));
+            dgvAttendanceDetail.CellFormatting += (_, e) => FormatMoneyCell(dgvAttendanceDetail, e, "SoTien");
+        }
+
+        private static void WireMoneyInput(TextBox textBox)
+        {
+            textBox.Leave += (_, _) =>
+            {
+                if (TryParseMoney(textBox.Text, out var amount))
+                {
+                    textBox.Text = FormatMoneyInput(amount);
+                }
+            };
+        }
+
+        private static void FormatMoneyCell(DataGridView grid, DataGridViewCellFormattingEventArgs e, params string[] propertyNames)
+        {
+            if (e.RowIndex < 0)
+            {
+                return;
+            }
+
+            var column = grid.Columns[e.ColumnIndex];
+            if (!propertyNames.Contains(column.DataPropertyName) && !propertyNames.Contains(column.Name))
+            {
+                return;
+            }
+
+            if (e.Value is decimal decimalValue)
+            {
+                e.Value = FormatCurrency(decimalValue);
+                e.FormattingApplied = true;
+                return;
+            }
+
+            if (e.Value is not null && TryParseMoney(e.Value.ToString(), out var parsedValue))
+            {
+                e.Value = FormatCurrency(parsedValue);
+                e.FormattingApplied = true;
+            }
         }
 
         private void AddCopyrightLabel()
@@ -75,6 +152,8 @@ namespace NhatDucSoftware
                 InitializeAdminMakeupFeatures();
                 InitializeReportFeatures();
             }
+
+            cmbStudentPayment.SelectedIndexChanged += cmbStudentPayment_SelectedIndexChanged;
 
             LoadCoursesToCombos();
             LoadStudents();
@@ -336,16 +415,16 @@ namespace NhatDucSoftware
                 g.DrawLine(gridPen, plot.Left, y, plot.Right, y);
 
                 var value = maxRevenue * (decimal)ratio;
-                var yLabel = $"{value:N0}";
+                var yLabel = FormatCurrency(value);
                 var ySize = g.MeasureString(yLabel, axisFont);
                 g.DrawString(yLabel, axisFont, labelBrush, plot.Left - ySize.Width - 6, y - ySize.Height / 2);
             }
 
             var slotWidth = plot.Width / (float)data.Count;
-            var barWidth = Math.Max(12f, slotWidth * 0.6f);
+            var barWidth = Math.Max(16f, slotWidth * 0.55f);
 
-            using var barBrush = new SolidBrush(Color.FromArgb(34, 177, 76));
-            using var valueFont = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            using var barBrush = new SolidBrush(Color.FromArgb(66, 133, 244));
+            using var valueFont = new Font("Segoe UI", 8f, FontStyle.Bold);
             using var valueBrush = new SolidBrush(Color.FromArgb(40, 40, 40));
 
             for (int i = 0; i < data.Count; i++)
@@ -361,7 +440,7 @@ namespace NhatDucSoftware
                 var monthSize = g.MeasureString(monthText, axisFont);
                 g.DrawString(monthText, axisFont, labelBrush, x + (barWidth - monthSize.Width) / 2, plot.Bottom + 6);
 
-                var valueText = item.TotalRevenue.ToString("N0");
+                var valueText = FormatCurrency(item.TotalRevenue);
                 var valueSize = g.MeasureString(valueText, valueFont);
                 var valueX = x + (barWidth - valueSize.Width) / 2;
                 var valueY = y - valueSize.Height - 3;
@@ -838,7 +917,7 @@ namespace NhatDucSoftware
         {
             var summary = _reportService.GetSummary();
             lblTotalStudents.Text = $"Tổng học viên: {summary.TotalStudents}";
-            lblTotalRevenue.Text = $"Doanh thu: {summary.TotalRevenue:N0}";
+            lblTotalRevenue.Text = $"Doanh thu: {FormatCurrency(summary.TotalRevenue)}";
             lblActiveClasses.Text = $"Lớp hoạt động: {summary.ActiveClasses}";
 
             _revenueByYear = _reportService.GetRevenueByYear();
@@ -910,7 +989,7 @@ namespace NhatDucSoftware
                 g.DrawLine(gridPen, plot.Left, y, plot.Right, y);
 
                 var value = maxRevenue * (decimal)ratio;
-                var yLabel = $"{value:N0}";
+                var yLabel = FormatCurrency(value);
                 var ySize = g.MeasureString(yLabel, axisFont);
                 g.DrawString(yLabel, axisFont, labelBrush, plot.Left - ySize.Width - 6, y - ySize.Height / 2);
             }
@@ -935,7 +1014,7 @@ namespace NhatDucSoftware
                 var monthSize = g.MeasureString(monthText, axisFont);
                 g.DrawString(monthText, axisFont, labelBrush, x + (barWidth - monthSize.Width) / 2, plot.Bottom + 6);
 
-                var valueText = item.TotalRevenue.ToString("N0");
+                var valueText = FormatCurrency(item.TotalRevenue);
                 var valueSize = g.MeasureString(valueText, valueFont);
                 var valueX = x + (barWidth - valueSize.Width) / 2;
                 var valueY = y - valueSize.Height - 3;
@@ -1166,7 +1245,7 @@ namespace NhatDucSoftware
                 _courseService.Add(new Course
                 {
                     Name = txtCourseName.Text.Trim(),
-                    TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0,
+                    TuitionFee = TryParseMoney(txtCourseFee.Text, out var fee) ? fee : 0,
                     Status = "Active"
                 });
                 LoadCoursesToCombos();
@@ -1182,7 +1261,7 @@ namespace NhatDucSoftware
             if (dgvCourses.CurrentRow?.DataBoundItem is not Course c) return;
 
             c.Name = txtCourseName.Text.Trim();
-            c.TuitionFee = decimal.TryParse(txtCourseFee.Text, out var fee) ? fee : 0;
+            c.TuitionFee = TryParseMoney(txtCourseFee.Text, out var fee) ? fee : 0;
 
             try
             {
@@ -1200,7 +1279,7 @@ namespace NhatDucSoftware
         {
             if (dgvCourses.CurrentRow?.DataBoundItem is not Course c) return;
             txtCourseName.Text = c.Name;
-            txtCourseFee.Text = c.TuitionFee.ToString();
+            txtCourseFee.Text = FormatMoneyInput(c.TuitionFee);
         }
 
         private void btnCreateClass_Click(object sender, EventArgs e)
@@ -1463,10 +1542,11 @@ namespace NhatDucSoftware
             }
         }
 
-        private void btnLoadPayment_Click(object sender, EventArgs e)
+        private void LoadSelectedPaymentInfo()
         {
             if (cmbStudentPayment.SelectedValue is not int studentId)
             {
+                ClearPaymentInfo();
                 return;
             }
 
@@ -1475,9 +1555,9 @@ namespace NhatDucSoftware
             var remaining = total - paid;
             var (totalSessions, attended, absent) = _paymentService.GetAttendanceSummary(studentId);
 
-            lblPaymentNeed.Text = $"Cần đóng: {total:N0} | Buổi học: {totalSessions} (Có mặt: {attended}, Vắng: {absent})";
-            lblPaymentPaid.Text = $"Đã đóng: {paid:N0}";
-            lblPaymentRemain.Text = $"Còn lại: {remaining:N0}";
+            lblPaymentNeed.Text = $"Cần đóng: {FormatCurrency(total)} | Buổi học: {totalSessions} (Có mặt: {attended}, Vắng: {absent})";
+            lblPaymentPaid.Text = $"Đã đóng: {FormatCurrency(paid)}";
+            lblPaymentRemain.Text = $"Còn lại: {FormatCurrency(remaining)}";
             btnCollectPayment.Enabled = remaining > 0;
 
             var history = _paymentService.GetPaymentHistory(studentId);
@@ -1490,95 +1570,28 @@ namespace NhatDucSoftware
                 dgvAttendanceDetail.Columns["SoTien"].HeaderText = "Số tiền";
                 dgvAttendanceDetail.Columns["NguoiThu"].HeaderText = "Người thu";
                 dgvAttendanceDetail.Columns["GhiChu"].HeaderText = "Ghi chú";
-                dgvAttendanceDetail.Columns["SoTien"].DefaultCellStyle.Format = "N0";
             }
         }
 
-        private void btnEditPaymentHistory_Click(object sender, EventArgs e)
+        private void ClearPaymentInfo()
         {
-            if (cmbStudentPayment.SelectedValue is not int studentId)
-            {
-                return;
-            }
-
-            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
-            {
-                MessageBox.Show("Vui lòng chọn một lịch sử thu để chỉnh sửa.");
-                return;
-            }
-
-            if (!decimal.TryParse(txtPaymentAmount.Text, out var amount) || amount <= 0)
-            {
-                MessageBox.Show("Số tiền thu bắt buộc phải lớn hơn 0.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtPaymentAmount.Focus();
-                txtPaymentAmount.SelectAll();
-                return;
-            }
-
-            try
-            {
-                _paymentService.UpdatePaymentHistory(selected.PaymentId, studentId, amount, txtPaymentNote.Text.Trim());
-                btnLoadPayment_Click(sender, e);
-                LoadReports();
-                MessageBox.Show("Đã cập nhật lịch sử thu.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
+            lblPaymentNeed.Text = "Cần đóng: 0đ";
+            lblPaymentPaid.Text = "Đã đóng: 0đ";
+            lblPaymentRemain.Text = "Còn lại: 0đ";
+            txtPaymentAmount.Text = string.Empty;
+            txtPaymentNote.Text = string.Empty;
+            btnCollectPayment.Enabled = false;
+            dgvAttendanceDetail.DataSource = null;
         }
 
-        private void btnDeletePaymentHistory_Click(object sender, EventArgs e)
+        private void cmbStudentPayment_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            if (cmbStudentPayment.SelectedValue is not int studentId)
+            if (_isBindingPaymentStudents)
             {
                 return;
             }
 
-            var selected = dgvAttendanceDetail.SelectedRows
-                .Cast<DataGridViewRow>()
-                .Where(r => r.DataBoundItem is PaymentHistoryRow)
-                .Select(r => (PaymentHistoryRow)r.DataBoundItem!)
-                .ToList();
-
-            if (selected.Count == 0)
-            {
-                MessageBox.Show("Vui lòng chọn một hoặc nhiều lịch sử thu để xóa.");
-                return;
-            }
-
-            var confirm = MessageBox.Show(
-                selected.Count == 1
-                    ? "Bạn có chắc muốn xóa lịch sử thu đã chọn?"
-                    : $"Bạn có chắc muốn xóa {selected.Count} lịch sử thu đã chọn?",
-                "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (confirm != DialogResult.Yes) return;
-
-            try
-            {
-                foreach (var row in selected)
-                {
-                    _paymentService.DeletePaymentHistory(row.PaymentId, studentId);
-                }
-                btnLoadPayment_Click(sender, e);
-                LoadReports();
-                MessageBox.Show("Đã xóa lịch sử thu.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
-        }
-
-        private void dgvAttendanceDetail_SelectionChanged(object? sender, EventArgs e)
-        {
-            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
-            {
-                return;
-            }
-
-            txtPaymentAmount.Text = selected.SoTien.ToString("0.##");
-            txtPaymentNote.Text = selected.GhiChu;
+            LoadSelectedPaymentInfo();
         }
 
         private void LoadPaymentClassFilter()
@@ -1597,15 +1610,10 @@ namespace NhatDucSoftware
             FilterPaymentStudents();
         }
 
-        private void txtSearchStudent_TextChanged(object sender, EventArgs e)
-        {
-            FilterPaymentStudents();
-        }
-
         private void FilterPaymentStudents()
         {
+            var currentStudentId = cmbStudentPayment.SelectedValue is int selectedStudentId ? selectedStudentId : 0;
             var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
-            var search = txtSearchStudent.Text.Trim().ToLower();
 
             List<Student> filtered;
             if (classId > 0)
@@ -1619,15 +1627,30 @@ namespace NhatDucSoftware
                 filtered = _students.ToList();
             }
 
-            if (!string.IsNullOrEmpty(search))
-            {
-                filtered = filtered.Where(s => s.FullName.ToLower().Contains(search)).ToList();
-            }
-
+            _isBindingPaymentStudents = true;
             cmbStudentPayment.DataSource = null;
             cmbStudentPayment.DataSource = filtered;
             cmbStudentPayment.DisplayMember = nameof(Student.FullName);
             cmbStudentPayment.ValueMember = nameof(Student.Id);
+
+            if (filtered.Count == 0)
+            {
+                _isBindingPaymentStudents = false;
+                ClearPaymentInfo();
+                return;
+            }
+
+            if (currentStudentId > 0 && filtered.Any(s => s.Id == currentStudentId))
+            {
+                cmbStudentPayment.SelectedValue = currentStudentId;
+            }
+            else
+            {
+                cmbStudentPayment.SelectedIndex = 0;
+            }
+
+            _isBindingPaymentStudents = false;
+            LoadSelectedPaymentInfo();
         }
 
         private void btnCollectPayment_Click(object sender, EventArgs e)
@@ -1645,7 +1668,7 @@ namespace NhatDucSoftware
                 return;
             }
 
-            if (!decimal.TryParse(txtPaymentAmount.Text, out var amount) || amount <= 0)
+            if (!TryParseMoney(txtPaymentAmount.Text, out var amount) || amount <= 0)
             {
                 MessageBox.Show("Số tiền thu bắt buộc phải lớn hơn 0.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtPaymentAmount.Focus();
@@ -1656,13 +1679,79 @@ namespace NhatDucSoftware
             try
             {
                 _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
-                btnLoadPayment_Click(sender, e);
+                LoadSelectedPaymentInfo();
                 LoadReports();
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private void btnEditPaymentHistory_Click(object sender, EventArgs e)
+        {
+            if (dgvAttendanceDetail.SelectedRows.Count == 0) return;
+            if (dgvAttendanceDetail.SelectedRows[0].Cells["PaymentId"]?.Value is not int paymentId) return;
+            if (cmbStudentPayment.SelectedValue is not int studentId) return;
+
+            var currentAmountRaw = dgvAttendanceDetail.SelectedRows[0].Cells["SoTien"]?.Value;
+            if (currentAmountRaw == null) return;
+            var currentAmount = Convert.ToDecimal(currentAmountRaw);
+
+            var input = Microsoft.VisualBasic.Interaction.InputBox(
+                "Nhập số tiền mới:", "Sửa lịch sử thu phí",
+                FormatMoneyInput(currentAmount));
+
+            if (string.IsNullOrWhiteSpace(input)) return;
+            if (!TryParseMoney(input, out var newAmount) || newAmount <= 0)
+            {
+                MessageBox.Show("Số tiền không hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                _paymentService.UpdatePaymentHistory(paymentId, studentId, newAmount, null);
+                LoadSelectedPaymentInfo();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnDeletePaymentHistory_Click(object sender, EventArgs e)
+        {
+            if (dgvAttendanceDetail.SelectedRows.Count == 0) return;
+            if (dgvAttendanceDetail.SelectedRows[0].Cells["PaymentId"]?.Value is not int paymentId) return;
+            if (cmbStudentPayment.SelectedValue is not int studentId) return;
+
+            var confirm = MessageBox.Show("Bạn có chắc muốn xoá bản ghi thu phí này?", "Xác nhận",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
+
+            try
+            {
+                _paymentService.DeletePaymentHistory(paymentId, studentId);
+                LoadSelectedPaymentInfo();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void dgvAttendanceDetail_SelectionChanged(object sender, EventArgs e)
+        {
+            bool hasSelection = dgvAttendanceDetail.SelectedRows.Count > 0;
+            btnEditPaymentHistory.Enabled = hasSelection;
+            btnDeletePaymentHistory.Enabled = hasSelection;
+        }
+
+        private void btnLogout_Click(object sender, EventArgs e)
+        {
+            RequestLogout = true;
+            Close();
         }
 
         private void btnLoadAttendanceStudents_Click(object sender, EventArgs e)
@@ -1686,6 +1775,11 @@ namespace NhatDucSoftware
             dgvAttendance.DataSource = students;
             ApplyAttendanceHeaders();
             UpdateTeacherAttendanceSaveButtonState();
+        }
+
+        private void cmbAttendanceFilter_Changed(object? sender, EventArgs e)
+        {
+            btnLoadAttendanceStudents_Click(sender ?? this, e);
         }
 
         private void btnSaveAttendance_Click(object sender, EventArgs e)
@@ -1756,6 +1850,11 @@ namespace NhatDucSoftware
         }
 
         private void btnLoadTimesheet_Click(object sender, EventArgs e)
+        {
+            LoadTimesheet();
+        }
+
+        private void cmbTimesheetFilter_SelectedIndexChanged(object sender, EventArgs e)
         {
             LoadTimesheet();
         }
@@ -1895,6 +1994,11 @@ namespace NhatDucSoftware
             LoadPayroll();
         }
 
+        private void cmbPayrollFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            LoadPayroll();
+        }
+
         private void LoadPayroll()
         {
             if (cmbPayrollMonth.SelectedItem is not int month) return;
@@ -1915,7 +2019,7 @@ namespace NhatDucSoftware
                 row["TeacherId"] = teacher.Id;
                 row["Giáo viên"] = teacher.FullName;
                 row["Tổng ca"] = totalShifts;
-                row["Lương (VNĐ)"] = pay.ToString("N0");
+                row["Lương (VNĐ)"] = FormatCurrency(pay);
                 table.Rows.Add(row);
             }
 
@@ -1950,12 +2054,6 @@ namespace NhatDucSoftware
             }
 
             dgvPayrollDetail.DataSource = detailTable;
-        }
-
-        private void btnLogout_Click(object sender, EventArgs e)
-        {
-            RequestLogout = true;
-            Close();
         }
     }
 
