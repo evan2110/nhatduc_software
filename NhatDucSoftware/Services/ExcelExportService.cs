@@ -128,4 +128,51 @@ public class ExcelExportService
 
         workbook.SaveAs(filePath);
     }
+
+    public void ExportStudentsToExcel(List<Student> data, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("HocVien");
+
+        worksheet.Cell(1, 1).Value = "Danh sách học viên";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 14;
+        worksheet.Range(1, 1, 1, 8).Merge();
+
+        worksheet.Cell(3, 1).Value = "Mã học viên";
+        worksheet.Cell(3, 2).Value = "Họ và tên";
+        worksheet.Cell(3, 3).Value = "Lớp";
+        worksheet.Cell(3, 4).Value = "Số điện thoại";
+        worksheet.Cell(3, 5).Value = "Email";
+        worksheet.Cell(3, 6).Value = "Năm sinh";
+        worksheet.Cell(3, 7).Value = "Địa chỉ";
+        worksheet.Cell(3, 8).Value = "Trạng thái";
+        worksheet.Range(3, 1, 3, 8).Style.Font.Bold = true;
+        worksheet.Range(3, 1, 3, 8).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 4;
+        foreach (var item in data)
+        {
+            worksheet.Cell(row, 1).Value = item.Id;
+            worksheet.Cell(row, 2).Value = item.FullName;
+            worksheet.Cell(row, 3).Value = item.ClassName;
+            worksheet.Cell(row, 4).Value = item.Phone;
+            worksheet.Cell(row, 5).Value = item.Email ?? string.Empty;
+            worksheet.Cell(row, 6).Value = item.BirthYear?.ToString() ?? string.Empty;
+            worksheet.Cell(row, 7).Value = item.Address ?? string.Empty;
+            worksheet.Cell(row, 8).Value = item.Status;
+            row++;
+        }
+
+        worksheet.Column(1).Width = 12;
+        worksheet.Column(2).Width = 24;
+        worksheet.Column(3).Width = 22;
+        worksheet.Column(4).Width = 18;
+        worksheet.Column(5).Width = 24;
+        worksheet.Column(6).Width = 12;
+        worksheet.Column(7).Width = 28;
+        worksheet.Column(8).Width = 14;
+
+        workbook.SaveAs(filePath);
+    }
 }

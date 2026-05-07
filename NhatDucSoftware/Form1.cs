@@ -145,14 +145,13 @@ namespace NhatDucSoftware
                 };
                 dgvAttendance.CellEndEdit += dgvAttendance_CellEndEdit;
                 dgvAttendance.CellValueChanged += (_, _) => UpdateTeacherAttendanceSaveButtonState();
-
-                InitializeTeacherEvaluationPeriodSelectors();
             }
             else
             {
                 tabTeacher.Parent = null;
                 InitializeAdminMakeupFeatures();
                 InitializeReportFeatures();
+                tabAdminFunctions.SelectedIndexChanged += tabAdminFunctions_SelectedIndexChanged;
             }
 
             cmbStudentPayment.SelectedIndexChanged += cmbStudentPayment_SelectedIndexChanged;
@@ -170,6 +169,14 @@ namespace NhatDucSoftware
                 InitTimesheetCombos();
                 LoadTimesheet();
                 LoadTeacherWeeklySchedule();
+            }
+        }
+
+        private void tabAdminFunctions_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (tabAdminFunctions.SelectedTab == tabAdminStudents)
+            {
+                LoadStudents();
             }
         }
 
@@ -741,12 +748,18 @@ namespace NhatDucSoftware
             {
                 [nameof(Student.Id)] = "Mã học viên",
                 [nameof(Student.FullName)] = "Họ và tên",
+                [nameof(Student.ClassName)] = "Lớp",
                 [nameof(Student.Phone)] = "Số điện thoại",
                 [nameof(Student.Email)] = "Email",
                 [nameof(Student.BirthYear)] = "Năm sinh",
                 [nameof(Student.Address)] = "Địa chỉ",
                 [nameof(Student.Status)] = "Trạng thái"
             });
+
+            if (dgvStudents.Columns.Contains(nameof(Student.ClassName)))
+            {
+                dgvStudents.Columns[nameof(Student.ClassName)].DisplayIndex = dgvStudents.Columns[nameof(Student.FullName)].DisplayIndex + 1;
+            }
         }
 
         private void ApplyCourseHeaders()
@@ -1134,6 +1147,31 @@ namespace NhatDucSoftware
             }
 
             MessageBox.Show(message, "Nhập hàng loạt học viên", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void btnExportStudents_Click(object sender, EventArgs e)
+        {
+            using var dialog = new SaveFileDialog
+            {
+                FileName = "DanhSachHocVien.xlsx",
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                Title = "Lưu danh sách học viên"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                _excelExportService.ExportStudentsToExcel(_students, dialog.FileName);
+                MessageBox.Show($"Đã xuất danh sách học viên thành công:\n{dialog.FileName}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi xuất Excel: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void btnUpdateStudent_Click(object sender, EventArgs e)

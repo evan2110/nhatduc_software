@@ -38,6 +38,7 @@
             btnUpdateStudent = new Button();
             btnDeleteStudent = new Button();
             btnImportStudents = new Button();
+            btnExportStudents = new Button();
             tabAdminCourses = new TabPage();
             lblCourseName = new Label();
             lblCourseFee = new Label();
@@ -235,6 +236,7 @@
             tabAdminStudents.Controls.Add(btnUpdateStudent);
             tabAdminStudents.Controls.Add(btnDeleteStudent);
             tabAdminStudents.Controls.Add(btnImportStudents);
+            tabAdminStudents.Controls.Add(btnExportStudents);
             tabAdminStudents.Controls.Add(btnViewEvaluations);
             tabAdminStudents.Location = new Point(4, 24);
             tabAdminStudents.Name = "tabAdminStudents";
@@ -395,6 +397,16 @@
             btnImportStudents.Text = "Nhập hàng loạt từ file TXT";
             btnImportStudents.Click += btnImportStudents_Click;
             btnImportStudents.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            // 
+            // btnExportStudents
+            // 
+            btnExportStudents.Location = new Point(680, 394);
+            btnExportStudents.Name = "btnExportStudents";
+            btnExportStudents.Size = new Size(300, 30);
+            btnExportStudents.TabIndex = 18;
+            btnExportStudents.Text = "Xuất Excel học viên";
+            btnExportStudents.Click += btnExportStudents_Click;
+            btnExportStudents.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             // 
             // btnViewEvaluations
             // 
@@ -1596,6 +1608,7 @@
         private Button btnUpdateStudent;
         private Button btnDeleteStudent;
         private Button btnImportStudents;
+        private Button btnExportStudents;
         private DataGridView dgvCourses;
         private TextBox txtCourseName;
         private TextBox txtCourseFee;
@@ -1681,7 +1694,7 @@
         private Button btnUpdateTeacherPassword;
         private TabPage tabTeacherTimesheet;
         private Label lblTimesheetMonth;
-        private ComboBox cmbTimesheetMonth;
+        private ComboBox cmbTimesheetMonth; 
         private ComboBox cmbTimesheetYear;
         private Button btnSaveTimesheet;
         private DataGridView dgvTimesheet;

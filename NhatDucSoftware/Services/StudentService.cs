@@ -13,7 +13,20 @@ public class StudentService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FullName, Phone, Email, BirthYear, Address, Status FROM Students ORDER BY Id ASC;";
+        command.CommandText = @"
+SELECT s.Id,
+       s.FullName,
+       IFNULL((SELECT GROUP_CONCAT(c.ClassName, ', ')
+               FROM ClassStudents cs
+               INNER JOIN Classes c ON c.Id = cs.ClassId
+               WHERE cs.StudentId = s.Id), ''),
+       s.Phone,
+       s.Email,
+       s.BirthYear,
+       s.Address,
+       s.Status
+FROM Students s
+ORDER BY s.Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -21,11 +34,12 @@ public class StudentService
             {
                 Id = reader.GetInt32(0),
                 FullName = reader.GetString(1),
-                Phone = reader.GetString(2),
-                Email = reader.IsDBNull(3) ? null : reader.GetString(3),
-                BirthYear = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                Address = reader.IsDBNull(5) ? null : reader.GetString(5),
-                Status = reader.GetString(6)
+                ClassName = reader.GetString(2),
+                Phone = reader.GetString(3),
+                Email = reader.IsDBNull(4) ? null : reader.GetString(4),
+                BirthYear = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                Address = reader.IsDBNull(6) ? null : reader.GetString(6),
+                Status = reader.GetString(7)
             });
         }
 
