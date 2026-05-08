@@ -39,6 +39,56 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         return Convert.ToDecimal(command.ExecuteScalar());
     }
 
+    public decimal GetPaidAmountByStudentMonthYear(int studentId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"SELECT IFNULL(SUM(Amount), 0)
+FROM Payments
+WHERE StudentId = @studentId
+  AND CAST(strftime('%m', PaymentDate) AS INTEGER) = @month
+  AND CAST(strftime('%Y', PaymentDate) AS INTEGER) = @year;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        return Convert.ToDecimal(command.ExecuteScalar());
+    }
+
+    public decimal GetTotalTuitionByStudentInClassMonthYear(int studentId, int classId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT IFNULL(SUM(co.TuitionFee), 0)
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Courses co ON co.Id = c.CourseId
+WHERE ar.StudentId = @studentId
+  AND ar.Status = 'C'
+  AND (@classId = 0 OR ats.ClassId = @classId)
+  AND CAST(strftime('%m', ats.SessionDate) AS INTEGER) = @month
+  AND CAST(strftime('%Y', ats.SessionDate) AS INTEGER) = @year
+  AND ats.Id = (
+      SELECT s2.Id
+      FROM AttendanceSessions s2
+      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
+      ORDER BY s2.Id DESC
+      LIMIT 1
+  );";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        return Convert.ToDecimal(command.ExecuteScalar());
+    }
+
     public decimal GetRemainingAmount(int studentId)
     {
         var remaining = GetTotalTuitionByStudent(studentId) - GetPaidAmount(studentId);
@@ -204,6 +254,57 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         return results;
     }
 
+    public List<PaymentHistoryRow> GetPaymentHistoryByClassMonthYear(int studentId, int classId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT p.Id,
+       p.PaymentDate,
+       p.Amount,
+       IFNULL(u.Username, ''),
+       IFNULL(p.Note, '')
+FROM Payments p
+LEFT JOIN Users u ON u.Id = p.CreatedBy
+WHERE p.StudentId = @studentId
+  AND CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
+  AND CAST(strftime('%Y', p.PaymentDate) AS INTEGER) = @year
+  AND (@classId = 0 OR EXISTS (
+      SELECT 1
+      FROM ClassStudents cs
+      WHERE cs.StudentId = p.StudentId
+        AND cs.ClassId = @classId
+  ))
+ORDER BY p.PaymentDate DESC, p.Id DESC;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        var results = new List<PaymentHistoryRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var rawDate = reader.GetString(1);
+            var displayDate = DateTime.TryParse(rawDate, out var parsed)
+                ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                : rawDate;
+
+            results.Add(new PaymentHistoryRow
+            {
+                PaymentId = reader.GetInt32(0),
+                NgayThu = displayDate,
+                SoTien = Convert.ToDecimal(reader.GetDouble(2)),
+                NguoiThu = reader.GetString(3),
+                GhiChu = reader.GetString(4)
+            });
+        }
+
+        return results;
+    }
+
     public void UpdatePaymentHistory(int paymentId, int studentId, decimal amount, string? note)
     {
         if (amount <= 0)
@@ -275,6 +376,110 @@ WHERE SourcePaymentId = @paymentId;";
 
         transaction.Commit();
     }
+
+    public List<PaymentClassListRow> GetPaymentListByClassMonthYear(int classId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+WITH FilteredStudents AS (
+    SELECT s.Id,
+           s.FullName
+    FROM Students s
+    WHERE @classId = 0
+       OR EXISTS (
+           SELECT 1
+           FROM ClassStudents cs
+           WHERE cs.StudentId = s.Id
+             AND cs.ClassId = @classId
+       )
+),
+FilteredPayments AS (
+    SELECT p.Id,
+           p.StudentId,
+           p.Amount,
+           p.PaymentDate,
+           p.CreatedBy
+    FROM Payments p
+    WHERE CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
+      AND CAST(strftime('%Y', p.PaymentDate) AS INTEGER) = @year
+),
+LatestPaymentByStudent AS (
+    SELECT fp.StudentId,
+           fp.Id,
+           fp.PaymentDate,
+           fp.CreatedBy
+    FROM FilteredPayments fp
+    WHERE fp.Id = (
+        SELECT fp2.Id
+        FROM FilteredPayments fp2
+        WHERE fp2.StudentId = fp.StudentId
+        ORDER BY fp2.PaymentDate DESC, fp2.Id DESC
+        LIMIT 1
+    )
+),
+TotalAmountByStudent AS (
+    SELECT fp.StudentId,
+           SUM(fp.Amount) AS TotalAmount
+    FROM FilteredPayments fp
+    GROUP BY fp.StudentId
+)
+SELECT IFNULL(lp.Id, 0),
+       fs.Id,
+       fs.FullName,
+       IFNULL((
+           SELECT GROUP_CONCAT(c.ClassName, ', ')
+           FROM ClassStudents cs
+           INNER JOIN Classes c ON c.Id = cs.ClassId
+           WHERE cs.StudentId = fs.Id
+             AND (@classId = 0 OR cs.ClassId = @classId)
+       ), ''),
+       lp.PaymentDate,
+       IFNULL(t.TotalAmount, 0),
+       IFNULL(u.Username, '')
+FROM FilteredStudents fs
+LEFT JOIN LatestPaymentByStudent lp ON lp.StudentId = fs.Id
+LEFT JOIN TotalAmountByStudent t ON t.StudentId = fs.Id
+LEFT JOIN Users u ON u.Id = lp.CreatedBy
+ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        var results = new List<PaymentClassListRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var displayDate = string.Empty;
+            if (!reader.IsDBNull(4))
+            {
+                var rawDate = reader.GetString(4);
+                displayDate = DateTime.TryParse(rawDate, out var parsed)
+                    ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                    : rawDate;
+            }
+
+            results.Add(new PaymentClassListRow
+            {
+                PaymentId = reader.GetInt32(0),
+                StudentId = reader.GetInt32(1),
+                HoVaTen = reader.GetString(2),
+                Lop = reader.GetString(3),
+                NgayThu = displayDate,
+                SoTien = Convert.ToDecimal(reader.GetDouble(5)),
+                NguoiThu = reader.GetString(6)
+            });
+        }
+
+        for (int i = 0; i < results.Count; i++)
+        {
+            results[i].ThuTu = i + 1;
+        }
+
+        return results;
+    }
 }
 
 public class AttendanceDetailRow
@@ -291,4 +496,16 @@ public class PaymentHistoryRow
     public decimal SoTien { get; set; }
     public string NguoiThu { get; set; } = "";
     public string GhiChu { get; set; } = "";
+}
+
+public class PaymentClassListRow
+{
+    public int ThuTu { get; set; }
+    public int PaymentId { get; set; }
+    public int StudentId { get; set; }
+    public string HoVaTen { get; set; } = "";
+    public string Lop { get; set; } = "";
+    public string NgayThu { get; set; } = "";
+    public decimal SoTien { get; set; }
+    public string NguoiThu { get; set; } = "";
 }

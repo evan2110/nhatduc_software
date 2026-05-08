@@ -33,6 +33,7 @@ namespace NhatDucSoftware
         private List<RevenueByYearStat> _revenueByYear = new();
         private List<RevenueByMonthStat> _revenueByMonth = new();
         private bool _isBindingPaymentStudents;
+        private bool _isBindingPaymentMonthYear;
 
         public bool RequestLogout { get; private set; }
 
@@ -155,6 +156,12 @@ namespace NhatDucSoftware
             }
 
             cmbStudentPayment.SelectedIndexChanged += cmbStudentPayment_SelectedIndexChanged;
+            dgvAttendanceDetail.CellContentClick += dgvAttendanceDetail_CellContentClick;
+
+            lblPaymentStudent.Visible = false;
+            cmbStudentPayment.Visible = false;
+            btnEditPaymentHistory.Visible = false;
+            btnDeletePaymentHistory.Visible = false;
 
             LoadCoursesToCombos();
             LoadStudents();
@@ -1718,6 +1725,8 @@ namespace NhatDucSoftware
 
         private void LoadPaymentClassFilter()
         {
+            InitializePaymentMonthYearFilter();
+
             var allItem = new ClassInfo { Id = 0, ClassName = "-- Tất cả --" };
             var items = new List<ClassInfo> { allItem };
             items.AddRange(_classes);
@@ -1725,15 +1734,23 @@ namespace NhatDucSoftware
             cmbPaymentFilterClass.DataSource = items;
             cmbPaymentFilterClass.DisplayMember = nameof(ClassInfo.ClassName);
             cmbPaymentFilterClass.ValueMember = nameof(ClassInfo.Id);
+
+            BindPaymentMonthYearFilter();
+            LoadPaymentSummaryGrid();
         }
 
         private void cmbPaymentFilterClass_SelectedIndexChanged(object sender, EventArgs e)
         {
-            FilterPaymentStudents();
+            LoadPaymentSummaryGrid();
         }
 
         private void FilterPaymentStudents()
         {
+            if (!cmbStudentPayment.Visible)
+            {
+                return;
+            }
+
             var currentStudentId = cmbStudentPayment.SelectedValue is int selectedStudentId ? selectedStudentId : 0;
             var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
 
@@ -1775,11 +1792,233 @@ namespace NhatDucSoftware
             LoadSelectedPaymentInfo();
         }
 
-        private void btnCollectPayment_Click(object sender, EventArgs e)
+        private void InitializePaymentMonthYearFilter()
         {
-            if (cmbStudentPayment.SelectedValue is not int studentId)
+            if (tabAdminPayments.Controls.ContainsKey("cmbPaymentMonth") || tabAdminPayments.Controls.ContainsKey("cmbPaymentYear"))
             {
                 return;
+            }
+
+            var lblMonth = new Label
+            {
+                Name = "lblPaymentMonth",
+                Text = "Tháng:",
+                Location = new Point(300, 12),
+                Size = new Size(45, 15),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+
+            var cmbMonth = new ComboBox
+            {
+                Name = "cmbPaymentMonth",
+                Location = new Point(345, 9),
+                Size = new Size(65, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+
+            var lblYear = new Label
+            {
+                Name = "lblPaymentYear",
+                Text = "Năm:",
+                Location = new Point(420, 12),
+                Size = new Size(40, 15),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+
+            var cmbYear = new ComboBox
+            {
+                Name = "cmbPaymentYear",
+                Location = new Point(460, 9),
+                Size = new Size(90, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+
+            cmbMonth.SelectedIndexChanged += CmbPaymentMonthYear_SelectedIndexChanged;
+            cmbYear.SelectedIndexChanged += CmbPaymentMonthYear_SelectedIndexChanged;
+
+            tabAdminPayments.Controls.Add(lblMonth);
+            tabAdminPayments.Controls.Add(cmbMonth);
+            tabAdminPayments.Controls.Add(lblYear);
+            tabAdminPayments.Controls.Add(cmbYear);
+        }
+
+        private void BindPaymentMonthYearFilter()
+        {
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear)
+            {
+                return;
+            }
+
+            _isBindingPaymentMonthYear = true;
+
+            var currentMonth = cmbMonth.SelectedItem is int m ? m : DateTime.Now.Month;
+            var currentYear = cmbYear.SelectedItem is int y ? y : DateTime.Now.Year;
+
+            cmbMonth.Items.Clear();
+            for (int m2 = 1; m2 <= 12; m2++)
+            {
+                cmbMonth.Items.Add(m2);
+            }
+
+            cmbYear.Items.Clear();
+            var startYear = DateTime.Now.Year - 5;
+            var endYear = DateTime.Now.Year + 1;
+            for (int y2 = endYear; y2 >= startYear; y2--)
+            {
+                cmbYear.Items.Add(y2);
+            }
+
+            cmbMonth.SelectedItem = cmbMonth.Items.Contains(currentMonth) ? currentMonth : DateTime.Now.Month;
+            cmbYear.SelectedItem = cmbYear.Items.Contains(currentYear) ? currentYear : DateTime.Now.Year;
+
+            _isBindingPaymentMonthYear = false;
+        }
+
+        private void CmbPaymentMonthYear_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            LoadPaymentSummaryGrid();
+        }
+
+        private void LoadPaymentSummaryGrid()
+        {
+            if (_isBindingPaymentMonthYear)
+            {
+                return;
+            }
+
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var list = _paymentService.GetPaymentListByClassMonthYear(classId, month, year);
+            var displayList = list.ToList();
+            displayList.Add(new PaymentClassListRow
+            {
+                ThuTu = 0,
+                PaymentId = 0,
+                StudentId = 0,
+                HoVaTen = "Tổng cộng",
+                Lop = string.Empty,
+                NgayThu = string.Empty,
+                SoTien = list.Sum(x => x.SoTien),
+                NguoiThu = string.Empty
+            });
+
+            dgvAttendanceDetail.DataSource = null;
+            dgvAttendanceDetail.Columns.Clear();
+            dgvAttendanceDetail.AutoGenerateColumns = true;
+            dgvAttendanceDetail.DataSource = displayList;
+
+            if (dgvAttendanceDetail.Columns.Contains("PaymentId")) dgvAttendanceDetail.Columns["PaymentId"].Visible = false;
+            if (dgvAttendanceDetail.Columns.Contains("StudentId")) dgvAttendanceDetail.Columns["StudentId"].Visible = false;
+
+            SetGridHeaders(dgvAttendanceDetail, new Dictionary<string, string>
+            {
+                ["ThuTu"] = "Thứ tự",
+                ["HoVaTen"] = "Họ và tên",
+                ["Lop"] = "Lớp",
+                ["NgayThu"] = "Ngày thu",
+                ["SoTien"] = "Số tiền",
+                ["NguoiThu"] = "Người thu"
+            });
+
+            if (dgvAttendanceDetail.Columns["btnViewPaymentDetail"] is null)
+            {
+                var btn = new DataGridViewButtonColumn
+                {
+                    Name = "btnViewPaymentDetail",
+                    HeaderText = "",
+                    Text = "Xem chi tiết",
+                    UseColumnTextForButtonValue = true,
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells
+                };
+                dgvAttendanceDetail.Columns.Add(btn);
+            }
+
+            var firstStudentRow = displayList.FirstOrDefault(x => x.StudentId > 0);
+            if (firstStudentRow is null)
+            {
+                lblPaymentNeed.Text = "Cần đóng: 0đ";
+                lblPaymentPaid.Text = "Đã đóng: 0đ";
+                lblPaymentRemain.Text = "Còn lại: 0đ";
+                btnCollectPayment.Enabled = false;
+                return;
+            }
+
+            dgvAttendanceDetail.ClearSelection();
+            for (int i = 0; i < dgvAttendanceDetail.Rows.Count; i++)
+            {
+                if (dgvAttendanceDetail.Rows[i].DataBoundItem is PaymentClassListRow row && row.StudentId == firstStudentRow.StudentId)
+                {
+                    dgvAttendanceDetail.Rows[i].Selected = true;
+                    if (dgvAttendanceDetail.Rows[i].Cells.Count > 0)
+                    {
+                        dgvAttendanceDetail.CurrentCell = dgvAttendanceDetail.Rows[i].Cells[0];
+                    }
+                    break;
+                }
+            }
+
+            LoadPaymentInfoByGridRow(firstStudentRow);
+        }
+
+        private void LoadPaymentInfoByGridRow(PaymentClassListRow row)
+        {
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            var total = _paymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, classId, month, year);
+            var paid = _paymentService.GetPaidAmountByStudentMonthYear(row.StudentId, month, year);
+            var remaining = total - paid;
+            if (remaining < 0)
+            {
+                remaining = 0;
+            }
+
+            lblPaymentNeed.Text = $"Cần đóng: {FormatCurrency(total)}";
+            lblPaymentPaid.Text = $"Đã đóng: {FormatCurrency(paid)}";
+            lblPaymentRemain.Text = $"Còn lại: {FormatCurrency(remaining)}";
+            btnCollectPayment.Enabled = remaining > 0;
+        }
+
+        private void btnCollectPayment_Click(object sender, EventArgs e)
+        {
+            int studentId;
+            if (cmbStudentPayment.Visible)
+            {
+                if (cmbStudentPayment.SelectedValue is not int selectedStudentId)
+                {
+                    return;
+                }
+
+                studentId = selectedStudentId;
+            }
+            else
+            {
+                if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentClassListRow selectedRow)
+                {
+                    MessageBox.Show("Vui lòng chọn học viên trên danh sách thu phí.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                studentId = selectedRow.StudentId;
             }
 
             var remaining = _paymentService.GetRemainingAmount(studentId);
@@ -1801,7 +2040,15 @@ namespace NhatDucSoftware
             try
             {
                 _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
-                LoadSelectedPaymentInfo();
+                if (cmbStudentPayment.Visible)
+                {
+                    LoadSelectedPaymentInfo();
+                }
+                else
+                {
+                    LoadPaymentSummaryGrid();
+                }
+
                 LoadReports();
             }
             catch (Exception ex)
@@ -1812,6 +2059,11 @@ namespace NhatDucSoftware
 
         private void btnEditPaymentHistory_Click(object sender, EventArgs e)
         {
+            if (!cmbStudentPayment.Visible)
+            {
+                return;
+            }
+
             if (dgvAttendanceDetail.SelectedRows.Count == 0) return;
             if (dgvAttendanceDetail.SelectedRows[0].Cells["PaymentId"]?.Value is not int paymentId) return;
             if (cmbStudentPayment.SelectedValue is not int studentId) return;
@@ -1844,6 +2096,11 @@ namespace NhatDucSoftware
 
         private void btnDeletePaymentHistory_Click(object sender, EventArgs e)
         {
+            if (!cmbStudentPayment.Visible)
+            {
+                return;
+            }
+
             if (dgvAttendanceDetail.SelectedRows.Count == 0) return;
             if (dgvAttendanceDetail.SelectedRows[0].Cells["PaymentId"]?.Value is not int paymentId) return;
             if (cmbStudentPayment.SelectedValue is not int studentId) return;
@@ -1863,11 +2120,195 @@ namespace NhatDucSoftware
             }
         }
 
+        private void dgvAttendanceDetail_CellContentClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (cmbStudentPayment.Visible)
+            {
+                return;
+            }
+
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            var column = dgvAttendanceDetail.Columns[e.ColumnIndex];
+            if (column.Name != "btnViewPaymentDetail")
+            {
+                return;
+            }
+
+            if (dgvAttendanceDetail.Rows[e.RowIndex].DataBoundItem is not PaymentClassListRow row || row.StudentId <= 0)
+            {
+                return;
+            }
+
+            ShowPaymentHistoryDetailDialog(row);
+        }
+
+        private void ShowPaymentHistoryDetailDialog(PaymentClassListRow row)
+        {
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+
+            using var form = new Form
+            {
+                Text = $"Lịch sử thu học phí - {row.HoVaTen}",
+                StartPosition = FormStartPosition.CenterParent,
+                Size = new Size(860, 520),
+                MinimizeBox = false,
+                MaximizeBox = false
+            };
+
+            var lblFilter = new Label
+            {
+                Text = $"Lớp: {(string.IsNullOrWhiteSpace(row.Lop) ? "Tất cả" : row.Lop)} | Tháng: {month:D2}/{year}",
+                Location = new Point(10, 12),
+                Size = new Size(620, 20)
+            };
+
+            var btnEdit = new Button
+            {
+                Text = "Chỉnh sửa",
+                Location = new Point(640, 8),
+                Size = new Size(95, 26)
+            };
+
+            var btnDelete = new Button
+            {
+                Text = "Xóa",
+                Location = new Point(742, 8),
+                Size = new Size(95, 26)
+            };
+
+            var dgv = new DataGridView
+            {
+                Location = new Point(10, 42),
+                Size = new Size(827, 430),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                AllowUserToAddRows = false,
+                ReadOnly = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false
+            };
+
+            void LoadDetailHistory()
+            {
+                var history = _paymentService.GetPaymentHistoryByClassMonthYear(row.StudentId, classId, month, year);
+                dgv.DataSource = null;
+                dgv.DataSource = history;
+
+                if (dgv.Columns.Count > 0)
+                {
+                    dgv.Columns["PaymentId"].Visible = false;
+                    dgv.Columns["NgayThu"].HeaderText = "Ngày thu";
+                    dgv.Columns["SoTien"].HeaderText = "Số tiền";
+                    dgv.Columns["NguoiThu"].HeaderText = "Người thu";
+                    dgv.Columns["GhiChu"].HeaderText = "Ghi chú";
+                }
+
+                btnEdit.Enabled = history.Count > 0;
+                btnDelete.Enabled = history.Count > 0;
+            }
+
+            dgv.CellFormatting += (_, e2) => FormatMoneyCell(dgv, e2, "SoTien");
+
+            btnEdit.Click += (_, _) =>
+            {
+                if (dgv.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+                {
+                    return;
+                }
+
+                var input = Microsoft.VisualBasic.Interaction.InputBox(
+                    "Nhập số tiền mới:", "Sửa lịch sử thu phí",
+                    FormatMoneyInput(selected.SoTien));
+
+                if (string.IsNullOrWhiteSpace(input))
+                {
+                    return;
+                }
+
+                if (!TryParseMoney(input, out var newAmount) || newAmount <= 0)
+                {
+                    MessageBox.Show("Số tiền không hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                try
+                {
+                    _paymentService.UpdatePaymentHistory(selected.PaymentId, row.StudentId, newAmount, selected.GhiChu);
+                    LoadDetailHistory();
+                    LoadPaymentSummaryGrid();
+                    LoadReports();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            btnDelete.Click += (_, _) =>
+            {
+                if (dgv.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
+                {
+                    return;
+                }
+
+                var confirm = MessageBox.Show("Bạn có chắc muốn xoá bản ghi thu phí này?", "Xác nhận",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes) return;
+
+                try
+                {
+                    _paymentService.DeletePaymentHistory(selected.PaymentId, row.StudentId);
+                    LoadDetailHistory();
+                    LoadPaymentSummaryGrid();
+                    LoadReports();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            form.Controls.Add(lblFilter);
+            form.Controls.Add(btnEdit);
+            form.Controls.Add(btnDelete);
+            form.Controls.Add(dgv);
+
+            LoadDetailHistory();
+            form.ShowDialog(this);
+        }
+
         private void dgvAttendanceDetail_SelectionChanged(object sender, EventArgs e)
         {
             bool hasSelection = dgvAttendanceDetail.SelectedRows.Count > 0;
             btnEditPaymentHistory.Enabled = hasSelection;
             btnDeletePaymentHistory.Enabled = hasSelection;
+
+            if (cmbStudentPayment.Visible)
+            {
+                return;
+            }
+
+            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentClassListRow row || row.StudentId <= 0)
+            {
+                btnCollectPayment.Enabled = false;
+                return;
+            }
+
+            LoadPaymentInfoByGridRow(row);
         }
 
         private void btnLogout_Click(object sender, EventArgs e)
