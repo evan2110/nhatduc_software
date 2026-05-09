@@ -79,6 +79,7 @@
             lblPaymentNote = new Label();
             txtPaymentNote = new TextBox();
             btnCollectPayment = new Button();
+            btnExportPayment = new Button();
             btnEditPaymentHistory = new Button();
             btnDeletePaymentHistory = new Button();
             dgvAttendanceDetail = new DataGridView();
@@ -703,6 +704,7 @@
             tabAdminPayments.Controls.Add(lblPaymentNote);
             tabAdminPayments.Controls.Add(txtPaymentNote);
             tabAdminPayments.Controls.Add(btnCollectPayment);
+            tabAdminPayments.Controls.Add(btnExportPayment);
             tabAdminPayments.Controls.Add(btnEditPaymentHistory);
             tabAdminPayments.Controls.Add(btnDeletePaymentHistory);
             tabAdminPayments.Controls.Add(dgvAttendanceDetail);
@@ -818,6 +820,16 @@
             btnCollectPayment.Text = "Thu học phí";
             btnCollectPayment.Click += btnCollectPayment_Click;
             btnCollectPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
+            // btnExportPayment
+            // 
+            btnExportPayment.Location = new Point(20, 274);
+            btnExportPayment.Name = "btnExportPayment";
+            btnExportPayment.Size = new Size(390, 30);
+            btnExportPayment.TabIndex = 11;
+            btnExportPayment.Text = "Xuất Excel";
+            btnExportPayment.Click += btnExportPayment_Click;
+            btnExportPayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // btnEditPaymentHistory
             // 
@@ -1631,6 +1643,7 @@
         private TextBox txtPaymentAmount;
         private TextBox txtPaymentNote;
         private Button btnCollectPayment;
+        private Button btnExportPayment;
         private Button btnEditPaymentHistory;
         private Button btnDeletePaymentHistory;
         private Label lblPaymentFilterClass;

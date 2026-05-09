@@ -2057,6 +2057,44 @@ namespace NhatDucSoftware
             }
         }
 
+        private void btnExportPayment_Click(object sender, EventArgs e)
+        {
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            var list = _paymentService.GetPaymentListByClassMonthYear(classId, month, year);
+
+            using var dialog = new SaveFileDialog
+            {
+                FileName = $"HocPhi_{month:D2}_{year}.xlsx",
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                Title = "Xuất danh sách học phí"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                _excelExportService.ExportPaymentListToExcel(list, month, year, dialog.FileName);
+                MessageBox.Show($"Đã xuất danh sách học phí thành công:\n{dialog.FileName}", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi xuất Excel: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void btnEditPaymentHistory_Click(object sender, EventArgs e)
         {
             if (!cmbStudentPayment.Visible)

@@ -175,4 +175,49 @@ public class ExcelExportService
 
         workbook.SaveAs(filePath);
     }
+
+    public void ExportPaymentListToExcel(List<PaymentClassListRow> data, int month, int year, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("HocPhi");
+
+        worksheet.Cell(1, 1).Value = "Danh sách học phí";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 14;
+        worksheet.Range(1, 1, 1, 6).Merge();
+
+        worksheet.Cell(2, 1).Value = $"Tháng: {month:D2}/{year}";
+        worksheet.Cell(2, 1).Style.Font.Bold = true;
+
+        worksheet.Cell(4, 1).Value = "Thứ tự";
+        worksheet.Cell(4, 2).Value = "Họ và tên";
+        worksheet.Cell(4, 3).Value = "Lớp";
+        worksheet.Cell(4, 4).Value = "Ngày thu";
+        worksheet.Cell(4, 5).Value = "Số tiền";
+        worksheet.Cell(4, 6).Value = "Người thu";
+        worksheet.Range(4, 1, 4, 6).Style.Font.Bold = true;
+        worksheet.Range(4, 1, 4, 6).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 5;
+        foreach (var item in data)
+        {
+            worksheet.Cell(row, 1).Value = item.ThuTu;
+            worksheet.Cell(row, 2).Value = item.HoVaTen;
+            worksheet.Cell(row, 3).Value = item.Lop;
+            worksheet.Cell(row, 4).Value = item.NgayThu;
+            worksheet.Cell(row, 5).Value = item.SoTien;
+            worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(row, 6).Value = item.NguoiThu;
+            row++;
+        }
+
+        worksheet.Column(1).Width = 10;
+        worksheet.Column(2).Width = 28;
+        worksheet.Column(3).Width = 18;
+        worksheet.Column(4).Width = 20;
+        worksheet.Column(5).Width = 18;
+        worksheet.Column(6).Width = 18;
+
+        workbook.SaveAs(filePath);
+    }
 }
