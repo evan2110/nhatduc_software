@@ -4,4 +4,5 @@
   <url>https://github.com/evan2110/nhatduc_software/releases/download/v1.0.3/NhatDuc_Software.zip</url>
   <changelog>https://github.com/evan2110/nhatduc_software/releases/tag/v1.0.3</changelog>
   <mandatory>false</mandatory>
+  <executable>NhatDucSoftware.exe</executable>
 </item>
