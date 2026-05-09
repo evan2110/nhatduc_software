@@ -163,6 +163,32 @@ CREATE TABLE IF NOT EXISTS TeacherTimesheets (
     FOREIGN KEY (TeacherId) REFERENCES Teachers(Id),
     UNIQUE (TeacherId, WorkDate, ShiftNumber)
 );
+
+CREATE TABLE IF NOT EXISTS PaymentFinalizations (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ClassId INTEGER NOT NULL,
+    Month INTEGER NOT NULL,
+    Year INTEGER NOT NULL,
+    FinalizedAt TEXT NOT NULL,
+    FinalizedBy INTEGER NOT NULL,
+    FOREIGN KEY (ClassId) REFERENCES Classes(Id),
+    FOREIGN KEY (FinalizedBy) REFERENCES Users(Id),
+    UNIQUE (ClassId, Month, Year)
+);
+
+CREATE TABLE IF NOT EXISTS PaymentCarryOvers (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    StudentId INTEGER NOT NULL,
+    ClassId INTEGER NOT NULL,
+    FromMonth INTEGER NOT NULL,
+    FromYear INTEGER NOT NULL,
+    ToMonth INTEGER NOT NULL,
+    ToYear INTEGER NOT NULL,
+    Amount REAL NOT NULL,
+    FOREIGN KEY (StudentId) REFERENCES Students(Id),
+    FOREIGN KEY (ClassId) REFERENCES Classes(Id),
+    UNIQUE (StudentId, ClassId, FromMonth, FromYear)
+);
 ";
         command.ExecuteNonQuery();
 

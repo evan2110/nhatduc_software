@@ -82,6 +82,7 @@
             btnExportPayment = new Button();
             btnEditPaymentHistory = new Button();
             btnDeletePaymentHistory = new Button();
+            btnFinalizePayment = new Button();
             dgvAttendanceDetail = new DataGridView();
             tabAdminReports = new TabPage();
             lblTotalStudents = new Label();
@@ -707,6 +708,7 @@
             tabAdminPayments.Controls.Add(btnExportPayment);
             tabAdminPayments.Controls.Add(btnEditPaymentHistory);
             tabAdminPayments.Controls.Add(btnDeletePaymentHistory);
+            tabAdminPayments.Controls.Add(btnFinalizePayment);
             tabAdminPayments.Controls.Add(dgvAttendanceDetail);
             tabAdminPayments.Location = new Point(4, 24);
             tabAdminPayments.Name = "tabAdminPayments";
@@ -850,6 +852,16 @@
             btnDeletePaymentHistory.Text = "Xóa lịch sử thu";
             btnDeletePaymentHistory.Click += btnDeletePaymentHistory_Click;
             btnDeletePaymentHistory.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
+            // btnFinalizePayment
+            // 
+            btnFinalizePayment.Location = new Point(20, 346);
+            btnFinalizePayment.Name = "btnFinalizePayment";
+            btnFinalizePayment.Size = new Size(390, 30);
+            btnFinalizePayment.TabIndex = 13;
+            btnFinalizePayment.Text = "Chốt số liệu";
+            btnFinalizePayment.Click += btnFinalizePayment_Click;
+            btnFinalizePayment.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvAttendanceDetail
             // 
@@ -1646,6 +1658,7 @@
         private Button btnExportPayment;
         private Button btnEditPaymentHistory;
         private Button btnDeletePaymentHistory;
+        private Button btnFinalizePayment;
         private Label lblPaymentFilterClass;
         private ComboBox cmbPaymentFilterClass;
         private DataGridView dgvAttendanceDetail;

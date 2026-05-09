@@ -1742,6 +1742,7 @@ namespace NhatDucSoftware
         private void cmbPaymentFilterClass_SelectedIndexChanged(object sender, EventArgs e)
         {
             LoadPaymentSummaryGrid();
+            UpdateFinalizeState();
         }
 
         private void FilterPaymentStudents()
@@ -1879,6 +1880,7 @@ namespace NhatDucSoftware
         private void CmbPaymentMonthYear_SelectedIndexChanged(object? sender, EventArgs e)
         {
             LoadPaymentSummaryGrid();
+            UpdateFinalizeState();
         }
 
         private void LoadPaymentSummaryGrid()
@@ -1992,7 +1994,14 @@ namespace NhatDucSoftware
                 remaining = 0;
             }
 
-            lblPaymentNeed.Text = $"Cần đóng: {FormatCurrency(total)}";
+            var carryOver = _paymentService.GetCarryOverAmount(row.StudentId, classId, month, year);
+            var needText = $"Cần đóng: {FormatCurrency(total)}";
+            if (carryOver > 0)
+            {
+                needText += $" (nợ từ tháng trước: {FormatCurrency(carryOver)})";
+            }
+
+            lblPaymentNeed.Text = needText;
             lblPaymentPaid.Text = $"Đã đóng: {FormatCurrency(paid)}";
             lblPaymentRemain.Text = $"Còn lại: {FormatCurrency(remaining)}";
             btnCollectPayment.Enabled = remaining > 0;
@@ -2156,6 +2165,88 @@ namespace NhatDucSoftware
             {
                 MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void btnFinalizePayment_Click(object sender, EventArgs e)
+        {
+            // Check if today is the last day of the month
+            var today = DateTime.Today;
+            var lastDayOfMonth = DateTime.DaysInMonth(today.Year, today.Month);
+            if (today.Day != lastDayOfMonth)
+            {
+                MessageBox.Show($"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {lastDayOfMonth}).",
+                    "Không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Get selected class
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            if (classId <= 0)
+            {
+                MessageBox.Show("Vui lòng chọn một lớp cụ thể để chốt số liệu.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // Get selected month/year
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            // Check if already finalized
+            if (_paymentService.IsFinalized(classId, month, year))
+            {
+                MessageBox.Show($"Lớp này đã được chốt số liệu cho tháng {month:D2}/{year} rồi.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                $"Bạn có chắc muốn chốt số liệu tháng {month:D2}/{year}?\n\n" +
+                "Sau khi chốt:\n" +
+                "- Không thể thu học phí, chỉnh sửa hoặc xóa lịch sử thu của tháng này.\n" +
+                "- Số tiền còn nợ sẽ được chuyển sang tháng sau.",
+                "Xác nhận chốt số liệu", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
+
+            try
+            {
+                _paymentService.FinalizePayment(classId, month, year, _currentUser.Id);
+                MessageBox.Show($"Đã chốt số liệu tháng {month:D2}/{year} thành công.\nSố tiền còn nợ đã được chuyển sang tháng sau.",
+                    "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadPaymentSummaryGrid();
+                UpdateFinalizeState();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void UpdateFinalizeState()
+        {
+            var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var isFinalized = classId > 0 && _paymentService.IsFinalized(classId, month, year);
+            txtPaymentAmount.Enabled = !isFinalized;
+            btnCollectPayment.Enabled = !isFinalized && btnCollectPayment.Enabled;
+            btnEditPaymentHistory.Enabled = !isFinalized;
+            btnDeletePaymentHistory.Enabled = !isFinalized;
+            btnFinalizePayment.Enabled = !isFinalized;
         }
 
         private void dgvAttendanceDetail_CellContentClick(object? sender, DataGridViewCellEventArgs e)

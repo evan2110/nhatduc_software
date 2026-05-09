@@ -86,7 +86,36 @@ WHERE ar.StudentId = @studentId
         command.Parameters.AddWithValue("@month", month);
         command.Parameters.AddWithValue("@year", year);
 
-        return Convert.ToDecimal(command.ExecuteScalar());
+        var tuition = Convert.ToDecimal(command.ExecuteScalar());
+
+        // Add carry-over from previous month
+        using var carryCmd = connection.CreateCommand();
+        carryCmd.CommandText = @"SELECT IFNULL(SUM(Amount), 0) FROM PaymentCarryOvers
+WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
+  AND ToMonth = @month AND ToYear = @year;";
+        carryCmd.Parameters.AddWithValue("@studentId", studentId);
+        carryCmd.Parameters.AddWithValue("@classId", classId);
+        carryCmd.Parameters.AddWithValue("@month", month);
+        carryCmd.Parameters.AddWithValue("@year", year);
+
+        tuition += Convert.ToDecimal(carryCmd.ExecuteScalar());
+
+        return tuition;
+    }
+
+    public decimal GetCarryOverAmount(int studentId, int classId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"SELECT IFNULL(SUM(Amount), 0) FROM PaymentCarryOvers
+WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
+  AND ToMonth = @month AND ToYear = @year;";
+        cmd.Parameters.AddWithValue("@studentId", studentId);
+        cmd.Parameters.AddWithValue("@classId", classId);
+        cmd.Parameters.AddWithValue("@month", month);
+        cmd.Parameters.AddWithValue("@year", year);
+        return Convert.ToDecimal(cmd.ExecuteScalar());
     }
 
     public decimal GetRemainingAmount(int studentId)
@@ -479,6 +508,96 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
         }
 
         return results;
+    }
+
+    public bool IsFinalized(int classId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM PaymentFinalizations WHERE ClassId = @classId AND Month = @month AND Year = @year;";
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    public void FinalizePayment(int classId, int month, int year, int finalizedBy)
+    {
+        if (IsFinalized(classId, month, year))
+        {
+            throw new InvalidOperationException("Tháng này đã được chốt số liệu rồi.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        // Get all students in the class with remaining amounts
+        var studentsWithRemaining = new List<(int StudentId, decimal Remaining)>();
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = @"
+SELECT cs.StudentId
+FROM ClassStudents cs
+WHERE cs.ClassId = @classId;";
+            cmd.Parameters.AddWithValue("@classId", classId);
+            using var reader = cmd.ExecuteReader();
+            var studentIds = new List<int>();
+            while (reader.Read())
+            {
+                studentIds.Add(reader.GetInt32(0));
+            }
+            reader.Close();
+
+            foreach (var studentId in studentIds)
+            {
+                var total = GetTotalTuitionByStudentInClassMonthYear(studentId, classId, month, year);
+                var paid = GetPaidAmountByStudentMonthYear(studentId, month, year);
+                var remaining = total - paid;
+                if (remaining > 0)
+                {
+                    studentsWithRemaining.Add((studentId, remaining));
+                }
+            }
+        }
+
+        // Carry over remaining amounts to next month
+        int nextMonth = month == 12 ? 1 : month + 1;
+        int nextYear = month == 12 ? year + 1 : year;
+
+        foreach (var (studentId, remaining) in studentsWithRemaining)
+        {
+            using var carryCmd = connection.CreateCommand();
+            carryCmd.Transaction = transaction;
+            carryCmd.CommandText = @"INSERT OR REPLACE INTO PaymentCarryOvers(StudentId, ClassId, FromMonth, FromYear, ToMonth, ToYear, Amount)
+VALUES(@studentId, @classId, @fromMonth, @fromYear, @toMonth, @toYear, @amount);";
+            carryCmd.Parameters.AddWithValue("@studentId", studentId);
+            carryCmd.Parameters.AddWithValue("@classId", classId);
+            carryCmd.Parameters.AddWithValue("@fromMonth", month);
+            carryCmd.Parameters.AddWithValue("@fromYear", year);
+            carryCmd.Parameters.AddWithValue("@toMonth", nextMonth);
+            carryCmd.Parameters.AddWithValue("@toYear", nextYear);
+            carryCmd.Parameters.AddWithValue("@amount", remaining);
+            carryCmd.ExecuteNonQuery();
+        }
+
+        // Insert finalization record
+        using (var finalizeCmd = connection.CreateCommand())
+        {
+            finalizeCmd.Transaction = transaction;
+            finalizeCmd.CommandText = @"INSERT INTO PaymentFinalizations(ClassId, Month, Year, FinalizedAt, FinalizedBy)
+VALUES(@classId, @month, @year, @finalizedAt, @finalizedBy);";
+            finalizeCmd.Parameters.AddWithValue("@classId", classId);
+            finalizeCmd.Parameters.AddWithValue("@month", month);
+            finalizeCmd.Parameters.AddWithValue("@year", year);
+            finalizeCmd.Parameters.AddWithValue("@finalizedAt", DateTime.UtcNow.ToString("o"));
+            finalizeCmd.Parameters.AddWithValue("@finalizedBy", finalizedBy);
+            finalizeCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 }
 

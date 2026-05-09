@@ -173,7 +173,7 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.Designer.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.Designer.cs",
               "RelativeToolTip": "NhatDucSoftware\\Form1.Designer.cs",
-              "ViewState": "AgIAAD4AAAAAAAAAAAAqwL8GAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAALQCAAAAAAAAAAASwMwGAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-03T23:58:20.433Z",
               "EditorCaption": ""
@@ -186,7 +186,7 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\ExcelExportService.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\ExcelExportService.cs",
               "RelativeToolTip": "NhatDucSoftware\\Services\\ExcelExportService.cs",
-              "ViewState": "AgIAALoAAAAAAAAAAAAiwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAKgAAAAAAAAAAAAiwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-06T22:35:02.485Z",
               "EditorCaption": ""
@@ -199,7 +199,7 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\Services\\PaymentService.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Services\\PaymentService.cs",
               "RelativeToolTip": "NhatDucSoftware\\Services\\PaymentService.cs",
-              "ViewState": "AgIAAOoBAAAAAAAAAAAowPABAAAuAAAAAAAAAA==",
+              "ViewState": "AgIAAFQAAAAAAAAAAAAqwGcCAAAuAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-03T23:56:07.538Z",
               "EditorCaption": ""
@@ -236,7 +236,7 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\Form1.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Form1.cs",
               "RelativeToolTip": "NhatDucSoftware\\Form1.cs",
-              "ViewState": "AgIAAA4IAAAAAAAAAAAUwK0KAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAL0HAAAAAAAAAAAqwMwHAABkAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-03T23:57:14.923Z",
               "EditorCaption": ""
@@ -286,9 +286,10 @@
               "RelativeDocumentMoniker": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
               "ToolTip": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\Data\\DatabaseInitializer.cs",
               "RelativeToolTip": "NhatDucSoftware\\Data\\DatabaseInitializer.cs",
-              "ViewState": "AgIAAM8AAAAAAAAAAAAAAN0AAAAeAAAAAAAAAA==",
+              "ViewState": "AgIAAL0AAAAAAAAAAABBwPcAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-03T23:55:07.354Z"
+              "WhenOpened": "2026-05-03T23:55:07.354Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
