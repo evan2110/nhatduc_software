@@ -1495,6 +1495,7 @@
             cmbClassEvaluate.Size = new Size(250, 23);
             cmbClassEvaluate.TabIndex = 4;
             cmbClassEvaluate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            cmbClassEvaluate.SelectedIndexChanged += cmbClassEvaluate_SelectedIndexChanged;
             // 
             // cmbStudentEvaluate
             // 

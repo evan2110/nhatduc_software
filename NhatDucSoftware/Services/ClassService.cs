@@ -186,6 +186,22 @@ WHERE SessionId IN (SELECT Id FROM AttendanceSessions WHERE ClassId = @id);";
             detachPayments.ExecuteNonQuery();
         }
 
+        using (var clearFinalizations = connection.CreateCommand())
+        {
+            clearFinalizations.Transaction = transaction;
+            clearFinalizations.CommandText = "DELETE FROM PaymentFinalizations WHERE ClassId = @id;";
+            clearFinalizations.Parameters.AddWithValue("@id", classId);
+            clearFinalizations.ExecuteNonQuery();
+        }
+
+        using (var clearCarryOvers = connection.CreateCommand())
+        {
+            clearCarryOvers.Transaction = transaction;
+            clearCarryOvers.CommandText = "DELETE FROM PaymentCarryOvers WHERE ClassId = @id;";
+            clearCarryOvers.Parameters.AddWithValue("@id", classId);
+            clearCarryOvers.ExecuteNonQuery();
+        }
+
         using (var command = connection.CreateCommand())
         {
             command.Transaction = transaction;

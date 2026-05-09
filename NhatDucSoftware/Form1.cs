@@ -176,6 +176,7 @@ namespace NhatDucSoftware
                 InitTimesheetCombos();
                 LoadTimesheet();
                 LoadTeacherWeeklySchedule();
+                InitializeTeacherEvaluationPeriodSelectors();
             }
         }
 
@@ -567,6 +568,12 @@ namespace NhatDucSoftware
                     return;
                 }
 
+                if (dtpDate.Value.Date >= DateTime.Today)
+                {
+                    MessageBox.Show("Chỉ được phép chấm công bù cho các ngày trước ngày hôm nay.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 _timesheetService.SaveTimesheet(teacherId, dtpDate.Value.Date, shift, chkPresent.Checked, string.IsNullOrWhiteSpace(txtNote.Text) ? null : txtNote.Text.Trim());
                 MessageBox.Show("Đã lưu châm công bù.");
                 form.DialogResult = DialogResult.OK;
@@ -701,6 +708,20 @@ namespace NhatDucSoftware
                 if (teacherId is null)
                 {
                     MessageBox.Show("Lớp chưa có giáo viên phụ trách, không thể lưu điểm danh bù.");
+                    return;
+                }
+
+                var sessionDate = dtpDate.Value.Date;
+                if (sessionDate >= DateTime.Today)
+                {
+                    MessageBox.Show("Chỉ được phép điểm danh bù cho các ngày trước ngày hôm nay.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (_paymentService.IsFinalized(classId, sessionDate.Month, sessionDate.Year))
+                {
+                    MessageBox.Show($"Lớp này đã được chốt số liệu cho tháng {sessionDate.Month:D2}/{sessionDate.Year}. Không thể chấm công bù.",
+                        "Không thể điểm danh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -858,9 +879,6 @@ namespace NhatDucSoftware
             cmbStudentPayment.ValueMember = nameof(Student.Id);
 
             cmbStudentEvaluate.DataSource = null;
-            cmbStudentEvaluate.DataSource = _students.ToList();
-            cmbStudentEvaluate.DisplayMember = nameof(Student.FullName);
-            cmbStudentEvaluate.ValueMember = nameof(Student.Id);
 
             cmbStudentClass.DataSource = null;
             cmbStudentClass.DataSource = _students.ToList();
@@ -893,15 +911,21 @@ namespace NhatDucSoftware
             dgvClasses.DataSource = _classes;
             ApplyClassHeaders(dgvClasses);
 
+            var attendanceClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
+                : _classes;
             cmbClassAttendance.DataSource = null;
-            cmbClassAttendance.DataSource = _classes.ToList();
+            cmbClassAttendance.DataSource = attendanceClasses.ToList();
             cmbClassAttendance.DisplayMember = nameof(ClassInfo.ClassName);
             cmbClassAttendance.ValueMember = nameof(ClassInfo.Id);
 
             LoadPaymentClassFilter();
 
+            var evaluateClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
+                : _classes;
             cmbClassEvaluate.DataSource = null;
-            cmbClassEvaluate.DataSource = _classes.ToList();
+            cmbClassEvaluate.DataSource = evaluateClasses.ToList();
             cmbClassEvaluate.DisplayMember = nameof(ClassInfo.ClassName);
             cmbClassEvaluate.ValueMember = nameof(ClassInfo.Id);
 
@@ -1727,9 +1751,7 @@ namespace NhatDucSoftware
         {
             InitializePaymentMonthYearFilter();
 
-            var allItem = new ClassInfo { Id = 0, ClassName = "-- Tất cả --" };
-            var items = new List<ClassInfo> { allItem };
-            items.AddRange(_classes);
+            var items = _classes.ToList();
             cmbPaymentFilterClass.DataSource = null;
             cmbPaymentFilterClass.DataSource = items;
             cmbPaymentFilterClass.DisplayMember = nameof(ClassInfo.ClassName);
@@ -1987,7 +2009,7 @@ namespace NhatDucSoftware
 
             var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
             var total = _paymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, classId, month, year);
-            var paid = _paymentService.GetPaidAmountByStudentMonthYear(row.StudentId, month, year);
+            var paid = _paymentService.GetPaidAmountByStudentMonthYear(row.StudentId, month, year, classId);
             var remaining = total - paid;
             if (remaining < 0)
             {
@@ -2046,9 +2068,29 @@ namespace NhatDucSoftware
                 return;
             }
 
+            if (amount > remaining)
+            {
+                MessageBox.Show($"Số tiền thu ({FormatCurrency(amount)}) không được lớn hơn số tiền còn lại ({FormatCurrency(remaining)}).", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtPaymentAmount.Focus();
+                txtPaymentAmount.SelectAll();
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is ComboBox cmbMonth2 && cmbMonth2.SelectedItem is int selectedMonth
+                && tabAdminPayments.Controls["cmbPaymentYear"] is ComboBox cmbYear2 && cmbYear2.SelectedItem is int selectedYear)
+            {
+                var now = DateTime.Now;
+                if (selectedMonth != now.Month || selectedYear != now.Year)
+                {
+                    MessageBox.Show("Chỉ được phép thu học phí của tháng hiện tại.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
             try
             {
-                _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim());
+                var collectClassId = cmbStudentPayment.Visible ? (int?)null : (cmbPaymentFilterClass.SelectedValue is int cid && cid > 0 ? cid : null);
+                _paymentService.Collect(studentId, amount, _currentUser.Id, txtPaymentNote.Text.Trim(), collectClassId);
                 if (cmbStudentPayment.Visible)
                 {
                     LoadSelectedPaymentInfo();
@@ -2305,20 +2347,6 @@ namespace NhatDucSoftware
                 Size = new Size(620, 20)
             };
 
-            var btnEdit = new Button
-            {
-                Text = "Chỉnh sửa",
-                Location = new Point(640, 8),
-                Size = new Size(95, 26)
-            };
-
-            var btnDelete = new Button
-            {
-                Text = "Xóa",
-                Location = new Point(742, 8),
-                Size = new Size(95, 26)
-            };
-
             var dgv = new DataGridView
             {
                 Location = new Point(10, 42),
@@ -2345,75 +2373,11 @@ namespace NhatDucSoftware
                     dgv.Columns["NguoiThu"].HeaderText = "Người thu";
                     dgv.Columns["GhiChu"].HeaderText = "Ghi chú";
                 }
-
-                btnEdit.Enabled = history.Count > 0;
-                btnDelete.Enabled = history.Count > 0;
             }
 
             dgv.CellFormatting += (_, e2) => FormatMoneyCell(dgv, e2, "SoTien");
 
-            btnEdit.Click += (_, _) =>
-            {
-                if (dgv.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
-                {
-                    return;
-                }
-
-                var input = Microsoft.VisualBasic.Interaction.InputBox(
-                    "Nhập số tiền mới:", "Sửa lịch sử thu phí",
-                    FormatMoneyInput(selected.SoTien));
-
-                if (string.IsNullOrWhiteSpace(input))
-                {
-                    return;
-                }
-
-                if (!TryParseMoney(input, out var newAmount) || newAmount <= 0)
-                {
-                    MessageBox.Show("Số tiền không hợp lệ.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                try
-                {
-                    _paymentService.UpdatePaymentHistory(selected.PaymentId, row.StudentId, newAmount, selected.GhiChu);
-                    LoadDetailHistory();
-                    LoadPaymentSummaryGrid();
-                    LoadReports();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-
-            btnDelete.Click += (_, _) =>
-            {
-                if (dgv.CurrentRow?.DataBoundItem is not PaymentHistoryRow selected)
-                {
-                    return;
-                }
-
-                var confirm = MessageBox.Show("Bạn có chắc muốn xoá bản ghi thu phí này?", "Xác nhận",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes) return;
-
-                try
-                {
-                    _paymentService.DeletePaymentHistory(selected.PaymentId, row.StudentId);
-                    LoadDetailHistory();
-                    LoadPaymentSummaryGrid();
-                    LoadReports();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-
             form.Controls.Add(lblFilter);
-            form.Controls.Add(btnEdit);
-            form.Controls.Add(btnDelete);
             form.Controls.Add(dgv);
 
             LoadDetailHistory();
@@ -2482,9 +2446,18 @@ namespace NhatDucSoftware
                 return;
             }
 
-            if (_currentUser.Role == "Teacher" && dtpSessionDate.Value.Date < DateTime.Today)
+            if (_currentUser.Role == "Teacher" && dtpSessionDate.Value.Date != DateTime.Today)
             {
-                MessageBox.Show("Tài khoản giáo viên chỉ được điểm danh từ hôm nay trở về sau.");
+                MessageBox.Show("Tài khoản giáo viên chỉ được điểm danh trong ngày hôm nay.");
+                return;
+            }
+
+            // Check if the class/month/year has been finalized
+            var sessionDate = dtpSessionDate.Value.Date;
+            if (_paymentService.IsFinalized(classId, sessionDate.Month, sessionDate.Year))
+            {
+                MessageBox.Show($"Lớp này đã được chốt số liệu cho tháng {sessionDate.Month:D2}/{sessionDate.Year}. Không thể chấm công bù.",
+                    "Không thể điểm danh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2534,6 +2507,24 @@ namespace NhatDucSoftware
                 month);
 
             MessageBox.Show("Đã lưu nhận xét/điểm.");
+        }
+
+        private void cmbClassEvaluate_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (cmbClassEvaluate.SelectedValue is not int classId)
+            {
+                cmbStudentEvaluate.DataSource = null;
+                return;
+            }
+
+            var studentsInClass = _classService.GetStudentsInClass(classId);
+            var ids = studentsInClass.Select(s => s.StudentId).ToHashSet();
+            var filtered = _students.Where(s => ids.Contains(s.Id)).ToList();
+
+            cmbStudentEvaluate.DataSource = null;
+            cmbStudentEvaluate.DataSource = filtered;
+            cmbStudentEvaluate.DisplayMember = nameof(Student.FullName);
+            cmbStudentEvaluate.ValueMember = nameof(Student.Id);
         }
 
         private void InitTimesheetCombos()
@@ -2612,7 +2603,7 @@ namespace NhatDucSoftware
                 int day = rowIdx + 1;
                 var workDate = new DateTime(year, month, day);
 
-                if (_currentUser.Role == "Teacher" && workDate.Date < DateTime.Today)
+                if (_currentUser.Role == "Teacher" && workDate.Date != DateTime.Today)
                 {
                     skippedPastDates++;
                     continue;
@@ -2633,7 +2624,7 @@ namespace NhatDucSoftware
 
             if (skippedPastDates > 0)
             {
-                MessageBox.Show("Đã lưu chấm công. Các ngày trước hôm nay không được phép sửa bằng tài khoản giáo viên.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Đã lưu chấm công. Giáo viên chỉ được chấm công trong ngày hôm nay.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {

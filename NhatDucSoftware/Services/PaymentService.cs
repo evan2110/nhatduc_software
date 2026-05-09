@@ -39,7 +39,7 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         return Convert.ToDecimal(command.ExecuteScalar());
     }
 
-    public decimal GetPaidAmountByStudentMonthYear(int studentId, int month, int year)
+    public decimal GetPaidAmountByStudentMonthYear(int studentId, int month, int year, int classId = 0)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
@@ -48,9 +48,11 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         command.CommandText = @"SELECT IFNULL(SUM(Amount), 0)
 FROM Payments
 WHERE StudentId = @studentId
+  AND (@classId = 0 OR ClassId = @classId)
   AND CAST(strftime('%m', PaymentDate) AS INTEGER) = @month
   AND CAST(strftime('%Y', PaymentDate) AS INTEGER) = @year;";
         command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
         command.Parameters.AddWithValue("@year", year);
 
@@ -124,7 +126,7 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
         return remaining > 0 ? remaining : 0;
     }
 
-    public void Collect(int studentId, decimal amount, int createdBy, string? note)
+    public void Collect(int studentId, decimal amount, int createdBy, string? note, int? classId = null)
     {
         if (amount <= 0)
         {
@@ -146,8 +148,9 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
         {
             command.Transaction = transaction;
             command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
-VALUES(@studentId, NULL, @amount, @date, @note, @createdBy);";
+VALUES(@studentId, @classId, @amount, @date, @note, @createdBy);";
             command.Parameters.AddWithValue("@studentId", studentId);
+            command.Parameters.AddWithValue("@classId", classId.HasValue ? (object)classId.Value : DBNull.Value);
             command.Parameters.AddWithValue("@amount", amount);
             command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
             command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
@@ -432,7 +435,8 @@ FilteredPayments AS (
            p.PaymentDate,
            p.CreatedBy
     FROM Payments p
-    WHERE CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
+    WHERE (@classId = 0 OR p.ClassId = @classId)
+      AND CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
       AND CAST(strftime('%Y', p.PaymentDate) AS INTEGER) = @year
 ),
 LatestPaymentByStudent AS (

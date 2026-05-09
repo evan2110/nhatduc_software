@@ -121,6 +121,7 @@ WHERE Id = @id;";
         Exec("DELETE FROM AttendanceRecords WHERE StudentId = @id;");
         Exec("DELETE FROM Payments WHERE StudentId = @id;");
         Exec("DELETE FROM ClassStudents WHERE StudentId = @id;");
+        Exec("DELETE FROM PaymentCarryOvers WHERE StudentId = @id;");
         Exec("DELETE FROM StudentCourses WHERE StudentId = @id;");
         Exec("DELETE FROM Students WHERE Id = @id;");
 
