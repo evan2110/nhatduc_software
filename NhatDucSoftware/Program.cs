@@ -44,6 +44,21 @@ namespace NhatDucSoftware
             AutoUpdater.AppTitle = "NhatDucSoftware";
             AutoUpdater.ShowSkipButton = true;
             AutoUpdater.ShowRemindLaterButton = true;
+            AutoUpdater.InstallationPath = Application.StartupPath;
+
+            var updateDownloadPath = Path.Combine(Application.StartupPath, "updates");
+            if (Directory.Exists(updateDownloadPath))
+            {
+                Directory.Delete(updateDownloadPath, true);
+            }
+            Directory.CreateDirectory(updateDownloadPath);
+            AutoUpdater.DownloadPath = updateDownloadPath;
+
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
+            {
+                AutoUpdater.ExecutablePath = Path.GetFileName(Environment.ProcessPath);
+            }
+
             AutoUpdater.Start(AppCastUrl);
         }
     }
