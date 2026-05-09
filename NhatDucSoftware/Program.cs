@@ -1,3 +1,4 @@
+using AutoUpdaterDotNET;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Services;
 
@@ -5,6 +6,8 @@ namespace NhatDucSoftware
 {
     internal static class Program
     {
+        private const string AppCastUrl = "https://raw.githubusercontent.com/evan2110/nhatduc_software/master/appcast.xml";
+
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>
@@ -15,6 +18,8 @@ namespace NhatDucSoftware
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
             DatabaseInitializer.Initialize();
+
+            ConfigureAutoUpdater();
 
             while (true)
             {
@@ -32,6 +37,14 @@ namespace NhatDucSoftware
                     break;
                 }
             }
+        }
+
+        private static void ConfigureAutoUpdater()
+        {
+            AutoUpdater.AppTitle = "NhatDucSoftware";
+            AutoUpdater.ShowSkipButton = true;
+            AutoUpdater.ShowRemindLaterButton = true;
+            AutoUpdater.Start(AppCastUrl);
         }
     }
 }

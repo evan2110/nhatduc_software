@@ -423,7 +423,7 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
                 HoVaTen = reader.GetString(2),
                 Lop = reader.GetString(3),
                 NgayThu = displayDate,
-                SoTien = reader.GetDecimal(5),
+                SoTien = Convert.ToDecimal(reader.GetValue(5)),
                 NguoiThu = reader.GetString(6)
             });
         }

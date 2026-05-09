@@ -52,6 +52,10 @@
           "framework": "net8.0-windows7.0",
           "targetAlias": "net8.0-windows",
           "dependencies": {
+            "Autoupdater.NET.Official": {
+              "target": "Package",
+              "version": "[1.9.2, )"
+            },
             "ClosedXML": {
               "target": "Package",
               "version": "[0.105.0, )"
