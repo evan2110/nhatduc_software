@@ -17,7 +17,7 @@ public class ReportService
         result.TotalStudents = Convert.ToInt32(studentCmd.ExecuteScalar());
 
         using var revenueCmd = connection.CreateCommand();
-        revenueCmd.CommandText = "SELECT IFNULL(SUM(Amount), 0) FROM RevenueLedger;";
+        revenueCmd.CommandText = "SELECT COALESCE(SUM(Amount), 0) FROM RevenueLedger;";
         result.TotalRevenue = Convert.ToDecimal(revenueCmd.ExecuteScalar());
 
         using var classCmd = connection.CreateCommand();
@@ -36,10 +36,10 @@ public class ReportService
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT CAST(strftime('%Y', PaymentDate) AS INTEGER) AS RevenueYear,
-       IFNULL(SUM(Amount), 0) AS TotalRevenue
+SELECT EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp))::int AS RevenueYear,
+       COALESCE(SUM(Amount), 0) AS TotalRevenue
 FROM RevenueLedger
-GROUP BY strftime('%Y', PaymentDate)
+GROUP BY EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp))
 ORDER BY RevenueYear DESC;";
 
         using var reader = command.ExecuteReader();
@@ -48,7 +48,7 @@ ORDER BY RevenueYear DESC;";
             result.Add(new RevenueByYearStat
             {
                 Year = reader.GetInt32(0),
-                TotalRevenue = Convert.ToDecimal(reader.GetDouble(1))
+                TotalRevenue = reader.GetDecimal(1)
             });
         }
 
@@ -64,11 +64,11 @@ ORDER BY RevenueYear DESC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT CAST(strftime('%m', PaymentDate) AS INTEGER) AS Month,
-       IFNULL(SUM(Amount), 0) AS TotalRevenue
+SELECT EXTRACT(MONTH FROM CAST(PaymentDate AS timestamp))::int AS Month,
+       COALESCE(SUM(Amount), 0) AS TotalRevenue
 FROM RevenueLedger
-WHERE CAST(strftime('%Y', PaymentDate) AS INTEGER) = @year
-GROUP BY strftime('%m', PaymentDate)
+WHERE EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp)) = @year
+GROUP BY EXTRACT(MONTH FROM CAST(PaymentDate AS timestamp))
 ORDER BY Month;";
         command.Parameters.AddWithValue("@year", year);
 
@@ -80,7 +80,7 @@ ORDER BY Month;";
             {
                 Month = month,
                 MonthName = GetMonthName(month),
-                TotalRevenue = Convert.ToDecimal(reader.GetDouble(1))
+                TotalRevenue = reader.GetDecimal(1)
             });
         }
 

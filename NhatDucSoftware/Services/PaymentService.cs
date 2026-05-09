@@ -12,7 +12,7 @@ public class PaymentService
         // Tính: số buổi có mặt (C) của từng lớp × học phí khóa học tương ứng
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT IFNULL(SUM(attended * co.TuitionFee), 0)
+SELECT COALESCE(SUM(attended * co.TuitionFee), 0)
 FROM (
     SELECT cs.ClassId,
            (SELECT COUNT(*) FROM AttendanceRecords ar
@@ -34,7 +34,7 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT IFNULL(SUM(Amount), 0) FROM Payments WHERE StudentId = @studentId;";
+        command.CommandText = "SELECT COALESCE(SUM(Amount), 0) FROM Payments WHERE StudentId = @studentId;";
         command.Parameters.AddWithValue("@studentId", studentId);
         return Convert.ToDecimal(command.ExecuteScalar());
     }
@@ -45,12 +45,12 @@ INNER JOIN Courses co ON co.Id = c.CourseId;";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"SELECT IFNULL(SUM(Amount), 0)
+        command.CommandText = @"SELECT COALESCE(SUM(Amount), 0)
 FROM Payments
 WHERE StudentId = @studentId
   AND (@classId = 0 OR ClassId = @classId)
-  AND CAST(strftime('%m', PaymentDate) AS INTEGER) = @month
-  AND CAST(strftime('%Y', PaymentDate) AS INTEGER) = @year;";
+  AND EXTRACT(MONTH FROM CAST(PaymentDate AS timestamp)) = @month::numeric
+  AND EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp)) = @year::numeric;";
         command.Parameters.AddWithValue("@studentId", studentId);
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
@@ -66,7 +66,7 @@ WHERE StudentId = @studentId
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT IFNULL(SUM(co.TuitionFee), 0)
+SELECT COALESCE(SUM(co.TuitionFee), 0)
 FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
 INNER JOIN Classes c ON c.Id = ats.ClassId
@@ -74,8 +74,8 @@ INNER JOIN Courses co ON co.Id = c.CourseId
 WHERE ar.StudentId = @studentId
   AND ar.Status = 'C'
   AND (@classId = 0 OR ats.ClassId = @classId)
-  AND CAST(strftime('%m', ats.SessionDate) AS INTEGER) = @month
-  AND CAST(strftime('%Y', ats.SessionDate) AS INTEGER) = @year
+  AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
   AND ats.Id = (
       SELECT s2.Id
       FROM AttendanceSessions s2
@@ -92,7 +92,7 @@ WHERE ar.StudentId = @studentId
 
         // Add carry-over from previous month
         using var carryCmd = connection.CreateCommand();
-        carryCmd.CommandText = @"SELECT IFNULL(SUM(Amount), 0) FROM PaymentCarryOvers
+        carryCmd.CommandText = @"SELECT COALESCE(SUM(Amount), 0) FROM PaymentCarryOvers
 WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
   AND ToMonth = @month AND ToYear = @year;";
         carryCmd.Parameters.AddWithValue("@studentId", studentId);
@@ -110,7 +110,7 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
         using var connection = DbContext.CreateConnection();
         connection.Open();
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT IFNULL(SUM(Amount), 0) FROM PaymentCarryOvers
+        cmd.CommandText = @"SELECT COALESCE(SUM(Amount), 0) FROM PaymentCarryOvers
 WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
   AND ToMonth = @month AND ToYear = @year;";
         cmd.Parameters.AddWithValue("@studentId", studentId);
@@ -148,21 +148,15 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
         {
             command.Transaction = transaction;
             command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
-VALUES(@studentId, @classId, @amount, @date, @note, @createdBy);";
+VALUES(@studentId, @classId, @amount, @date, @note, @createdBy)
+RETURNING Id;";
             command.Parameters.AddWithValue("@studentId", studentId);
             command.Parameters.AddWithValue("@classId", classId.HasValue ? (object)classId.Value : DBNull.Value);
             command.Parameters.AddWithValue("@amount", amount);
             command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
             command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
             command.Parameters.AddWithValue("@createdBy", createdBy);
-            command.ExecuteNonQuery();
-        }
-
-        using (var idCmd = connection.CreateCommand())
-        {
-            idCmd.Transaction = transaction;
-            idCmd.CommandText = "SELECT last_insert_rowid();";
-            paymentId = Convert.ToInt64(idCmd.ExecuteScalar());
+            paymentId = Convert.ToInt64(command.ExecuteScalar());
         }
 
         using (var ledgerCmd = connection.CreateCommand())
@@ -256,8 +250,8 @@ ORDER BY ats.SessionDate DESC;";
 SELECT p.Id,
        p.PaymentDate,
        p.Amount,
-       IFNULL(u.Username, ''),
-       IFNULL(p.Note, '')
+       COALESCE(u.Username, ''),
+       COALESCE(p.Note, '')
 FROM Payments p
 LEFT JOIN Users u ON u.Id = p.CreatedBy
 WHERE p.StudentId = @studentId
@@ -277,7 +271,7 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
             {
                 PaymentId = reader.GetInt32(0),
                 NgayThu = displayDate,
-                SoTien = Convert.ToDecimal(reader.GetDouble(2)),
+                SoTien = reader.GetDecimal(2),
                 NguoiThu = reader.GetString(3),
                 GhiChu = reader.GetString(4)
             });
@@ -296,13 +290,13 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
 SELECT p.Id,
        p.PaymentDate,
        p.Amount,
-       IFNULL(u.Username, ''),
-       IFNULL(p.Note, '')
+       COALESCE(u.Username, ''),
+       COALESCE(p.Note, '')
 FROM Payments p
 LEFT JOIN Users u ON u.Id = p.CreatedBy
 WHERE p.StudentId = @studentId
-  AND CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
-  AND CAST(strftime('%Y', p.PaymentDate) AS INTEGER) = @year
+  AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
+  AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
   AND (@classId = 0 OR EXISTS (
       SELECT 1
       FROM ClassStudents cs
@@ -328,85 +322,13 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
             {
                 PaymentId = reader.GetInt32(0),
                 NgayThu = displayDate,
-                SoTien = Convert.ToDecimal(reader.GetDouble(2)),
+                SoTien = reader.GetDecimal(2),
                 NguoiThu = reader.GetString(3),
                 GhiChu = reader.GetString(4)
             });
         }
 
         return results;
-    }
-
-    public void UpdatePaymentHistory(int paymentId, int studentId, decimal amount, string? note)
-    {
-        if (amount <= 0)
-        {
-            throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
-        }
-
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-
-        using (var updatePaymentCmd = connection.CreateCommand())
-        {
-            updatePaymentCmd.Transaction = transaction;
-            updatePaymentCmd.CommandText = @"UPDATE Payments
-SET Amount = @amount, Note = @note
-WHERE Id = @paymentId AND StudentId = @studentId;";
-            updatePaymentCmd.Parameters.AddWithValue("@amount", amount);
-            updatePaymentCmd.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
-            updatePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
-            updatePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
-
-            if (updatePaymentCmd.ExecuteNonQuery() == 0)
-            {
-                throw new InvalidOperationException("Không tìm thấy lịch sử thu để cập nhật.");
-            }
-        }
-
-        using (var updateLedgerCmd = connection.CreateCommand())
-        {
-            updateLedgerCmd.Transaction = transaction;
-            updateLedgerCmd.CommandText = @"UPDATE RevenueLedger
-SET Amount = @amount
-WHERE SourcePaymentId = @paymentId;";
-            updateLedgerCmd.Parameters.AddWithValue("@amount", amount);
-            updateLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
-            updateLedgerCmd.ExecuteNonQuery();
-        }
-
-        transaction.Commit();
-    }
-
-    public void DeletePaymentHistory(int paymentId, int studentId)
-    {
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-
-        using (var deleteLedgerCmd = connection.CreateCommand())
-        {
-            deleteLedgerCmd.Transaction = transaction;
-            deleteLedgerCmd.CommandText = "DELETE FROM RevenueLedger WHERE SourcePaymentId = @paymentId;";
-            deleteLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
-            deleteLedgerCmd.ExecuteNonQuery();
-        }
-
-        using (var deletePaymentCmd = connection.CreateCommand())
-        {
-            deletePaymentCmd.Transaction = transaction;
-            deletePaymentCmd.CommandText = "DELETE FROM Payments WHERE Id = @paymentId AND StudentId = @studentId;";
-            deletePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
-            deletePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
-
-            if (deletePaymentCmd.ExecuteNonQuery() == 0)
-            {
-                throw new InvalidOperationException("Không tìm thấy lịch sử thu để xóa.");
-            }
-        }
-
-        transaction.Commit();
     }
 
     public List<PaymentClassListRow> GetPaymentListByClassMonthYear(int classId, int month, int year)
@@ -436,8 +358,8 @@ FilteredPayments AS (
            p.CreatedBy
     FROM Payments p
     WHERE (@classId = 0 OR p.ClassId = @classId)
-      AND CAST(strftime('%m', p.PaymentDate) AS INTEGER) = @month
-      AND CAST(strftime('%Y', p.PaymentDate) AS INTEGER) = @year
+      AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
+      AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
 ),
 LatestPaymentByStudent AS (
     SELECT fp.StudentId,
@@ -459,19 +381,19 @@ TotalAmountByStudent AS (
     FROM FilteredPayments fp
     GROUP BY fp.StudentId
 )
-SELECT IFNULL(lp.Id, 0),
+SELECT COALESCE(lp.Id, 0)::int,
        fs.Id,
        fs.FullName,
-       IFNULL((
-           SELECT GROUP_CONCAT(c.ClassName, ', ')
+       COALESCE((
+           SELECT STRING_AGG(c.ClassName, ', ')
            FROM ClassStudents cs
            INNER JOIN Classes c ON c.Id = cs.ClassId
            WHERE cs.StudentId = fs.Id
              AND (@classId = 0 OR cs.ClassId = @classId)
        ), ''),
        lp.PaymentDate,
-       IFNULL(t.TotalAmount, 0),
-       IFNULL(u.Username, '')
+       COALESCE(t.TotalAmount, 0),
+       COALESCE(u.Username, '')
 FROM FilteredStudents fs
 LEFT JOIN LatestPaymentByStudent lp ON lp.StudentId = fs.Id
 LEFT JOIN TotalAmountByStudent t ON t.StudentId = fs.Id
@@ -501,7 +423,7 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
                 HoVaTen = reader.GetString(2),
                 Lop = reader.GetString(3),
                 NgayThu = displayDate,
-                SoTien = Convert.ToDecimal(reader.GetDouble(5)),
+                SoTien = reader.GetDecimal(5),
                 NguoiThu = reader.GetString(6)
             });
         }
@@ -575,8 +497,10 @@ WHERE cs.ClassId = @classId;";
         {
             using var carryCmd = connection.CreateCommand();
             carryCmd.Transaction = transaction;
-            carryCmd.CommandText = @"INSERT OR REPLACE INTO PaymentCarryOvers(StudentId, ClassId, FromMonth, FromYear, ToMonth, ToYear, Amount)
-VALUES(@studentId, @classId, @fromMonth, @fromYear, @toMonth, @toYear, @amount);";
+            carryCmd.CommandText = @"INSERT INTO PaymentCarryOvers(StudentId, ClassId, FromMonth, FromYear, ToMonth, ToYear, Amount)
+VALUES(@studentId, @classId, @fromMonth, @fromYear, @toMonth, @toYear, @amount)
+ON CONFLICT(StudentId, ClassId, FromMonth, FromYear)
+DO UPDATE SET Amount = EXCLUDED.Amount, ToMonth = EXCLUDED.ToMonth, ToYear = EXCLUDED.ToYear;";
             carryCmd.Parameters.AddWithValue("@studentId", studentId);
             carryCmd.Parameters.AddWithValue("@classId", classId);
             carryCmd.Parameters.AddWithValue("@fromMonth", month);
@@ -599,6 +523,78 @@ VALUES(@classId, @month, @year, @finalizedAt, @finalizedBy);";
             finalizeCmd.Parameters.AddWithValue("@finalizedAt", DateTime.UtcNow.ToString("o"));
             finalizeCmd.Parameters.AddWithValue("@finalizedBy", finalizedBy);
             finalizeCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public void UpdatePaymentHistory(int paymentId, int studentId, decimal amount, string? note)
+    {
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var updatePaymentCmd = connection.CreateCommand())
+        {
+            updatePaymentCmd.Transaction = transaction;
+            updatePaymentCmd.CommandText = @"UPDATE Payments
+SET Amount = @amount, Note = @note
+WHERE Id = @paymentId AND StudentId = @studentId;";
+            updatePaymentCmd.Parameters.AddWithValue("@amount", amount);
+            updatePaymentCmd.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+            updatePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            updatePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
+
+            if (updatePaymentCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không tìm thấy lịch sử thu để cập nhật.");
+            }
+        }
+
+        using (var updateLedgerCmd = connection.CreateCommand())
+        {
+            updateLedgerCmd.Transaction = transaction;
+            updateLedgerCmd.CommandText = @"UPDATE RevenueLedger
+SET Amount = @amount
+WHERE SourcePaymentId = @paymentId;";
+            updateLedgerCmd.Parameters.AddWithValue("@amount", amount);
+            updateLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            updateLedgerCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public void DeletePaymentHistory(int paymentId, int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var deleteLedgerCmd = connection.CreateCommand())
+        {
+            deleteLedgerCmd.Transaction = transaction;
+            deleteLedgerCmd.CommandText = "DELETE FROM RevenueLedger WHERE SourcePaymentId = @paymentId;";
+            deleteLedgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            deleteLedgerCmd.ExecuteNonQuery();
+        }
+
+        using (var deletePaymentCmd = connection.CreateCommand())
+        {
+            deletePaymentCmd.Transaction = transaction;
+            deletePaymentCmd.CommandText = "DELETE FROM Payments WHERE Id = @paymentId AND StudentId = @studentId;";
+            deletePaymentCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            deletePaymentCmd.Parameters.AddWithValue("@studentId", studentId);
+
+            if (deletePaymentCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không tìm thấy lịch sử thu để xóa.");
+            }
         }
 
         transaction.Commit();

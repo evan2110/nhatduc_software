@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Models;
 

@@ -1,3 +1,4 @@
+using Npgsql;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Models;
 
@@ -16,7 +17,7 @@ public class ClassService
 SELECT c.Id,
        c.ClassName,
        co.Name,
-       IFNULL(t.FullName, ''),
+       COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id) AS CurrentSize,
        c.Status
 FROM Classes c
@@ -49,7 +50,7 @@ ORDER BY c.Id ASC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT c.Id, c.ClassName, co.Name, IFNULL(t.FullName, ''),
+SELECT c.Id, c.ClassName, co.Name, COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id),
        c.Status
 FROM Classes c
@@ -76,7 +77,7 @@ ORDER BY c.Id ASC;";
         return result;
     }
 
-    private static int GetNextAvailableId(Microsoft.Data.Sqlite.SqliteConnection connection)
+    private static int GetNextAvailableId(NpgsqlConnection connection)
     {
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
@@ -86,8 +87,7 @@ ORDER BY c.Id ASC;";
                 SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Classes)
             )
             SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Classes);";
-        var result = cmd.ExecuteScalar();
-        return result is long l ? (int)l : 1;
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     public void AddClass(string className, int courseId, int? teacherId, string status)

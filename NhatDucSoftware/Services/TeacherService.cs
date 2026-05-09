@@ -1,3 +1,4 @@
+using Npgsql;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Models;
 
@@ -81,7 +82,7 @@ WHERE TeacherId = @teacherId;";
     /// Thêm giáo viên mới và tự động tạo tài khoản đăng nhập.
     /// Username = tên viết thường không dấu, Password mặc định = "123456".
     /// </summary>
-    private static int GetNextAvailableId(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction? transaction = null)
+    private static int GetNextAvailableId(NpgsqlConnection connection, NpgsqlTransaction? transaction = null)
     {
         using var cmd = connection.CreateCommand();
         cmd.Transaction = transaction;
@@ -92,8 +93,7 @@ WHERE TeacherId = @teacherId;";
                 SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Teachers)
             )
             SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Teachers);";
-        var result = cmd.ExecuteScalar();
-        return result is long l ? (int)l : 1;
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     public (string Username, string Password) Add(Teacher teacher)
@@ -138,7 +138,7 @@ VALUES(@username, @password, 'Teacher', @teacherId);";
         return (username, defaultPassword);
     }
 
-    private string GenerateUsername(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction transaction, string fullName)
+    private string GenerateUsername(NpgsqlConnection connection, NpgsqlTransaction transaction, string fullName)
     {
         // Convert Vietnamese name to lowercase ASCII without diacritics
         var normalized = RemoveDiacritics(fullName).ToLower().Trim();
@@ -166,7 +166,7 @@ VALUES(@username, @password, 'Teacher', @teacherId);";
         return username;
     }
 
-    private bool UsernameExists(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction transaction, string username)
+    private bool UsernameExists(NpgsqlConnection connection, NpgsqlTransaction transaction, string username)
     {
         using var cmd = connection.CreateCommand();
         cmd.Transaction = transaction;

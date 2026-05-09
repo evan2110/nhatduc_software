@@ -100,16 +100,12 @@ DELETE FROM AttendanceSessions WHERE ClassId = @classId AND SessionDate = @date 
                 using var sessionCmd = connection.CreateCommand();
                 sessionCmd.Transaction = transaction;
                 sessionCmd.CommandText = @"INSERT INTO AttendanceSessions(ClassId, SessionDate, CreatedByTeacherId)
-VALUES(@classId, @date, @teacherId);";
+VALUES(@classId, @date, @teacherId)
+RETURNING Id;";
                 sessionCmd.Parameters.AddWithValue("@classId", classId);
                 sessionCmd.Parameters.AddWithValue("@date", sessionDate.ToString("yyyy-MM-dd"));
                 sessionCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                sessionCmd.ExecuteNonQuery();
-
-                using var idCmd = connection.CreateCommand();
-                idCmd.Transaction = transaction;
-                idCmd.CommandText = "SELECT last_insert_rowid();";
-                sessionId = Convert.ToInt64(idCmd.ExecuteScalar());
+                sessionId = Convert.ToInt64(sessionCmd.ExecuteScalar());
             }
         }
 
@@ -119,7 +115,7 @@ VALUES(@classId, @date, @teacherId);";
             recordCmd.Transaction = transaction;
             recordCmd.CommandText = @"INSERT INTO AttendanceRecords(SessionId, StudentId, Status)
 VALUES(@sessionId, @studentId, @status)
-ON CONFLICT(SessionId, StudentId) DO UPDATE SET Status = excluded.Status;";
+ON CONFLICT(SessionId, StudentId) DO UPDATE SET Status = EXCLUDED.Status;";
             recordCmd.Parameters.AddWithValue("@sessionId", sessionId);
             recordCmd.Parameters.AddWithValue("@studentId", studentId);
             recordCmd.Parameters.AddWithValue("@status", (status ?? string.Empty).Trim());

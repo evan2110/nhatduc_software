@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Models;
 
@@ -16,10 +16,10 @@ public class StudentService
         command.CommandText = @"
 SELECT s.Id,
        s.FullName,
-       IFNULL((SELECT GROUP_CONCAT(c.ClassName, ', ')
-               FROM ClassStudents cs
-               INNER JOIN Classes c ON c.Id = cs.ClassId
-               WHERE cs.StudentId = s.Id), ''),
+       COALESCE((SELECT STRING_AGG(c.ClassName, ', ')
+                 FROM ClassStudents cs
+                 INNER JOIN Classes c ON c.Id = cs.ClassId
+                 WHERE cs.StudentId = s.Id), ''),
        s.Phone,
        s.Email,
        s.BirthYear,
@@ -46,7 +46,7 @@ ORDER BY s.Id ASC;";
         return result;
     }
 
-    private int GetNextAvailableId(SqliteConnection connection)
+    private int GetNextAvailableId(NpgsqlConnection connection)
     {
         using var cmd = connection.CreateCommand();
         // Find the smallest positive integer not currently used as an Id
@@ -57,8 +57,7 @@ ORDER BY s.Id ASC;";
                 SELECT n + 1 FROM seq WHERE n < (SELECT COALESCE(MAX(Id), 0) + 1 FROM Students)
             )
             SELECT MIN(n) FROM seq WHERE n NOT IN (SELECT Id FROM Students);";
-        var result = cmd.ExecuteScalar();
-        return result is long l ? (int)l : 1;
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     public void Add(Student student)
