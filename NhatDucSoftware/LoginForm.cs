@@ -27,7 +27,7 @@ public class LoginForm : Form
         _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "admin", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
         _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "123456", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
-        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập", Anchor = AnchorStyles.Top | AnchorStyles.Left };
+        _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng xuất", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _btnLogin.Click += BtnLogin_Click;
 
         var lblCopyright = new Label

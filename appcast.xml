@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <item>
-  <version>1.0.3.0</version>
-  <url>https://github.com/evan2110/nhatduc_software/releases/download/v1.0.3/NhatDuc_Software.zip</url>
-  <changelog>https://github.com/evan2110/nhatduc_software/releases/tag/v1.0.3</changelog>
+  <version>1.0.4.0</version>
+  <url>https://github.com/evan2110/nhatduc_software/releases/download/v1.0.4/NhatDuc_Software.zip</url>
+  <changelog>https://github.com/evan2110/nhatduc_software/releases/tag/v1.0.4</changelog>
   <mandatory>false</mandatory>
   <executable>NhatDucSoftware.exe</executable>
 </item>
