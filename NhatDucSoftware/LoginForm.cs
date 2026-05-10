@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Reflection;
 using NhatDucSoftware.Models;
 using NhatDucSoftware.Services;
 
@@ -36,7 +38,19 @@ public class LoginForm : Form
             Text = "Make by Nhật Đức",
             Left = 10,
             Top = ClientSize.Height - 22,
-            Anchor = AnchorStyles.Left | AnchorStyles.Bottom
+            Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
+            BackColor = Color.Transparent,
+            ForeColor = Color.White,
+        };
+
+        var lblVersion = new Label
+        {
+            AutoSize = true,
+            Text = $"Phiên bản {GetDisplayVersion()}",
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+            BackColor = Color.Transparent,
+            ForeColor = Color.White,
+            Font = new Font(SystemFonts.DefaultFont.FontFamily, 8.25f),
         };
 
         Controls.Add(lblUser);
@@ -45,6 +59,23 @@ public class LoginForm : Form
         Controls.Add(_txtPassword);
         Controls.Add(_btnLogin);
         Controls.Add(lblCopyright);
+        Controls.Add(lblVersion);
+
+        lblVersion.Location = new Point(ClientSize.Width - lblVersion.Width - 12, ClientSize.Height - lblVersion.Height - 10);
+    }
+
+    private static string GetDisplayVersion()
+    {
+        string path = Path.Combine(AppPaths.InstallDirectory, "version.txt");
+        if (File.Exists(path))
+        {
+            string v = File.ReadAllText(path).Trim();
+            if (!string.IsNullOrEmpty(v))
+                return v;
+        }
+
+        Version? asm = Assembly.GetExecutingAssembly().GetName().Version;
+        return asm is null ? "1.0.0" : $"{asm.Major}.{asm.Minor}.{asm.Build}";
     }
 
     private void BtnLogin_Click(object? sender, EventArgs e)
