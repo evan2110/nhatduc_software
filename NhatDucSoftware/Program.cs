@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Xml.Linq;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Services;
+using System.IO;
 
 namespace NhatDucSoftware
 {
@@ -72,7 +73,38 @@ namespace NhatDucSoftware
                     client.DownloadFile(zipUrl, tempZip);
                 }
                 // Extract and overwrite files
-                ZipFile.ExtractToDirectory(tempZip, AppContext.BaseDirectory, true);
+                string extractPath = Path.Combine(Path.GetTempPath(), "NhatDucSoftware_Extracted");
+                if (Directory.Exists(extractPath))
+                {
+                    Directory.Delete(extractPath, true);
+                }
+                ZipFile.ExtractToDirectory(tempZip, extractPath, true);
+
+                // Copy all files and folders from extractPath to AppContext.BaseDirectory
+                foreach (var srcPath in Directory.GetFileSystemEntries(extractPath, "*", SearchOption.AllDirectories))
+                {
+                    var relativePath = Path.GetRelativePath(extractPath, srcPath);
+                    var destPath = Path.Combine(AppContext.BaseDirectory, relativePath);
+
+                    if (Directory.Exists(srcPath))
+                    {
+                        if (!Directory.Exists(destPath))
+                            Directory.CreateDirectory(destPath);
+                    }
+                    else if (File.Exists(srcPath))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+                        File.Copy(srcPath, destPath, true);
+                    }
+                }
+
+                // Delete the extracted folder after copying
+                string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NhatDuc_Software");
+
+                if (Directory.Exists(folderPath))
+                {
+                    Directory.Delete(folderPath, recursive: true);
+                }
                 File.WriteAllText(versionFile, latestVersion);
                 MessageBox.Show($"Đã cập nhật phần mềm lên phiên bản mới: {latestVersion}. Vui lòng khởi động lại ứng dụng.", "Cập nhật", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 Environment.Exit(0);
