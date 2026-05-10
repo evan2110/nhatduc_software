@@ -23,7 +23,7 @@ public static class UiBackgroundHelper
             return _cachedBackground;
         }
 
-        var imagePath = Path.Combine(AppContext.BaseDirectory, "Assets", "background.jpg");
+        var imagePath = Path.Combine(AppPaths.InstallDirectory, "Assets", "background.jpg");
         if (!File.Exists(imagePath))
         {
             return null;

@@ -1,8 +1,6 @@
 ﻿using AutoUpdaterDotNET;
-using System.Diagnostics;
+using System.Drawing;
 using System.IO.Compression;
-using System.Reflection;
-using System.Xml.Linq;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Services;
 using System.IO;
@@ -54,60 +52,181 @@ namespace NhatDucSoftware
             AutoUpdater.ShowRemindLaterButton = true;
             AutoUpdater.RunUpdateAsAdmin = true;
             AutoUpdater.DownloadPath = Path.GetTempPath();
-            AutoUpdater.InstallationPath = AppContext.BaseDirectory;
+            AutoUpdater.InstallationPath = AppPaths.InstallDirectory;
             AutoUpdater.ExecutablePath = "NhatDucSoftware.exe";
             AutoUpdater.Start(AppCastUrl);
         }
 
         private static void CheckAndUpdateIfNeeded()
         {
-            string versionFile = Path.Combine(AppContext.BaseDirectory, "version.txt");
+            string versionFile = Path.Combine(AppPaths.InstallDirectory, "version.txt");
             string currentVersion = File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : "1.0.0";
             string latestVersion = GetLatestVersionFromGithub();
             if (!string.IsNullOrEmpty(latestVersion) && !string.Equals(currentVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
             {
+                using var progressForm = CreateUpdatingProgressForm(latestVersion);
+                progressForm.Show();
+                Application.DoEvents();
+
                 string zipUrl = $"https://github.com/evan2110/nhatduc_software/releases/download/v{latestVersion}/NhatDuc_Software.zip";
                 string tempZip = Path.Combine(Path.GetTempPath(), "NhatDuc_Software.zip");
                 using (var client = new System.Net.WebClient())
                 {
                     client.DownloadFile(zipUrl, tempZip);
                 }
-                // Extract and overwrite files
-                string extractPath = Path.Combine(Path.GetTempPath(), "NhatDucSoftware_Extracted");
-                if (Directory.Exists(extractPath))
+                Application.DoEvents();
+
+                string extractTemp = Path.Combine(Path.GetTempPath(), "NhatDucSoftware_Extract_" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(extractTemp);
+                bool stagedNewExe = false;
+                try
                 {
-                    Directory.Delete(extractPath, true);
+                    ZipFile.ExtractToDirectory(tempZip, extractTemp, overwriteFiles: true);
+                    Application.DoEvents();
+
+                    // Zip thường có thư mục gốc "NhatDuc_Software"; nội dung thật (exe, Assets...) phải nằm
+                    // cùng thư mục với file đang chạy — không copy vào InstallDir\NhatDuc_Software (lồng nhầm,
+                    // exe đang chạy không bị thay thế, chỉ có version.txt do code ghi nên nhìn như "đã cập nhật").
+                    string payloadRoot = Path.Combine(extractTemp, "NhatDuc_Software");
+                    if (!Directory.Exists(payloadRoot))
+                        payloadRoot = extractTemp;
+
+                    string installDir = AppPaths.InstallDirectory;
+                    string legacyNested = Path.Combine(installDir, "NhatDuc_Software");
+                    if (Directory.Exists(legacyNested))
+                        Directory.Delete(legacyNested, recursive: true);
+
+                    stagedNewExe = CopyPayloadIntoInstallDirectory(payloadRoot, installDir);
+                    Application.DoEvents();
                 }
-                ZipFile.ExtractToDirectory(tempZip, extractPath, true);
-
-                // Copy all files and folders from extractPath to AppContext.BaseDirectory
-                foreach (var srcPath in Directory.GetFileSystemEntries(extractPath, "*", SearchOption.AllDirectories))
+                finally
                 {
-                    var relativePath = Path.GetRelativePath(extractPath, srcPath);
-                    var destPath = Path.Combine(AppContext.BaseDirectory, relativePath);
-
-                    if (Directory.Exists(srcPath))
+                    try
                     {
-                        if (!Directory.Exists(destPath))
-                            Directory.CreateDirectory(destPath);
+                        if (Directory.Exists(extractTemp))
+                            Directory.Delete(extractTemp, recursive: true);
                     }
-                    else if (File.Exists(srcPath))
+                    catch
                     {
-                        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
-                        File.Copy(srcPath, destPath, true);
                     }
                 }
 
-                // Delete the extracted folder after copying
-                string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NhatDuc_Software");
-
-                if (Directory.Exists(folderPath))
-                {
-                    Directory.Delete(folderPath, recursive: true);
-                }
                 File.WriteAllText(versionFile, latestVersion);
-                MessageBox.Show($"Đã cập nhật phần mềm lên phiên bản mới: {latestVersion}. Vui lòng khởi động lại ứng dụng.", "Cập nhật", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                progressForm.Close();
+
+                string exeName = Path.GetFileName(Environment.ProcessPath ?? "NhatDucSoftware.exe");
+                if (stagedNewExe)
+                {
+                    MessageBox.Show(
+                        $"Đã hoàn tất cập nhật lên phiên bản {latestVersion}.\n\n" +
+                        "Windows không cho ghi đè file .exe đang chạy, nên bản mới đã được lưu cạnh file cũ với đuôi .new\n\n" +
+                        $"Sau khi đóng ứng dụng này, bạn hãy:\n" +
+                        $"• Xóa (hoặc đổi tên) file \"{exeName}\" bản cũ.\n" +
+                        $"• Đổi tên \"{exeName}.new\" thành \"{exeName}\".\n" +
+                        "• Mở lại chương trình để dùng bản mới nhất.",
+                        "Cập nhật hoàn tất",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"Đã cập nhật phần mềm lên phiên bản mới: {latestVersion}. Vui lòng khởi động lại ứng dụng.",
+                        "Cập nhật",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
                 Environment.Exit(0);
+            }
+        }
+
+        private static Form CreateUpdatingProgressForm(string version)
+        {
+            var form = new Form
+            {
+                Text = "Đang cập nhật",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                ControlBox = false,
+                ShowInTaskbar = false,
+                StartPosition = FormStartPosition.CenterScreen,
+                Size = new Size(480, 130),
+                TopMost = true,
+                Font = SystemFonts.MessageBoxFont,
+            };
+            var label = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Padding = new Padding(16),
+                Text = $"Đang cập nhật phiên bản mới nhất ({version}) từ máy chủ...\r\nVui lòng đợi.",
+            };
+            form.Controls.Add(label);
+            return form;
+        }
+
+        /// <summary>
+        /// Gộp toàn bộ file từ zip vào thư mục cài đặt (cùng cấp với exe đang chạy).
+        /// </summary>
+        /// <returns>true nếu không ghi đè được file exe đang chạy và đã ghi bản mới thành *.exe.new.</returns>
+        private static bool CopyPayloadIntoInstallDirectory(string sourceDir, string installDir)
+        {
+            Directory.CreateDirectory(installDir);
+            string runningExeName = Path.GetFileName(Environment.ProcessPath ?? "");
+            bool stagedNewExe = false;
+
+            foreach (var filePath in Directory.GetFiles(sourceDir))
+            {
+                string name = Path.GetFileName(filePath);
+                string destFile = Path.Combine(installDir, name);
+                if (string.Equals(name, runningExeName, StringComparison.OrdinalIgnoreCase))
+                    stagedNewExe |= TryCopyOrStageNewExecutable(filePath, destFile);
+                else
+                    File.Copy(filePath, destFile, overwrite: true);
+            }
+
+            foreach (var dirPath in Directory.GetDirectories(sourceDir))
+            {
+                string destSub = Path.Combine(installDir, Path.GetFileName(dirPath));
+                CopyDirectoryRecursive(dirPath, destSub);
+            }
+
+            return stagedNewExe;
+        }
+
+        private static void CopyDirectoryRecursive(string sourceDir, string destinationDir)
+        {
+            Directory.CreateDirectory(destinationDir);
+
+            foreach (var filePath in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destinationDir, Path.GetFileName(filePath));
+                File.Copy(filePath, destFile, overwrite: true);
+            }
+
+            foreach (var dirPath in Directory.GetDirectories(sourceDir))
+            {
+                var destSub = Path.Combine(destinationDir, Path.GetFileName(dirPath));
+                CopyDirectoryRecursive(dirPath, destSub);
+            }
+        }
+
+        /// <summary>
+        /// Windows không cho ghi đè file exe đang chạy — chép bản mới thành *.exe.new để người dùng đổi tên sau khi thoát.
+        /// </summary>
+        private static bool TryCopyOrStageNewExecutable(string srcExe, string destExe)
+        {
+            try
+            {
+                File.Copy(srcExe, destExe, overwrite: true);
+                return false;
+            }
+            catch (IOException)
+            {
+                string pending = destExe + ".new";
+                File.Copy(srcExe, pending, overwrite: true);
+                return true;
             }
         }
 
