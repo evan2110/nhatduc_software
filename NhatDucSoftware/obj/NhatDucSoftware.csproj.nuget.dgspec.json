@@ -67,6 +67,10 @@
             "Npgsql": {
               "target": "Package",
               "version": "[8.0.4, )"
+            },
+            "System.Security.Cryptography.ProtectedData": {
+              "target": "Package",
+              "version": "[8.0.0, )"
             }
           },
           "imports": [
