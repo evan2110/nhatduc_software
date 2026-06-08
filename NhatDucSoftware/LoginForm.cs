@@ -24,8 +24,8 @@ public class LoginForm : Form
         var lblUser = new Label { Left = 20, Top = 25, Width = 90, Text = "Tài khoản", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         var lblPass = new Label { Left = 20, Top = 65, Width = 90, Text = "Mật khẩu", Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
-        _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "admin", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-        _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "123456", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+        _txtUsername = new TextBox { Left = 120, Top = 20, Width = 200, Text = "", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+        _txtPassword = new TextBox { Left = 120, Top = 60, Width = 200, UseSystemPasswordChar = true, Text = "", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
         _btnLogin = new Button { Left = 120, Top = 105, Width = 120, Text = "Đăng nhập", Anchor = AnchorStyles.Top | AnchorStyles.Left };
         _btnLogin.Click += BtnLogin_Click;
