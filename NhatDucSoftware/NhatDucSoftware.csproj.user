@@ -16,5 +16,8 @@
     <Compile Update="TeacherManagementForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="UpdateConfirmationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

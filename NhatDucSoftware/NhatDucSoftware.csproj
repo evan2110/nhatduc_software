@@ -12,6 +12,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0</AssemblyVersion>
+    <FileVersion>1.1.0</FileVersion>
     <!-- Single EXE -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
@@ -36,7 +39,6 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="8.0.4" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
-    <PackageReference Include="Autoupdater.NET.Official" Version="1.9.2" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 

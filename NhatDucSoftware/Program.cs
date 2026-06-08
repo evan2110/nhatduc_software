@@ -1,4 +1,3 @@
-using AutoUpdaterDotNET;
 using NhatDucSoftware.Data;
 using NhatDucSoftware.Models;
 using NhatDucSoftware.Services;
@@ -7,8 +6,6 @@ namespace NhatDucSoftware
 {
     internal static class Program
     {
-        private const string AppCastUrl = "https://raw.githubusercontent.com/evan2110/nhatduc_software/master/appcast.xml";
-
         /// <summary>
         ///  The main entry point for the application.
         /// </summary>
@@ -20,7 +17,7 @@ namespace NhatDucSoftware
             ApplicationConfiguration.Initialize();
             DatabaseInitializer.Initialize();
 
-            ConfigureAutoUpdater();
+            CheckForUpdates();
 
             var authService = new AuthService();
             var rememberedLoginService = new RememberedLoginService();
@@ -73,12 +70,24 @@ namespace NhatDucSoftware
             return user;
         }
 
-        private static void ConfigureAutoUpdater()
+        private static void CheckForUpdates()
         {
-            AutoUpdater.AppTitle = "NhatDucSoftware";
-            AutoUpdater.ShowSkipButton = true;
-            AutoUpdater.ShowRemindLaterButton = true;
-            AutoUpdater.Start(AppCastUrl);
+            try
+            {
+                var updateService = new UpdateCheckService();
+                var updateInfo = updateService.CheckForUpdateAsync().GetAwaiter().GetResult();
+                if (updateInfo is null)
+                {
+                    return;
+                }
+
+                using var form = new UpdateConfirmationForm(updateInfo);
+                form.ShowDialog();
+            }
+            catch
+            {
+                // Không chặn khởi động ứng dụng khi không kiểm tra được phiên bản.
+            }
         }
     }
 }
