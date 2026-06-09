@@ -44,7 +44,7 @@ public class LoginForm : Form
         var lblCopyright = new Label
         {
             AutoSize = true,
-            Text = "Make by Nhật Duck",
+            Text = "Make by Nhật Đức",
             Left = 10,
             Top = ClientSize.Height - 22,
             Anchor = AnchorStyles.Left | AnchorStyles.Bottom
