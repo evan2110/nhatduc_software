@@ -5,7 +5,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    branch: master
+    branch: feature/ducdn
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
