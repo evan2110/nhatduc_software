@@ -1,0 +1,46 @@
+@page "/"
+@page "/login"
+@inject UserSession Session
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.WebUtilities
+
+<PageTitle>Đăng nhập - Nhat Duc Software</PageTitle>
+
+<div class="login-page">
+    <div class="login-card">
+        <h1>Nhat Duc Software</h1>
+        @if (_showError)
+        {
+            <div class="alert alert-danger">Tên đăng nhập hoặc mật khẩu không đúng.</div>
+        }
+        <form method="post" action="/account/login">
+            <div class="form-group" style="margin-bottom:1rem">
+                <label for="username">Tên đăng nhập</label>
+                <input id="username" name="username" required style="width:100%;padding:0.5rem" />
+            </div>
+            <div class="form-group" style="margin-bottom:1.5rem">
+                <label for="password">Mật khẩu</label>
+                <input id="password" name="password" type="password" required style="width:100%;padding:0.5rem" />
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">Đăng nhập</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    private bool _showError;
+
+    protected override void OnInitialized()
+    {
+        if (Session.IsAuthenticated)
+        {
+            if (Session.IsAdmin)
+                Nav.NavigateTo("/admin/students");
+            else if (Session.IsTeacher)
+                Nav.NavigateTo("/teacher/schedule");
+        }
+
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        _showError = QueryHelpers.ParseQuery(uri.Query).ContainsKey("error");
+    }
+}

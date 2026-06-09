@@ -1,0 +1,298 @@
+@page "/admin/students"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject StudentService StudentService
+@inject EvaluationService EvaluationService
+@inject NavigationManager Nav
+
+<PageTitle>Học viên</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý học viên</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input @bind="_form.FullName" />
+            </div>
+            <div class="form-group">
+                <label>SĐT</label>
+                <input @bind="_form.Phone" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input @bind="_form.Email" />
+            </div>
+            <div class="form-group">
+                <label>Năm sinh</label>
+                <input type="number" @bind="_form.BirthYear" />
+            </div>
+            <div class="form-group">
+                <label>Địa chỉ</label>
+                <input @bind="_form.Address" />
+            </div>
+            <div class="form-group">
+                <label>Trạng thái</label>
+                <select @bind="_form.Status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="AddStudent">Thêm</button>
+            <button class="btn btn-secondary" @onclick="UpdateStudent" disabled="@(_selectedId is null)">Cập nhật</button>
+            <button class="btn btn-danger" @onclick="DeleteStudent" disabled="@(_selectedId is null)">Xóa</button>
+            <label class="btn btn-secondary" style="cursor:pointer">
+                Nhập TXT
+                <InputFile OnChange="ImportStudents" style="display:none" accept=".txt" />
+            </label>
+            <a class="btn btn-success" href="/api/export/students" target="_blank">Xuất Excel</a>
+            <button class="btn btn-secondary" @onclick="ShowEvaluations" disabled="@(_selectedId is null)">Xem điểm/NX</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Họ tên</th>
+                    <th>Lớp</th>
+                    <th>SĐT</th>
+                    <th>Email</th>
+                    <th>Năm sinh</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in _students)
+                {
+                    <tr class="@(_selectedId == s.Id ? "selected" : "")" @onclick="() => SelectStudent(s)">
+                        <td>@s.Id</td>
+                        <td>@s.FullName</td>
+                        <td>@s.ClassName</td>
+                        <td>@s.Phone</td>
+                        <td>@s.Email</td>
+                        <td>@s.BirthYear</td>
+                        <td>@s.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_showEvalModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseEvalModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Điểm / Nhận xét - @_evalStudentName</h3>
+                <div class="toolbar">
+                    <label>Tháng</label>
+                    <select @bind="_evalMonth" @bind:after="LoadEvaluations">
+                        @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+                    </select>
+                    <label>Năm</label>
+                    <select @bind="_evalYear" @bind:after="LoadEvaluations">
+                        @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+                    </select>
+                    <a class="btn btn-success" href="@($"/api/export/evaluations/{_selectedId}/{_evalYear}/{_evalMonth}")" target="_blank">Xuất Excel</a>
+                    <button class="btn btn-secondary" @onclick="CloseEvalModal">Đóng</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>Lớp</th><th>Giáo viên</th><th>Điểm</th><th>Nhận xét</th><th>Ngày</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in _evaluations)
+                        {
+                            <tr>
+                                <td>@e.Lop</td>
+                                <td>@e.GiaoVien</td>
+                                <td>@e.Diem</td>
+                                <td>@e.NhanXet</td>
+                                <td>@e.Ngay</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<Student> _students = new();
+    private StudentForm _form = new();
+    private int? _selectedId;
+    private string? _message;
+    private bool _showEvalModal;
+    private string _evalStudentName = "";
+    private int _evalMonth = DateTime.Now.Month;
+    private int _evalYear = DateTime.Now.Year;
+    private List<StudentEvaluationRow> _evaluations = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        LoadStudents();
+    }
+
+    private void LoadStudents() => _students = StudentService.GetAll();
+
+    private void SelectStudent(Student s)
+    {
+        _selectedId = s.Id;
+        _form = new StudentForm
+        {
+            FullName = s.FullName,
+            Phone = s.Phone,
+            Email = s.Email ?? "",
+            BirthYear = s.BirthYear,
+            Address = s.Address ?? "",
+            Status = s.Status
+        };
+    }
+
+    private void AddStudent()
+    {
+        try
+        {
+            StudentService.Add(new Student
+            {
+                FullName = _form.FullName.Trim(),
+                Phone = _form.Phone.Trim(),
+                Email = string.IsNullOrWhiteSpace(_form.Email) ? null : _form.Email.Trim(),
+                BirthYear = _form.BirthYear,
+                Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
+                Status = _form.Status
+            });
+            _message = "Đã thêm học viên.";
+            LoadStudents();
+            ClearForm();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void UpdateStudent()
+    {
+        if (_selectedId is null) return;
+        try
+        {
+            StudentService.Update(new Student
+            {
+                Id = _selectedId.Value,
+                FullName = _form.FullName.Trim(),
+                Phone = _form.Phone.Trim(),
+                Email = string.IsNullOrWhiteSpace(_form.Email) ? null : _form.Email.Trim(),
+                BirthYear = _form.BirthYear,
+                Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
+                Status = _form.Status
+            });
+            _message = "Đã cập nhật học viên.";
+            LoadStudents();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void DeleteStudent()
+    {
+        if (_selectedId is null) return;
+        try
+        {
+            StudentService.Delete(_selectedId.Value);
+            _message = "Đã xóa học viên.";
+            LoadStudents();
+            ClearForm();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private async Task ImportStudents(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        var imported = 0;
+        var skipped = 0;
+        using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        using var reader = new StreamReader(stream);
+        var lineNum = 0;
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            lineNum++;
+            var raw = line.Trim();
+            if (string.IsNullOrWhiteSpace(raw)) { skipped++; continue; }
+
+            var parts = raw.Split('-', 5);
+            var fullName = parts.Length > 0 ? parts[0].Trim() : "";
+            if (string.IsNullOrWhiteSpace(fullName)) { skipped++; continue; }
+
+            int? birthYear = null;
+            if (parts.Length > 3 && !string.IsNullOrWhiteSpace(parts[3]))
+            {
+                if (!int.TryParse(parts[3].Trim(), out var y)) { skipped++; continue; }
+                birthYear = y;
+            }
+
+            try
+            {
+                StudentService.Add(new Student
+                {
+                    FullName = fullName,
+                    Phone = parts.Length > 1 ? parts[1].Trim() : "",
+                    Email = parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2]) ? parts[2].Trim() : null,
+                    BirthYear = birthYear,
+                    Address = parts.Length > 4 && !string.IsNullOrWhiteSpace(parts[4]) ? parts[4].Trim() : null,
+                    Status = "Active"
+                });
+                imported++;
+            }
+            catch { skipped++; }
+        }
+
+        _message = $"Đã nhập {imported} học viên. Bỏ qua {skipped} dòng.";
+        LoadStudents();
+    }
+
+    private void ShowEvaluations()
+    {
+        if (_selectedId is null) return;
+        _evalStudentName = _students.First(s => s.Id == _selectedId).FullName;
+        _showEvalModal = true;
+        LoadEvaluations();
+    }
+
+    private void LoadEvaluations()
+    {
+        if (_selectedId is null) return;
+        _evaluations = EvaluationService.GetByStudentInMonth(_selectedId.Value, _evalYear, _evalMonth);
+    }
+
+    private void CloseEvalModal() => _showEvalModal = false;
+
+    private void ClearForm()
+    {
+        _selectedId = null;
+        _form = new StudentForm();
+    }
+
+    private class StudentForm
+    {
+        public string FullName { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Email { get; set; } = "";
+        public int? BirthYear { get; set; }
+        public string Address { get; set; } = "";
+        public string Status { get; set; } = "Active";
+    }
+}

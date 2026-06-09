@@ -1,0 +1,174 @@
+@page "/admin/teachers"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject TeacherService TeacherService
+@inject NavigationManager Nav
+
+<PageTitle>Giáo viên</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý giáo viên</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input @bind="_fullName" />
+            </div>
+            <div class="form-group">
+                <label>SĐT</label>
+                <input @bind="_phone" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input @bind="_email" />
+            </div>
+            <div class="form-group">
+                <label>Trạng thái</label>
+                <select @bind="_status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="AddTeacher">Thêm</button>
+            <button class="btn btn-secondary" @onclick="UpdateTeacher" disabled="@(_selectedId is null)">Cập nhật</button>
+            <button class="btn btn-danger" @onclick="DeleteTeacher" disabled="@(_selectedId is null)">Xóa</button>
+            <button class="btn btn-secondary" @onclick="ResetPassword" disabled="@(_selectedId is null)">Đổi mật khẩu</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_accountInfo))
+        {
+            <div class="alert alert-success">@_accountInfo</div>
+        }
+    </div>
+
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Trạng thái</th><th>Tài khoản</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in _teachers)
+                {
+                    <tr class="@(_selectedId == t.Id ? "selected" : "")" @onclick="() => SelectTeacher(t)">
+                        <td>@t.Id</td>
+                        <td>@t.FullName</td>
+                        <td>@t.Phone</td>
+                        <td>@t.Email</td>
+                        <td>@t.Status</td>
+                        <td>@GetUsername(t.Id)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Teacher> _teachers = new();
+    private Dictionary<int, string> _usernames = new();
+    private int? _selectedId;
+    private string _fullName = "";
+    private string _phone = "";
+    private string _email = "";
+    private string _status = "Active";
+    private string? _message;
+    private string? _accountInfo;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        LoadTeachers();
+    }
+
+    private void LoadTeachers()
+    {
+        _teachers = TeacherService.GetAll();
+        _usernames.Clear();
+        foreach (var t in _teachers)
+        {
+            var info = TeacherService.GetAccountInfo(t.Id);
+            if (info is not null) _usernames[t.Id] = info.Username;
+        }
+    }
+
+    private string GetUsername(int id) => _usernames.TryGetValue(id, out var u) ? u : "";
+
+    private void SelectTeacher(Teacher t)
+    {
+        _selectedId = t.Id;
+        _fullName = t.FullName;
+        _phone = t.Phone;
+        _email = t.Email ?? "";
+        _status = t.Status;
+        _accountInfo = null;
+    }
+
+    private void AddTeacher()
+    {
+        try
+        {
+            var (username, password) = TeacherService.Add(new Teacher
+            {
+                FullName = _fullName.Trim(),
+                Phone = _phone.Trim(),
+                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+                Status = _status
+            });
+            _message = "Đã thêm giáo viên.";
+            _accountInfo = $"Tài khoản: {username} / Mật khẩu: {password}";
+            LoadTeachers();
+            ClearForm();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void UpdateTeacher()
+    {
+        if (_selectedId is null) return;
+        TeacherService.Update(new Teacher
+        {
+            Id = _selectedId.Value,
+            FullName = _fullName.Trim(),
+            Phone = _phone.Trim(),
+            Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+            Status = _status
+        });
+        _message = "Đã cập nhật giáo viên.";
+        LoadTeachers();
+    }
+
+    private void DeleteTeacher()
+    {
+        if (_selectedId is null) return;
+        TeacherService.Delete(_selectedId.Value);
+        _message = "Đã xóa giáo viên.";
+        LoadTeachers();
+        ClearForm();
+    }
+
+    private void ResetPassword()
+    {
+        if (_selectedId is null) return;
+        TeacherService.UpdatePassword(_selectedId.Value, "123456");
+        _accountInfo = "Mật khẩu mới: 123456";
+    }
+
+    private void ClearForm()
+    {
+        _selectedId = null;
+        _fullName = ""; _phone = ""; _email = "";
+        _status = "Active";
+    }
+}

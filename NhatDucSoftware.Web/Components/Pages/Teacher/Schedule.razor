@@ -1,0 +1,86 @@
+@page "/teacher/schedule"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ClassScheduleService ScheduleService
+@inject ClassService ClassService
+@inject NavigationManager Nav
+
+<PageTitle>Lịch dạy</PageTitle>
+
+@if (!Session.IsTeacher)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Lịch dạy / Lớp</h1>
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Tuần</label>
+            <input type="date" @bind="_weekDate" @bind:after="LoadSchedule" />
+        </div>
+
+        <h3>Lịch dạy trong tuần</h3>
+        <table class="data-table" style="margin-bottom:1.5rem">
+            <thead>
+                <tr>
+                    <th>Ngày</th>
+                    @for (int s = 1; s <= 5; s++)
+                    {
+                        <th>@TeacherTimesheet.GetShiftDescription(s)</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int d = 0; d < 7; d++)
+                {
+                    <tr>
+                        <td>@ClassWeeklySchedule.GetDayName(d)</td>
+                        @for (int s = 1; s <= 5; s++)
+                        {
+                            var classes = _schedule.Where(x => x.DayOfWeek == d && x.ShiftNumber == s).Select(x => x.ClassName);
+                            <td>@string.Join(", ", classes)</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h3>Lớp được phân công</h3>
+        <table class="data-table">
+            <thead><tr><th>Tên lớp</th><th>Khóa học</th><th>Số HS</th></tr></thead>
+            <tbody>
+                @foreach (var c in _assignedClasses)
+                {
+                    <tr>
+                        <td>@c.ClassName</td>
+                        <td>@c.CourseCode</td>
+                        <td>@c.CurrentSize</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private DateTime _weekDate = DateTime.Today;
+    private List<(string ClassName, int DayOfWeek, int ShiftNumber)> _schedule = new();
+    private List<ClassInfo> _assignedClasses = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
+        if (Session.CurrentUser?.TeacherId is int teacherId)
+            _assignedClasses = ClassService.GetClassesByTeacher(teacherId);
+        LoadSchedule();
+    }
+
+    private void LoadSchedule()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
+        _schedule = ScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
+    }
+}

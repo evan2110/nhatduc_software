@@ -1,0 +1,123 @@
+@page "/admin/reports"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ReportService ReportService
+@inject NavigationManager Nav
+
+<PageTitle>Báo cáo</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Báo cáo</h1>
+
+    <div class="card">
+        <div class="summary-box">
+            <span>Tổng học viên: @_summary.TotalStudents</span>
+            <span>Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)</span>
+            <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Chọn năm</label>
+            <select @bind="_selectedYear" @bind:after="LoadMonthly">
+                @foreach (var y in _years)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <a class="btn btn-success" href="@($"/api/export/revenue-month/{_selectedYear}")" target="_blank">Xuất Excel (tháng)</a>
+            <a class="btn btn-success" href="/api/export/revenue-year" target="_blank">Xuất Excel (năm)</a>
+        </div>
+
+        <h3>Doanh thu theo năm</h3>
+        <table class="data-table" style="margin-bottom:1.5rem">
+            <thead><tr><th>Năm</th><th>Doanh thu</th></tr></thead>
+            <tbody>
+                @foreach (var y in _revenueByYear)
+                {
+                    <tr>
+                        <td>@y.Year</td>
+                        <td>@MoneyHelper.FormatCurrency(y.TotalRevenue)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h3>Biểu đồ doanh thu theo tháng năm @_selectedYear</h3>
+        @if (_revenueByMonth.Count == 0)
+        {
+            <p>Chưa có dữ liệu doanh thu</p>
+        }
+        else
+        {
+            var maxRev = _revenueByMonth.Max(x => x.TotalRevenue);
+            if (maxRev <= 0) maxRev = 1;
+            <div class="chart-bars">
+                @foreach (var item in _revenueByMonth.OrderBy(x => x.Month))
+                {
+                    var height = (double)(item.TotalRevenue / maxRev) * 180;
+                    <div class="chart-bar-group">
+                        <div class="chart-bar" style="height:@(height)px" title="@MoneyHelper.FormatCurrency(item.TotalRevenue)"></div>
+                        <span class="chart-label">T@item.Month</span>
+                    </div>
+                }
+            </div>
+            <table class="data-table">
+                <thead><tr><th>Tháng</th><th>Doanh thu</th></tr></thead>
+                <tbody>
+                    @foreach (var m in _revenueByMonth.OrderBy(x => x.Month))
+                    {
+                        <tr>
+                            <td>@m.MonthName</td>
+                            <td>@MoneyHelper.FormatCurrency(m.TotalRevenue)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private ReportSummary _summary = new();
+    private List<RevenueByYearStat> _revenueByYear = new();
+    private List<RevenueByMonthStat> _revenueByMonth = new();
+    private List<int> _years = new();
+    private int _selectedYear = DateTime.Now.Year;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _summary = ReportService.GetSummary();
+        _revenueByYear = ReportService.GetRevenueByYear();
+        BindYears();
+        LoadMonthly();
+    }
+
+    private void BindYears()
+    {
+        if (_revenueByYear.Count == 0)
+        {
+            _years = new List<int> { DateTime.Now.Year };
+        }
+        else
+        {
+            var minYear = _revenueByYear.Min(x => x.Year);
+            var maxYear = Math.Max(_revenueByYear.Max(x => x.Year), DateTime.Now.Year);
+            _years = Enumerable.Range(minYear, maxYear - minYear + 1).OrderByDescending(x => x).ToList();
+        }
+
+        if (!_years.Contains(_selectedYear)) _selectedYear = _years.First();
+    }
+
+    private void LoadMonthly()
+    {
+        _revenueByMonth = ReportService.GetRevenueByMonth(_selectedYear);
+    }
+}

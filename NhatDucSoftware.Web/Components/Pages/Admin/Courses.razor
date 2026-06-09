@@ -1,0 +1,109 @@
+@page "/admin/courses"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject CourseService CourseService
+@inject NavigationManager Nav
+
+<PageTitle>Khóa học</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý khóa học</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
+    }
+
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Tên khóa học</label>
+                <input @bind="_name" />
+            </div>
+            <div class="form-group">
+                <label>Học phí / buổi</label>
+                <input @bind="_feeText" />
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="AddCourse">Thêm</button>
+            <button class="btn btn-secondary" @onclick="UpdateCourse" disabled="@(_selectedId is null)">Cập nhật</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <table class="data-table">
+            <thead>
+                <tr><th>ID</th><th>Tên</th><th>Học phí</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _courses)
+                {
+                    <tr class="@(_selectedId == c.Id ? "selected" : "")" @onclick="() => SelectCourse(c)">
+                        <td>@c.Id</td>
+                        <td>@c.Name</td>
+                        <td>@MoneyHelper.FormatCurrency(c.TuitionFee)</td>
+                        <td>@c.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Course> _courses = new();
+    private int? _selectedId;
+    private string _name = "";
+    private string _feeText = "";
+    private string? _message;
+    private bool _isError;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        LoadCourses();
+    }
+
+    private void LoadCourses() => _courses = CourseService.GetAll();
+
+    private void SelectCourse(Course c)
+    {
+        _selectedId = c.Id;
+        _name = c.Name;
+        _feeText = c.TuitionFee.ToString("N0");
+    }
+
+    private void AddCourse()
+    {
+        try
+        {
+            MoneyHelper.TryParseMoney(_feeText, out var fee);
+            CourseService.Add(new Course { Name = _name.Trim(), TuitionFee = fee, Status = "Active" });
+            _message = "Đã thêm khóa học.";
+            _isError = false;
+            LoadCourses();
+            _name = ""; _feeText = "";
+        }
+        catch (InvalidOperationException ex) { _message = ex.Message; _isError = true; }
+    }
+
+    private void UpdateCourse()
+    {
+        if (_selectedId is null) return;
+        try
+        {
+            MoneyHelper.TryParseMoney(_feeText, out var fee);
+            CourseService.Update(new Course { Id = _selectedId.Value, Name = _name.Trim(), TuitionFee = fee, Status = "Active" });
+            _message = "Đã cập nhật khóa học.";
+            _isError = false;
+            LoadCourses();
+        }
+        catch (InvalidOperationException ex) { _message = ex.Message; _isError = true; }
+    }
+}

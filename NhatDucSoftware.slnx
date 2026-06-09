@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="NhatDucSoftware/NhatDucSoftware.csproj" />
+  <Project Path="NhatDucSoftware.Core/NhatDucSoftware.Core.csproj" />
+  <Project Path="NhatDucSoftware.Web/NhatDucSoftware.Web.csproj" />
 </Solution>

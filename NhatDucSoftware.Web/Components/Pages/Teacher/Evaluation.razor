@@ -1,0 +1,112 @@
+@page "/teacher/evaluation"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ClassService ClassService
+@inject StudentService StudentService
+@inject EvaluationService EvaluationService
+@inject NavigationManager Nav
+
+<PageTitle>Nhận xét / Điểm</PageTitle>
+
+@if (!Session.IsTeacher)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Nhận xét / Điểm</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Lớp</label>
+                <select @bind="_classId" @bind:after="LoadStudentsInClass">
+                    @foreach (var c in _classes)
+                    {
+                        <option value="@c.Id">@c.ClassName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Học viên</label>
+                <select @bind="_studentId">
+                    @foreach (var s in _studentsInClass)
+                    {
+                        <option value="@s.Id">@s.FullName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tháng</label>
+                <select @bind="_month">
+                    @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Năm</label>
+                <select @bind="_year">
+                    @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Điểm</label>
+                <input @bind="_scoreText" />
+            </div>
+            <div class="form-group" style="grid-column:span 2">
+                <label>Nhận xét</label>
+                <textarea @bind="_comment" rows="3"></textarea>
+            </div>
+        </div>
+        <button class="btn btn-primary" @onclick="SaveEvaluation">Lưu nhận xét/điểm</button>
+    </div>
+}
+
+@code {
+    private List<ClassInfo> _classes = new();
+    private List<Student> _studentsInClass = new();
+    private List<Student> _allStudents = new();
+    private int _classId;
+    private int _studentId;
+    private int _month = DateTime.Now.Month;
+    private int _year = DateTime.Now.Year;
+    private string _scoreText = "";
+    private string _comment = "";
+    private string? _message;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
+        _allStudents = StudentService.GetAll();
+        if (Session.CurrentUser?.TeacherId is int teacherId)
+            _classes = ClassService.GetClassesByTeacher(teacherId);
+        if (_classes.Count > 0) { _classId = _classes[0].Id; LoadStudentsInClass(); }
+    }
+
+    private void LoadStudentsInClass()
+    {
+        var ids = ClassService.GetStudentsInClass(_classId).Select(s => s.StudentId).ToHashSet();
+        _studentsInClass = _allStudents.Where(s => ids.Contains(s.Id)).ToList();
+        if (_studentsInClass.Count > 0) _studentId = _studentsInClass[0].Id;
+    }
+
+    private void SaveEvaluation()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        EvaluationService.Save(
+            _studentId,
+            _classId,
+            teacherId,
+            decimal.TryParse(_scoreText, out var score) ? score : null,
+            _comment.Trim(),
+            _year,
+            _month);
+
+        _message = "Đã lưu nhận xét/điểm.";
+    }
+}

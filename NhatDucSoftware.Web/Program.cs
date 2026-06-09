@@ -1,0 +1,155 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
+using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Services;
+using NhatDucSoftware.Web.Components;
+using NhatDucSoftware.Web.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("Default");
+var dbPassword = builder.Configuration["Database:Password"];
+DbContext.Configure(
+    string.IsNullOrWhiteSpace(connectionString) ? null : connectionString,
+    dbPassword);
+
+DatabaseInitializer.Initialize();
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<UserSession>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<StudentService>();
+builder.Services.AddScoped<CourseService>();
+builder.Services.AddScoped<ClassService>();
+builder.Services.AddScoped<TeacherService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<AttendanceService>();
+builder.Services.AddScoped<EvaluationService>();
+builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<TeacherTimesheetService>();
+builder.Services.AddScoped<ClassScheduleService>();
+builder.Services.AddScoped<ExcelExportService>();
+
+var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
+app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.MapPost("/account/login", async (HttpContext context, AuthService auth) =>
+{
+    var form = await context.Request.ReadFormAsync();
+    var username = form["username"].ToString();
+    var password = form["password"].ToString();
+
+    var user = auth.Login(username.Trim(), password);
+    if (user is null)
+    {
+        return Results.Redirect("/login?error=1");
+    }
+
+    var claims = new List<System.Security.Claims.Claim>
+    {
+        new(System.Security.Claims.ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new(System.Security.Claims.ClaimTypes.Name, user.Username),
+        new(System.Security.Claims.ClaimTypes.Role, user.Role)
+    };
+
+    if (user.TeacherId.HasValue)
+    {
+        claims.Add(new System.Security.Claims.Claim("TeacherId", user.TeacherId.Value.ToString()));
+    }
+
+    var identity = new System.Security.Claims.ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    await context.SignInAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        new System.Security.Claims.ClaimsPrincipal(identity),
+        new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+        });
+
+    var redirectUrl = user.Role == "Admin" ? "/admin/students" : "/teacher/schedule";
+    return Results.LocalRedirect(redirectUrl);
+}).DisableAntiforgery();
+
+app.MapGet("/account/logout", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.LocalRedirect("/login");
+});
+
+app.MapGet("/api/export/students", (ExcelExportService excel, StudentService students) =>
+{
+    var path = Path.Combine(Path.GetTempPath(), $"students_{Guid.NewGuid():N}.xlsx");
+    excel.ExportStudentsToExcel(students.GetAll(), path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "DanhSachHocVien.xlsx");
+});
+
+app.MapGet("/api/export/payments/{month:int}/{year:int}/{classId:int}", (int month, int year, int classId, ExcelExportService excel, PaymentService payments) =>
+{
+    var list = payments.GetPaymentListByClassMonthYear(classId, month, year);
+    var path = Path.Combine(Path.GetTempPath(), $"payments_{Guid.NewGuid():N}.xlsx");
+    excel.ExportPaymentListToExcel(list, month, year, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"HocPhi_{month:D2}_{year}.xlsx");
+});
+
+app.MapGet("/api/export/revenue-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
+{
+    var data = reports.GetRevenueByMonth(year);
+    var path = Path.Combine(Path.GetTempPath(), $"revenue_month_{Guid.NewGuid():N}.xlsx");
+    excel.ExportRevenueByMonthToExcel(year, data, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoDoanhthuThang_{year}.xlsx");
+});
+
+app.MapGet("/api/export/revenue-year", (ExcelExportService excel, ReportService reports) =>
+{
+    var data = reports.GetRevenueByYear();
+    var path = Path.Combine(Path.GetTempPath(), $"revenue_year_{Guid.NewGuid():N}.xlsx");
+    excel.ExportRevenueByYearToExcel(data, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "BaoCaoDoanhthuNam.xlsx");
+});
+
+app.MapGet("/api/export/evaluations/{studentId:int}/{year:int}/{month:int}", (int studentId, int year, int month, ExcelExportService excel, EvaluationService evaluations, StudentService students) =>
+{
+    var student = students.GetAll().FirstOrDefault(s => s.Id == studentId);
+    var name = student?.FullName ?? "HocVien";
+    var data = evaluations.GetByStudentInMonth(studentId, year, month);
+    var path = Path.Combine(Path.GetTempPath(), $"eval_{Guid.NewGuid():N}.xlsx");
+    excel.ExportStudentEvaluationsByMonthToExcel(name, year, month, data, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"DiemNhanXet_{name.Replace(" ", "")}_{month:D2}_{year}.xlsx");
+});
+
+app.Run();

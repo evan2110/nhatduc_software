@@ -1,4 +1,5 @@
-using NhatDucSoftware.Models;
+using NhatDucSoftware.Core.Models;
+using NhatDucSoftware.Core.Services;
 using NhatDucSoftware.Services;
 
 namespace NhatDucSoftware;

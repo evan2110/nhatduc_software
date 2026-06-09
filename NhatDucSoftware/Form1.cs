@@ -1,7 +1,7 @@
 ﻿using System.Drawing.Drawing2D;
 using System.Globalization;
-using NhatDucSoftware.Models;
-using NhatDucSoftware.Services;
+using NhatDucSoftware.Core.Models;
+using NhatDucSoftware.Core.Services;
 
 namespace NhatDucSoftware
 {
@@ -2562,7 +2562,7 @@ namespace NhatDucSoftware
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));
             for (int s = 1; s <= 5; s++)
-                table.Columns.Add(Models.TeacherTimesheet.GetShiftDescription(s), typeof(string));
+                table.Columns.Add(TeacherTimesheet.GetShiftDescription(s), typeof(string));
             table.Columns.Add("Ghi chú", typeof(string));
 
             for (int d = 1; d <= daysInMonth; d++)
@@ -2643,18 +2643,18 @@ namespace NhatDucSoftware
         {
             if (_currentUser.TeacherId is not int teacherId) return;
 
-            var monday = Models.ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
+            var monday = ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
             var schedule = _classScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
 
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));
             for (int s = 1; s <= 5; s++)
-                table.Columns.Add(Models.TeacherTimesheet.GetShiftDescription(s), typeof(string));
+                table.Columns.Add(TeacherTimesheet.GetShiftDescription(s), typeof(string));
 
             for (int d = 0; d < 7; d++)
             {
                 var row = table.NewRow();
-                row["Ngày"] = Models.ClassWeeklySchedule.GetDayName(d);
+                row["Ngày"] = ClassWeeklySchedule.GetDayName(d);
                 for (int s = 1; s <= 5; s++)
                 {
                     var classes = schedule.Where(x => x.DayOfWeek == d && x.ShiftNumber == s)
@@ -2705,7 +2705,7 @@ namespace NhatDucSoftware
             foreach (var teacher in teachers)
             {
                 var totalShifts = _timesheetService.GetTotalShiftsInMonth(teacher.Id, year, month);
-                var pay = totalShifts * Models.TeacherTimesheet.PayPerShift;
+                var pay = totalShifts * TeacherTimesheet.PayPerShift;
                 var row = table.NewRow();
                 row["TeacherId"] = teacher.Id;
                 row["Giáo viên"] = teacher.FullName;
@@ -2804,12 +2804,5 @@ namespace NhatDucSoftware
 
             return false;
         }
-    }
-
-    public class AttendanceRow
-    {
-        public int StudentId { get; set; }
-        public string StudentName { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
     }
 }

@@ -1,0 +1,269 @@
+@page "/admin/payroll"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject TeacherService TeacherService
+@inject TeacherTimesheetService TimesheetService
+@inject AttendanceService AttendanceService
+@inject ClassService ClassService
+@inject PaymentService PaymentService
+@inject NavigationManager Nav
+
+<PageTitle>Ngày công</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Ngày công giáo viên</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Tháng</label>
+            <select @bind="_month" @bind:after="LoadPayroll">
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+            </select>
+            <label>Năm</label>
+            <select @bind="_year" @bind:after="LoadPayroll">
+                @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+            </select>
+            <button class="btn btn-secondary" @onclick="OpenMakeupTimesheet" disabled="@(_selectedTeacherId is null)">Chấm công bù GV</button>
+            <button class="btn btn-secondary" @onclick="() => _showMakeupAttendance = true">Điểm danh bù HS</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <table class="data-table">
+                <thead><tr><th>Giáo viên</th><th>Tổng ca</th><th>Lương</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _payrollRows)
+                    {
+                        <tr class="@(_selectedTeacherId == row.TeacherId ? "selected" : "")" @onclick="() => SelectTeacher(row)">
+                            <td>@row.Name</td>
+                            <td>@row.TotalShifts</td>
+                            <td>@MoneyHelper.FormatCurrency(row.Pay)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div>
+                <h3>Chi tiết ca</h3>
+                <table class="data-table">
+                    <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _detailRecords)
+                        {
+                            <tr>
+                                <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
+                                <td>@r.ShiftNumber</td>
+                                <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
+                                <td>@r.Note</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @if (_showMakeupTimesheet)
+    {
+        <div class="modal-backdrop" @onclick="() => _showMakeupTimesheet = false">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Chấm công bù - @_makeupTeacherName</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Ngày</label>
+                        <input type="date" @bind="_makeupDate" max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="form-group">
+                        <label>Ca</label>
+                        <select @bind="_makeupShift">
+                            @for (int s = 1; s <= 5; s++) { <option value="@s">@TeacherTimesheet.GetShiftDescription(s)</option> }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" @bind="_makeupPresent" /> Có mặt</label>
+                    </div>
+                    <div class="form-group">
+                        <label>Ghi chú</label>
+                        <input @bind="_makeupNote" />
+                    </div>
+                </div>
+                <button class="btn btn-primary" @onclick="SaveMakeupTimesheet">Lưu chấm công bù</button>
+                <button class="btn btn-secondary" @onclick="() => _showMakeupTimesheet = false">Đóng</button>
+            </div>
+        </div>
+    }
+
+    @if (_showMakeupAttendance)
+    {
+        <div class="modal-backdrop" @onclick="() => _showMakeupAttendance = false">
+            <div class="modal-content" style="min-width:700px" @onclick:stopPropagation="true">
+                <h3>Điểm danh bù học sinh (Admin)</h3>
+                <div class="toolbar">
+                    <label>Lớp</label>
+                    <select @bind="_makeupClassId" @bind:after="LoadMakeupStudents">
+                        @foreach (var c in _classes)
+                        {
+                            <option value="@c.Id">@c.ClassName</option>
+                        }
+                    </select>
+                    <label>Ngày</label>
+                    <input type="date" @bind="_makeupAttDate" @bind:after="LoadMakeupStudents" />
+                    <button class="btn btn-primary" @onclick="SaveMakeupAttendance" disabled="@(!CanSaveMakeupAttendance)">Lưu điểm danh bù</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>Học viên</th><th>Điểm danh (C/V)</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in _makeupAttendanceRows)
+                        {
+                            <tr>
+                                <td>@row.StudentName</td>
+                                <td><input @bind="row.Status" maxlength="1" style="width:60px;text-transform:uppercase" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<PayrollRow> _payrollRows = new();
+    private List<TeacherTimesheet> _detailRecords = new();
+    private List<ClassInfo> _classes = new();
+    private List<AttendanceRow> _makeupAttendanceRows = new();
+    private int _month = DateTime.Now.Month;
+    private int _year = DateTime.Now.Year;
+    private int? _selectedTeacherId;
+    private string? _message;
+
+    private bool _showMakeupTimesheet;
+    private string _makeupTeacherName = "";
+    private DateTime _makeupDate = DateTime.Today.AddDays(-1);
+    private int _makeupShift = 1;
+    private bool _makeupPresent = true;
+    private string _makeupNote = "";
+
+    private bool _showMakeupAttendance;
+    private int _makeupClassId;
+    private DateTime _makeupAttDate = DateTime.Today.AddDays(-1);
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _classes = ClassService.GetAll();
+        if (_classes.Count > 0) _makeupClassId = _classes[0].Id;
+        LoadPayroll();
+    }
+
+    private void LoadPayroll()
+    {
+        var teachers = TeacherService.GetAll();
+        _payrollRows = teachers.Select(t =>
+        {
+            var shifts = TimesheetService.GetTotalShiftsInMonth(t.Id, _year, _month);
+            return new PayrollRow
+            {
+                TeacherId = t.Id,
+                Name = t.FullName,
+                TotalShifts = shifts,
+                Pay = shifts * TeacherTimesheet.PayPerShift
+            };
+        }).ToList();
+    }
+
+    private void SelectTeacher(PayrollRow row)
+    {
+        _selectedTeacherId = row.TeacherId;
+        _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month);
+    }
+
+    private void OpenMakeupTimesheet()
+    {
+        if (_selectedTeacherId is null) return;
+        _makeupTeacherName = _payrollRows.First(r => r.TeacherId == _selectedTeacherId).Name;
+        _showMakeupTimesheet = true;
+    }
+
+    private void SaveMakeupTimesheet()
+    {
+        if (_selectedTeacherId is null) return;
+        if (_makeupDate.Date >= DateTime.Today)
+        {
+            _message = "Chỉ được phép chấm công bù cho các ngày trước ngày hôm nay.";
+            return;
+        }
+
+        TimesheetService.SaveTimesheet(_selectedTeacherId.Value, _makeupDate.Date, _makeupShift, _makeupPresent,
+            string.IsNullOrWhiteSpace(_makeupNote) ? null : _makeupNote.Trim());
+        _message = "Đã lưu chấm công bù.";
+        _showMakeupTimesheet = false;
+        LoadPayroll();
+        if (_selectedTeacherId is not null)
+            _detailRecords = TimesheetService.GetTimesheetByMonth(_selectedTeacherId.Value, _year, _month);
+    }
+
+    private void LoadMakeupStudents()
+    {
+        var saved = AttendanceService.GetAttendanceByClassAndDate(_makeupClassId, _makeupAttDate);
+        _makeupAttendanceRows = AttendanceService.GetStudentsByClass(_makeupClassId)
+            .Select(x => new AttendanceRow
+            {
+                StudentId = x.StudentId,
+                StudentName = x.FullName,
+                Status = saved.TryGetValue(x.StudentId, out var status) ? status : ""
+            }).ToList();
+    }
+
+    private bool CanSaveMakeupAttendance =>
+        _makeupAttendanceRows.Count > 0 && _makeupAttendanceRows.All(x => IsValidStatus(x.Status));
+
+    private static bool IsValidStatus(string? status)
+    {
+        var n = (status ?? "").Trim().ToUpperInvariant();
+        return n is "C" or "V";
+    }
+
+    private void SaveMakeupAttendance()
+    {
+        var teacherId = ClassService.GetTeacherIdByClass(_makeupClassId);
+        if (teacherId is null)
+        {
+            _message = "Lớp chưa có giáo viên phụ trách, không thể lưu điểm danh bù.";
+            return;
+        }
+
+        if (_makeupAttDate.Date >= DateTime.Today)
+        {
+            _message = "Chỉ được phép điểm danh bù cho các ngày trước ngày hôm nay.";
+            return;
+        }
+
+        if (PaymentService.IsFinalized(_makeupClassId, _makeupAttDate.Month, _makeupAttDate.Year))
+        {
+            _message = $"Lớp này đã được chốt số liệu cho tháng {_makeupAttDate.Month:D2}/{_makeupAttDate.Year}.";
+            return;
+        }
+
+        var records = _makeupAttendanceRows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
+        AttendanceService.SaveAttendance(_makeupClassId, teacherId.Value, _makeupAttDate, records);
+        _message = "Đã lưu điểm danh bù.";
+        _showMakeupAttendance = false;
+    }
+
+    private class PayrollRow
+    {
+        public int TeacherId { get; set; }
+        public string Name { get; set; } = "";
+        public int TotalShifts { get; set; }
+        public decimal Pay { get; set; }
+    }
+}

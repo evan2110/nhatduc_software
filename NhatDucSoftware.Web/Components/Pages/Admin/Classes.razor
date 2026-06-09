@@ -1,0 +1,275 @@
+@page "/admin/classes"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ClassService ClassService
+@inject CourseService CourseService
+@inject TeacherService TeacherService
+@inject StudentService StudentService
+@inject ClassScheduleService ScheduleService
+@inject NavigationManager Nav
+
+<PageTitle>Lớp học</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý lớp học</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    <div class="card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Tên lớp</label>
+                <input @bind="_className" />
+            </div>
+            <div class="form-group">
+                <label>Khóa học</label>
+                <select @bind="_courseId">
+                    @foreach (var c in _courses)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Giáo viên</label>
+                <select @bind="_teacherId">
+                    <option value="0">-- Chọn --</option>
+                    @foreach (var t in _teachers)
+                    {
+                        <option value="@t.Id">@t.FullName</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="CreateClass">Tạo lớp</button>
+            <button class="btn btn-secondary" @onclick="UpdateClass" disabled="@(_selectedClassId is null)">Cập nhật</button>
+            <button class="btn btn-danger" @onclick="DeleteClass" disabled="@(_selectedClassId is null)">Xóa lớp</button>
+            <button class="btn btn-secondary" @onclick="OpenSchedule" disabled="@(_selectedClassId is null)">Lịch học tuần</button>
+        </div>
+    </div>
+
+    <div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div>
+            <h3>Danh sách lớp</h3>
+            <table class="data-table">
+                <thead>
+                    <tr><th>Tên lớp</th><th>Khóa</th><th>GV</th><th>HS</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _classes)
+                    {
+                        <tr class="@(_selectedClassId == c.Id ? "selected" : "")" @onclick="() => SelectClass(c)">
+                            <td>@c.ClassName</td>
+                            <td>@c.CourseCode</td>
+                            <td>@c.TeacherName</td>
+                            <td>@c.CurrentSize</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h3>Học viên trong lớp</h3>
+            <div class="toolbar">
+                <select @bind="_addStudentId">
+                    <option value="0">-- Chọn học viên --</option>
+                    @foreach (var s in _allStudents)
+                    {
+                        <option value="@s.Id">@s.FullName</option>
+                    }
+                </select>
+                <button class="btn btn-primary" @onclick="AddStudentToClass" disabled="@(_selectedClassId is null)">Thêm vào lớp</button>
+                <button class="btn btn-danger" @onclick="RemoveStudentFromClass" disabled="@(_selectedStudentInClassId is null)">Xóa khỏi lớp</button>
+            </div>
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Họ tên</th></tr></thead>
+                <tbody>
+                    @foreach (var s in _classStudents)
+                    {
+                        <tr class="@(_selectedStudentInClassId == s.StudentId ? "selected" : "")" @onclick="() => _selectedStudentInClassId = s.StudentId">
+                            <td>@s.StudentId</td>
+                            <td>@s.FullName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_showSchedule)
+    {
+        <div class="modal-backdrop" @onclick="() => _showSchedule = false">
+            <div class="modal-content" style="min-width:700px" @onclick:stopPropagation="true">
+                <h3>Lịch học - @_scheduleClassName</h3>
+                <div class="toolbar">
+                    <label>Tuần</label>
+                    <input type="date" @bind="_weekDate" @bind:after="LoadSchedule" />
+                    <button class="btn btn-primary" @onclick="SaveSchedule">Lưu lịch tuần này</button>
+                    <button class="btn btn-secondary" @onclick="() => _showSchedule = false">Đóng</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th>
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <th>@TeacherTimesheet.GetShiftDescription(s)</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int d = 0; d < 7; d++)
+                        {
+                            <tr>
+                                <td>@ClassWeeklySchedule.GetDayName(d)</td>
+                                @for (int s = 1; s <= 5; s++)
+                                {
+                                    var day = d;
+                                    var shift = s;
+                                    <td style="text-align:center">
+                                        <input type="checkbox" checked="@GetShiftChecked(day, shift)" @onchange="e => SetShift(day, shift, (bool)(e.Value ?? false))" />
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<ClassInfo> _classes = new();
+    private List<Course> _courses = new();
+    private List<Teacher> _teachers = new();
+    private List<Student> _allStudents = new();
+    private List<(int StudentId, string FullName)> _classStudents = new();
+    private int? _selectedClassId;
+    private int? _selectedStudentInClassId;
+    private string _className = "";
+    private int _courseId;
+    private int _teacherId;
+    private int _addStudentId;
+    private string? _message;
+
+    private bool _showSchedule;
+    private string _scheduleClassName = "";
+    private DateTime _weekDate = DateTime.Today;
+    private HashSet<(int Day, int Shift)> _scheduleShifts = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _courses = CourseService.GetAll();
+        _teachers = TeacherService.GetAll();
+        _allStudents = StudentService.GetAll();
+        if (_courses.Count > 0) _courseId = _courses[0].Id;
+        LoadClasses();
+    }
+
+    private void LoadClasses() => _classes = ClassService.GetAll();
+
+    private void SelectClass(ClassInfo c)
+    {
+        _selectedClassId = c.Id;
+        _className = c.ClassName;
+        _classStudents = ClassService.GetStudentsInClass(c.Id);
+        _selectedStudentInClassId = null;
+    }
+
+    private void CreateClass()
+    {
+        ClassService.AddClass(_className.Trim(), _courseId, _teacherId > 0 ? _teacherId : null, "Active");
+        _message = "Đã tạo lớp.";
+        LoadClasses();
+    }
+
+    private void UpdateClass()
+    {
+        if (_selectedClassId is null) return;
+        ClassService.UpdateClass(_selectedClassId.Value, _className.Trim(), _courseId, _teacherId > 0 ? _teacherId : null);
+        _message = "Đã cập nhật lớp.";
+        LoadClasses();
+    }
+
+    private void DeleteClass()
+    {
+        if (_selectedClassId is null) return;
+        try
+        {
+            ClassService.DeleteClass(_selectedClassId.Value);
+            _message = "Đã xóa lớp.";
+            _selectedClassId = null;
+            _classStudents.Clear();
+            LoadClasses();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void AddStudentToClass()
+    {
+        if (_selectedClassId is null || _addStudentId <= 0) return;
+        try
+        {
+            ClassService.AddStudentToClass(_selectedClassId.Value, _addStudentId);
+            _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
+            LoadClasses();
+            _message = "Đã thêm học viên vào lớp.";
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void RemoveStudentFromClass()
+    {
+        if (_selectedClassId is null || _selectedStudentInClassId is null) return;
+        ClassService.RemoveStudentFromClass(_selectedClassId.Value, _selectedStudentInClassId.Value);
+        _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
+        LoadClasses();
+        _message = "Đã xóa học viên khỏi lớp.";
+    }
+
+    private void OpenSchedule()
+    {
+        if (_selectedClassId is null) return;
+        _scheduleClassName = _className;
+        _weekDate = DateTime.Today;
+        _showSchedule = true;
+        LoadSchedule();
+    }
+
+    private void LoadSchedule()
+    {
+        if (_selectedClassId is null) return;
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
+        var schedule = ScheduleService.GetScheduleForWeek(_selectedClassId.Value, monday);
+        _scheduleShifts = schedule.Select(x => (x.DayOfWeek, x.ShiftNumber)).ToHashSet();
+    }
+
+    private bool GetShiftChecked(int day, int shift) => _scheduleShifts.Contains((day, shift));
+
+    private void SetShift(int day, int shift, bool value)
+    {
+        if (value) _scheduleShifts.Add((day, shift));
+        else _scheduleShifts.Remove((day, shift));
+    }
+
+    private void SaveSchedule()
+    {
+        if (_selectedClassId is null) return;
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
+        var entries = _scheduleShifts.Select(x => (x.Day, x.Shift)).ToList();
+        ScheduleService.SaveScheduleForWeek(_selectedClassId.Value, monday, entries);
+        _message = "Đã lưu lịch học!";
+        _showSchedule = false;
+    }
+}

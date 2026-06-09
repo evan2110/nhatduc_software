@@ -1,0 +1,47 @@
+﻿@inherits LayoutComponentBase
+@inject UserSession Session
+@inject NavigationManager Nav
+
+@if (!Session.IsAuthenticated)
+{
+    @Body
+}
+else
+{
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">Nhat Duc Software</div>
+            <div class="sidebar-user">@Session.CurrentUser!.Role: @Session.CurrentUser.Username</div>
+            <nav>
+                @if (Session.IsAdmin)
+                {
+                    <NavLink href="/admin/students" Match="NavLinkMatch.All">Học viên</NavLink>
+                    <NavLink href="/admin/courses">Khóa học</NavLink>
+                    <NavLink href="/admin/classes">Lớp học</NavLink>
+                    <NavLink href="/admin/payments">Học phí</NavLink>
+                    <NavLink href="/admin/reports">Báo cáo</NavLink>
+                    <NavLink href="/admin/teachers">Giáo viên</NavLink>
+                    <NavLink href="/admin/payroll">Ngày công</NavLink>
+                }
+                @if (Session.IsTeacher)
+                {
+                    <NavLink href="/teacher/schedule">Lịch dạy / Lớp</NavLink>
+                    <NavLink href="/teacher/attendance">Điểm danh</NavLink>
+                    <NavLink href="/teacher/evaluation">Nhận xét / Điểm</NavLink>
+                    <NavLink href="/teacher/timesheet">Bảng chấm công</NavLink>
+                }
+                <a href="/account/logout">Đăng xuất</a>
+            </nav>
+        </aside>
+        <main class="main-content">
+            @Body
+            <div class="copyright">Make by Nhật Đức</div>
+        </main>
+    </div>
+}
+
+<div id="blazor-error-ui">
+    Đã xảy ra lỗi chưa xử lý.
+    <a href="" class="reload">Tải lại</a>
+    <a class="dismiss">🗙</a>
+</div>

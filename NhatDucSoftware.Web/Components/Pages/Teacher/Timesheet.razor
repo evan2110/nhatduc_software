@@ -1,0 +1,173 @@
+@page "/teacher/timesheet"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject TeacherTimesheetService TimesheetService
+@inject NavigationManager Nav
+
+<PageTitle>Bảng chấm công</PageTitle>
+
+@if (!Session.IsTeacher)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Bảng chấm công</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Tháng</label>
+            <select @bind="_month" @bind:after="LoadTimesheet">
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+            </select>
+            <label>Năm</label>
+            <select @bind="_year" @bind:after="LoadTimesheet">
+                @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+            </select>
+            <button class="btn btn-primary" @onclick="SaveTimesheet">Lưu chấm công</button>
+            <span style="font-weight:600">Tổng ca: @_totalShifts</span>
+        </div>
+        <p style="font-size:0.85rem;color:#64748b">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng).</p>
+
+        <div style="overflow-x:auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        @for (int s = 1; s <= 5; s++)
+                        {
+                            <th>@TeacherTimesheet.GetShiftDescription(s)</th>
+                        }
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var day in _days)
+                    {
+                        <tr>
+                            <td>@day.Label</td>
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                var shift = s;
+                                <td>
+                                    @if (day.IsToday)
+                                    {
+                                        <input value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" style="width:50px;text-align:center" />
+                                    }
+                                    else
+                                    {
+                                        @GetShiftDisplay(day.Day, shift)
+                                    }
+                                </td>
+                            }
+                            <td>
+                                @if (day.IsToday)
+                                {
+                                    <input @bind="day.Note" style="width:120px" />
+                                }
+                                else
+                                {
+                                    @day.Note
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private int _month = DateTime.Now.Month;
+    private int _year = DateTime.Now.Year;
+    private int _totalShifts;
+    private string? _message;
+    private List<TeacherTimesheet> _records = new();
+    private List<DayRow> _days = new();
+    private Dictionary<(int Day, int Shift), string> _editValues = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
+        LoadTimesheet();
+    }
+
+    private void LoadTimesheet()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        _records = TimesheetService.GetTimesheetByMonth(teacherId, _year, _month);
+        _totalShifts = _records.Count(r => r.IsPresent);
+        _editValues.Clear();
+
+        var daysInMonth = DateTime.DaysInMonth(_year, _month);
+        _days = Enumerable.Range(1, daysInMonth).Select(d =>
+        {
+            var date = new DateTime(_year, _month, d);
+            var dayNote = _records.FirstOrDefault(r => r.WorkDate.Day == d && !string.IsNullOrEmpty(r.Note))?.Note ?? "";
+            return new DayRow { Day = d, Label = $"{d:D2}/{_month:D2}/{_year}", IsToday = date.Date == DateTime.Today, Note = dayNote };
+        }).ToList();
+    }
+
+    private string GetShiftDisplay(int day, int shift)
+    {
+        var rec = _records.FirstOrDefault(r => r.WorkDate.Day == day && r.ShiftNumber == shift);
+        return rec is null ? "" : rec.IsPresent ? "✓" : "✗";
+    }
+
+    private string GetShiftValue(int day, int shift)
+    {
+        if (_editValues.TryGetValue((day, shift), out var v)) return v;
+        return GetShiftDisplay(day, shift);
+    }
+
+    private void SetShiftValue(int day, int shift, string? value)
+    {
+        _editValues[(day, shift)] = (value ?? "").Trim();
+    }
+
+    private void SaveTimesheet()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        var skipped = 0;
+        foreach (var day in _days)
+        {
+            var workDate = new DateTime(_year, _month, day.Day);
+            if (workDate.Date != DateTime.Today)
+            {
+                skipped++;
+                continue;
+            }
+
+            for (int shift = 1; shift <= 5; shift++)
+            {
+                var cellValue = GetShiftValue(day.Day, shift).Trim().ToUpperInvariant();
+                if (cellValue is not ("C" or "✓" or "✗")) continue;
+
+                bool isPresent = cellValue is "C" or "✓";
+                TimesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent,
+                    string.IsNullOrWhiteSpace(day.Note) ? null : day.Note.Trim());
+            }
+        }
+
+        _message = skipped > 0
+            ? "Đã lưu chấm công. Giáo viên chỉ được chấm công trong ngày hôm nay."
+            : "Đã lưu chấm công thành công!";
+        LoadTimesheet();
+    }
+
+    private class DayRow
+    {
+        public int Day { get; set; }
+        public string Label { get; set; } = "";
+        public bool IsToday { get; set; }
+        public string Note { get; set; } = "";
+    }
+}

@@ -1,0 +1,121 @@
+@page "/teacher/attendance"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject AttendanceService AttendanceService
+@inject ClassService ClassService
+@inject PaymentService PaymentService
+@inject NavigationManager Nav
+
+<PageTitle>Điểm danh</PageTitle>
+
+@if (!Session.IsTeacher)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Điểm danh học viên</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
+    }
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Lớp</label>
+            <select @bind="_classId" @bind:after="LoadStudents">
+                @foreach (var c in _classes)
+                {
+                    <option value="@c.Id">@c.ClassName</option>
+                }
+            </select>
+            <label>Ngày</label>
+            <input type="date" @bind="_sessionDate" @bind:after="LoadStudents" min="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            <button class="btn btn-primary" @onclick="SaveAttendance" disabled="@(!CanSave)">Lưu điểm danh</button>
+        </div>
+        <p style="font-size:0.85rem;color:#64748b">Giáo viên chỉ được điểm danh trong ngày hôm nay. Nhập C (có mặt) hoặc V (vắng).</p>
+
+        <table class="data-table">
+            <thead><tr><th>Học viên</th><th>Điểm danh (C/V)</th></tr></thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@row.StudentName</td>
+                        <td><input @bind="row.Status" maxlength="1" style="width:60px;text-transform:uppercase" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<ClassInfo> _classes = new();
+    private List<AttendanceRow> _rows = new();
+    private int _classId;
+    private DateTime _sessionDate = DateTime.Today;
+    private string? _message;
+    private bool _isError;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
+        if (Session.CurrentUser?.TeacherId is int teacherId)
+            _classes = ClassService.GetClassesByTeacher(teacherId);
+        if (_classes.Count > 0) { _classId = _classes[0].Id; LoadStudents(); }
+    }
+
+    private void LoadStudents()
+    {
+        var saved = AttendanceService.GetAttendanceByClassAndDate(_classId, _sessionDate);
+        _rows = AttendanceService.GetStudentsByClass(_classId)
+            .Select(x => new AttendanceRow
+            {
+                StudentId = x.StudentId,
+                StudentName = x.FullName,
+                Status = saved.TryGetValue(x.StudentId, out var status) ? status : ""
+            }).ToList();
+    }
+
+    private bool CanSave => _rows.Count > 0 && _rows.All(r => IsValid(r.Status));
+
+    private static bool IsValid(string? s)
+    {
+        var n = (s ?? "").Trim().ToUpperInvariant();
+        return n is "C" or "V";
+    }
+
+    private void SaveAttendance()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        if (_sessionDate.Date != DateTime.Today)
+        {
+            _message = "Tài khoản giáo viên chỉ được điểm danh trong ngày hôm nay.";
+            _isError = true;
+            return;
+        }
+
+        if (PaymentService.IsFinalized(_classId, _sessionDate.Month, _sessionDate.Year))
+        {
+            _message = $"Lớp này đã được chốt số liệu cho tháng {_sessionDate.Month:D2}/{_sessionDate.Year}.";
+            _isError = true;
+            return;
+        }
+
+        var invalid = _rows.FirstOrDefault(r => !IsValid(r.Status));
+        if (invalid is not null)
+        {
+            _message = $"Học viên '{invalid.StudentName}' phải nhập C hoặc V.";
+            _isError = true;
+            return;
+        }
+
+        var records = _rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
+        AttendanceService.SaveAttendance(_classId, teacherId, _sessionDate, records);
+        _message = "Đã lưu điểm danh.";
+        _isError = false;
+    }
+}

@@ -1,5 +1,6 @@
-using NhatDucSoftware.Data;
-using NhatDucSoftware.Models;
+using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Models;
+using NhatDucSoftware.Core.Services;
 using NhatDucSoftware.Services;
 
 namespace NhatDucSoftware
@@ -15,6 +16,7 @@ namespace NhatDucSoftware
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
+            DbContext.Configure();
             DatabaseInitializer.Initialize();
 
             CheckForUpdates();

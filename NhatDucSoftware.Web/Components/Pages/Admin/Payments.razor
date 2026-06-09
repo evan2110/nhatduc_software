@@ -1,0 +1,261 @@
+@page "/admin/payments"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject PaymentService PaymentService
+@inject ClassService ClassService
+@inject NavigationManager Nav
+
+<PageTitle>Học phí</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý học phí</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-info")">@_message</div>
+    }
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Lớp</label>
+            <select @bind="_classId" @bind:after="LoadGrid">
+                @foreach (var c in _classes)
+                {
+                    <option value="@c.Id">@c.ClassName</option>
+                }
+            </select>
+            <label>Tháng</label>
+            <select @bind="_month" @bind:after="LoadGrid">
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+            </select>
+            <label>Năm</label>
+            <select @bind="_year" @bind:after="LoadGrid">
+                @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+            </select>
+            <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
+            <button class="btn btn-primary" @onclick="FinalizeMonth" disabled="@_isFinalized">Chốt số liệu</button>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _paymentRows)
+                {
+                    <tr class="@(row.StudentId == 0 ? "total-row" : _selectedStudentId == row.StudentId ? "selected" : "")"
+                        @onclick="() => SelectPaymentRow(row)">
+                        <td>@(row.StudentId == 0 ? "" : row.ThuTu.ToString())</td>
+                        <td>@row.HoVaTen</td>
+                        <td>@row.Lop</td>
+                        <td>@row.NgayThu</td>
+                        <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
+                        <td>@row.NguoiThu</td>
+                        <td>
+                            @if (row.StudentId > 0)
+                            {
+                                <button class="btn btn-secondary" style="padding:0.2rem 0.5rem;font-size:0.8rem" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_selectedStudentId > 0)
+    {
+        <div class="card">
+            <div class="summary-box">
+                <span>@_needText</span>
+                <span>Đã đóng: @MoneyHelper.FormatCurrency(_paid)</span>
+                <span>Còn lại: @MoneyHelper.FormatCurrency(_remaining)</span>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Số tiền thu</label>
+                    <input @bind="_amountText" />
+                </div>
+                <div class="form-group">
+                    <label>Ghi chú</label>
+                    <input @bind="_note" />
+                </div>
+            </div>
+            <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(_remaining <= 0 || _isFinalized)">Thu học phí</button>
+        </div>
+    }
+
+    @if (_showDetail)
+    {
+        <div class="modal-backdrop" @onclick="() => _showDetail = false">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Chi tiết thu phí - @_detailStudentName</h3>
+                <table class="data-table">
+                    <thead><tr><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th>Ghi chú</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var h in _detailHistory)
+                        {
+                            <tr>
+                                <td>@h.NgayThu</td>
+                                <td>@MoneyHelper.FormatCurrency(h.SoTien)</td>
+                                <td>@h.NguoiThu</td>
+                                <td>@h.GhiChu</td>
+                                <td>
+                                    @if (!_isFinalized)
+                                    {
+                                        <button class="btn btn-danger" style="padding:0.2rem 0.5rem;font-size:0.8rem" @onclick="() => DeleteHistory(h.PaymentId)">Xóa</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn btn-secondary" @onclick="() => _showDetail = false">Đóng</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<ClassInfo> _classes = new();
+    private List<PaymentClassListRow> _paymentRows = new();
+    private int _classId;
+    private int _month = DateTime.Now.Month;
+    private int _year = DateTime.Now.Year;
+    private int _selectedStudentId;
+    private decimal _paid;
+    private decimal _remaining;
+    private string _needText = "";
+    private string _amountText = "";
+    private string _note = "";
+    private string? _message;
+    private bool _isError;
+    private bool _isFinalized;
+    private bool _showDetail;
+    private string _detailStudentName = "";
+    private List<PaymentHistoryRow> _detailHistory = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _classes = ClassService.GetAll();
+        if (_classes.Count > 0) _classId = _classes[0].Id;
+        LoadGrid();
+    }
+
+    private void LoadGrid()
+    {
+        if (_classId <= 0) return;
+        _isFinalized = PaymentService.IsFinalized(_classId, _month, _year);
+        var list = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
+        _paymentRows = list.ToList();
+        _paymentRows.Add(new PaymentClassListRow
+        {
+            HoVaTen = "Tổng cộng",
+            SoTien = list.Sum(x => x.SoTien)
+        });
+
+        var first = list.FirstOrDefault();
+        if (first is not null) SelectPaymentRow(first);
+        else { _selectedStudentId = 0; }
+    }
+
+    private void SelectPaymentRow(PaymentClassListRow row)
+    {
+        if (row.StudentId <= 0) return;
+        _selectedStudentId = row.StudentId;
+        var total = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
+        _paid = PaymentService.GetPaidAmountByStudentMonthYear(row.StudentId, _month, _year, _classId);
+        _remaining = Math.Max(0, total - _paid);
+        var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
+        _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
+        if (carryOver > 0) _needText += $" (nợ từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
+    }
+
+    private void CollectPayment()
+    {
+        if (_selectedStudentId <= 0) return;
+
+        if (_month != DateTime.Now.Month || _year != DateTime.Now.Year)
+        {
+            _message = "Chỉ được phép thu học phí của tháng hiện tại.";
+            _isError = true;
+            return;
+        }
+
+        if (!MoneyHelper.TryParseMoney(_amountText, out var amount) || amount <= 0)
+        {
+            _message = "Số tiền thu bắt buộc phải lớn hơn 0.";
+            _isError = true;
+            return;
+        }
+
+        if (amount > _remaining)
+        {
+            _message = $"Số tiền thu không được lớn hơn số còn lại ({MoneyHelper.FormatCurrency(_remaining)}).";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            PaymentService.Collect(_selectedStudentId, amount, Session.CurrentUser!.Id, _note.Trim(), _classId);
+            _message = "Đã thu học phí.";
+            _isError = false;
+            _amountText = "";
+            _note = "";
+            LoadGrid();
+        }
+        catch (Exception ex) { _message = ex.Message; _isError = true; }
+    }
+
+    private void FinalizeMonth()
+    {
+        var today = DateTime.Today;
+        if (today.Day != DateTime.DaysInMonth(today.Year, today.Month))
+        {
+            _message = $"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {DateTime.DaysInMonth(today.Year, today.Month)}).";
+            _isError = true;
+            return;
+        }
+
+        if (_classId <= 0)
+        {
+            _message = "Vui lòng chọn một lớp cụ thể.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            PaymentService.FinalizePayment(_classId, _month, _year, Session.CurrentUser!.Id);
+            _message = $"Đã chốt số liệu tháng {_month:D2}/{_year}.";
+            _isError = false;
+            LoadGrid();
+        }
+        catch (Exception ex) { _message = ex.Message; _isError = true; }
+    }
+
+    private void ShowDetail(PaymentClassListRow row)
+    {
+        _detailStudentName = row.HoVaTen;
+        _detailHistory = PaymentService.GetPaymentHistory(row.StudentId);
+        _showDetail = true;
+    }
+
+    private void DeleteHistory(int paymentId)
+    {
+        try
+        {
+            PaymentService.DeletePaymentHistory(paymentId, _selectedStudentId);
+            _detailHistory = PaymentService.GetPaymentHistory(_selectedStudentId);
+            LoadGrid();
+        }
+        catch (Exception ex) { _message = ex.Message; _isError = true; }
+    }
+}
