@@ -1,6 +1,4 @@
-using System.Diagnostics;
-using System.Reflection;
-using System.Text.Json;
+using System.Reflection;using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace NhatDucSoftware.Services;
@@ -107,15 +105,6 @@ public sealed class UpdateCheckService
         return targetPath;
     }
 
-    public void LaunchDownloadedUpdate(string filePath)
-    {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = filePath,
-            UseShellExecute = true
-        });
-    }
-
     private static async Task<GitHubRelease?> FetchLatestReleaseAsync(CancellationToken cancellationToken)
     {
         var url = $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases/latest";
@@ -129,15 +118,33 @@ public sealed class UpdateCheckService
         return await JsonSerializer.DeserializeAsync<GitHubRelease>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task DownloadAndApplyUpdateAsync(
+        UpdateInfo updateInfo,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var downloadedPath = await DownloadUpdateAsync(updateInfo, progress, cancellationToken).ConfigureAwait(false);
+        new UpdateApplyService().ApplyUpdateAndRestart(downloadedPath);
+    }
+
     private static Version? ParseReleaseVersion(string tagName)
     {
         var normalized = tagName.Trim();
-        if (normalized.StartsWith('v') || normalized.StartsWith('V'))
+
+        if (normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase))
         {
             normalized = normalized[1..];
         }
 
+        normalized = normalized.TrimStart('.', '-', '_', ' ');
+
         if (Version.TryParse(normalized, out var version))
+        {
+            return version;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(tagName, @"(\d+(?:\.\d+)+)");
+        if (match.Success && Version.TryParse(match.Groups[1].Value, out version))
         {
             return version;
         }

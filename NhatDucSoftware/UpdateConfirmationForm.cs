@@ -151,20 +151,19 @@ public sealed class UpdateConfirmationForm : Form
 
         try
         {
-            var progress = new Progress<int>(percent => _progressBar.Value = Math.Clamp(percent, 0, 100));
+            var progress = new Progress<int>(percent =>
+            {
+                _progressBar.Value = Math.Clamp(percent, 0, 100);
+                _lblStatus.Text = percent < 100
+                    ? "Đang tải bản cập nhật..."
+                    : "Đang giải nén và cài đặt bản cập nhật...";
+            });
+
             var downloadedPath = await _updateService.DownloadUpdateAsync(_updateInfo, progress);
+            await Task.Run(() => new UpdateApplyService().ApplyUpdateAndRestart(downloadedPath));
 
-            _updateService.LaunchDownloadedUpdate(downloadedPath);
-
-            MessageBox.Show(
-                "Bản cập nhật đã được tải xong và mở tự động.\n" +
-                "Vui lòng hoàn tất cài đặt, sau đó khởi động lại phần mềm.",
-                "Cập nhật",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-
-            DialogResult = DialogResult.OK;
-            Close();
+            Application.Exit();
+            Environment.Exit(0);
         }
         catch (Exception ex)
         {
