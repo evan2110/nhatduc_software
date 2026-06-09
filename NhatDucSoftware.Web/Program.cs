@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using NhatDucSoftware.Core.Data;
 using NhatDucSoftware.Core.Services;
 using NhatDucSoftware.Web.Components;
@@ -9,12 +10,20 @@ using NhatDucSoftware.Web.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("Default");
-var dbPassword = builder.Configuration["Database:Password"];
+var dbPassword = builder.Configuration["Database:Password"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_DB_PASSWORD");
 DbContext.Configure(
     string.IsNullOrWhiteSpace(connectionString) ? null : connectionString,
     dbPassword);
 
 DatabaseInitializer.Initialize();
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -24,6 +33,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.LoginPath = "/login";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
     });
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
@@ -44,15 +57,20 @@ builder.Services.AddScoped<ExcelExportService>();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
 }
 
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
