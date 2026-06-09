@@ -64,6 +64,28 @@ else
     </div>
 
     <div class="card">
+        <div class="list-toolbar">
+            <div class="search-box">
+                <input type="search"
+                       placeholder="Tìm theo tên, SĐT, email, lớp, ID..."
+                       value="@_searchText"
+                       @oninput="OnSearchChanged" />
+            </div>
+            <div class="list-meta">
+                <span>@FilteredCount học viên</span>
+                <label>
+                    Hiển thị
+                    <select @bind="_pageSize" @bind:after="OnPageSizeChanged">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                    / trang
+                </label>
+            </div>
+        </div>
+
         <div class="table-responsive">
         <table class="data-table">
             <thead>
@@ -78,21 +100,45 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var s in _students)
+                @if (PagedStudents.Count == 0)
                 {
-                    <tr class="@(_selectedId == s.Id ? "selected" : "")" @onclick="() => SelectStudent(s)">
-                        <td>@s.Id</td>
-                        <td>@s.FullName</td>
-                        <td>@s.ClassName</td>
-                        <td>@s.Phone</td>
-                        <td>@s.Email</td>
-                        <td>@s.BirthYear</td>
-                        <td>@s.Status</td>
+                    <tr class="empty-row">
+                        <td colspan="7">Không tìm thấy học viên phù hợp.</td>
                     </tr>
+                }
+                else
+                {
+                    @foreach (var s in PagedStudents)
+                    {
+                        <tr class="@(_selectedId == s.Id ? "selected" : "")" @onclick="() => SelectStudent(s)">
+                            <td>@s.Id</td>
+                            <td>@s.FullName</td>
+                            <td>@s.ClassName</td>
+                            <td>@s.Phone</td>
+                            <td>@s.Email</td>
+                            <td>@s.BirthYear</td>
+                            <td>@s.Status</td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
         </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="btn btn-secondary" @onclick="() => GoToPage(1)" disabled="@(_currentPage <= 1)">«</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage - 1)" disabled="@(_currentPage <= 1)">‹</button>
+                @foreach (var p in VisiblePages)
+                {
+                    <button class="btn btn-secondary @(p == _currentPage ? "active" : "")" @onclick="() => GoToPage(p)">@p</button>
+                }
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage + 1)" disabled="@(_currentPage >= TotalPages)">›</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(TotalPages)" disabled="@(_currentPage >= TotalPages)">»</button>
+                <span class="pagination-info">Trang @_currentPage / @TotalPages</span>
+            </div>
+        }
     </div>
 
     @if (_showEvalModal)
@@ -145,13 +191,77 @@ else
     private int _evalYear = DateTime.Now.Year;
     private List<StudentEvaluationRow> _evaluations = new();
 
+    private string _searchText = "";
+    private int _currentPage = 1;
+    private int _pageSize = 15;
+
+    private IEnumerable<Student> FilteredStudents =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _students
+            : _students.Where(MatchesSearch);
+
+    private int FilteredCount => FilteredStudents.Count();
+
+    private int TotalPages => PaginationHelper.GetTotalPages(FilteredCount, _pageSize);
+
+    private List<Student> PagedStudents =>
+        PaginationHelper.GetPage(FilteredStudents.ToList(), _currentPage, _pageSize);
+
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var pages = new List<int>();
+            var start = Math.Max(1, _currentPage - 2);
+            var end = Math.Min(TotalPages, _currentPage + 2);
+            for (var p = start; p <= end; p++)
+            {
+                pages.Add(p);
+            }
+            return pages;
+        }
+    }
+
     protected override void OnInitialized()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
         LoadStudents();
     }
 
-    private void LoadStudents() => _students = StudentService.GetAll();
+    private bool MatchesSearch(Student s)
+    {
+        var q = _searchText.Trim();
+        return s.FullName.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || s.Phone.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (s.Email?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+            || s.ClassName.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (s.Address?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+            || s.Status.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || s.Id.ToString().Contains(q, StringComparison.OrdinalIgnoreCase)
+            || (s.BirthYear?.ToString().Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? "";
+        _currentPage = 1;
+    }
+
+    private void OnPageSizeChanged()
+    {
+        _currentPage = 1;
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = Math.Clamp(page, 1, TotalPages);
+    }
+
+    private void LoadStudents()
+    {
+        _students = StudentService.GetAll();
+        _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+    }
 
     private void SelectStudent(Student s)
     {
@@ -230,10 +340,8 @@ else
         var skipped = 0;
         using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
         using var reader = new StreamReader(stream);
-        var lineNum = 0;
         while (await reader.ReadLineAsync() is { } line)
         {
-            lineNum++;
             var raw = line.Trim();
             if (string.IsNullOrWhiteSpace(raw)) { skipped++; continue; }
 
