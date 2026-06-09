@@ -14,15 +14,15 @@
             <div class="alert alert-danger">Tên đăng nhập hoặc mật khẩu không đúng.</div>
         }
         <form method="post" action="/account/login">
-            <div class="form-group" style="margin-bottom:1rem">
+            <div class="form-group">
                 <label for="username">Tên đăng nhập</label>
-                <input id="username" name="username" required style="width:100%;padding:0.5rem" />
+                <input id="username" name="username" required autocomplete="username" />
             </div>
-            <div class="form-group" style="margin-bottom:1.5rem">
+            <div class="form-group">
                 <label for="password">Mật khẩu</label>
-                <input id="password" name="password" type="password" required style="width:100%;padding:0.5rem" />
+                <input id="password" name="password" type="password" required autocomplete="current-password" />
             </div>
-            <button type="submit" class="btn btn-primary" style="width:100%">Đăng nhập</button>
+            <button type="submit" class="btn btn-primary btn-block">Đăng nhập</button>
         </form>
     </div>
 </div>

@@ -36,7 +36,8 @@ else
         </div>
 
         <h3>Doanh thu theo năm</h3>
-        <table class="data-table" style="margin-bottom:1.5rem">
+        <div class="table-responsive">
+        <table class="data-table compact">
             <thead><tr><th>Năm</th><th>Doanh thu</th></tr></thead>
             <tbody>
                 @foreach (var y in _revenueByYear)
@@ -48,6 +49,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
 
         <h3>Biểu đồ doanh thu theo tháng năm @_selectedYear</h3>
         @if (_revenueByMonth.Count == 0)
@@ -68,7 +70,8 @@ else
                     </div>
                 }
             </div>
-            <table class="data-table">
+            <div class="table-responsive">
+            <table class="data-table compact">
                 <thead><tr><th>Tháng</th><th>Doanh thu</th></tr></thead>
                 <tbody>
                     @foreach (var m in _revenueByMonth.OrderBy(x => x.Month))
@@ -80,6 +83,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }

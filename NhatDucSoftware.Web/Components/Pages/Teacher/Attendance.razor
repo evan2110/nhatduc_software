@@ -34,20 +34,22 @@ else
             <input type="date" @bind="_sessionDate" @bind:after="LoadStudents" min="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
             <button class="btn btn-primary" @onclick="SaveAttendance" disabled="@(!CanSave)">Lưu điểm danh</button>
         </div>
-        <p style="font-size:0.85rem;color:#64748b">Giáo viên chỉ được điểm danh trong ngày hôm nay. Nhập C (có mặt) hoặc V (vắng).</p>
+        <p class="text-muted">Giáo viên chỉ được điểm danh trong ngày hôm nay. Nhập C (có mặt) hoặc V (vắng).</p>
 
-        <table class="data-table">
+        <div class="table-responsive">
+        <table class="data-table compact">
             <thead><tr><th>Học viên</th><th>Điểm danh (C/V)</th></tr></thead>
             <tbody>
                 @foreach (var row in _rows)
                 {
                     <tr>
                         <td>@row.StudentName</td>
-                        <td><input @bind="row.Status" maxlength="1" style="width:60px;text-transform:uppercase" /></td>
+                        <td><input class="input-attendance" @bind="row.Status" maxlength="1" /></td>
                     </tr>
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 

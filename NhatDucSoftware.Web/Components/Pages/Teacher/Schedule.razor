@@ -22,7 +22,8 @@ else
         </div>
 
         <h3>Lịch dạy trong tuần</h3>
-        <table class="data-table" style="margin-bottom:1.5rem">
+        <div class="table-responsive">
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Ngày</th>
@@ -46,9 +47,11 @@ else
                 }
             </tbody>
         </table>
+        </div>
 
         <h3>Lớp được phân công</h3>
-        <table class="data-table">
+        <div class="table-responsive">
+        <table class="data-table compact">
             <thead><tr><th>Tên lớp</th><th>Khóa học</th><th>Số HS</th></tr></thead>
             <tbody>
                 @foreach (var c in _assignedClasses)
@@ -61,6 +64,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 

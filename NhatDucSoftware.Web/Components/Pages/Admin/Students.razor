@@ -54,9 +54,9 @@ else
             <button class="btn btn-primary" @onclick="AddStudent">Thêm</button>
             <button class="btn btn-secondary" @onclick="UpdateStudent" disabled="@(_selectedId is null)">Cập nhật</button>
             <button class="btn btn-danger" @onclick="DeleteStudent" disabled="@(_selectedId is null)">Xóa</button>
-            <label class="btn btn-secondary" style="cursor:pointer">
+            <label class="btn btn-secondary btn-file-label">
                 Nhập TXT
-                <InputFile OnChange="ImportStudents" style="display:none" accept=".txt" />
+                <InputFile OnChange="ImportStudents" accept=".txt" />
             </label>
             <a class="btn btn-success" href="/api/export/students" target="_blank">Xuất Excel</a>
             <button class="btn btn-secondary" @onclick="ShowEvaluations" disabled="@(_selectedId is null)">Xem điểm/NX</button>
@@ -64,6 +64,7 @@ else
     </div>
 
     <div class="card">
+        <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr>
@@ -91,6 +92,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
     </div>
 
     @if (_showEvalModal)
@@ -110,7 +112,8 @@ else
                     <a class="btn btn-success" href="@($"/api/export/evaluations/{_selectedId}/{_evalYear}/{_evalMonth}")" target="_blank">Xuất Excel</a>
                     <button class="btn btn-secondary" @onclick="CloseEvalModal">Đóng</button>
                 </div>
-                <table class="data-table">
+                <div class="table-responsive">
+                <table class="data-table compact">
                     <thead><tr><th>Lớp</th><th>Giáo viên</th><th>Điểm</th><th>Nhận xét</th><th>Ngày</th></tr></thead>
                     <tbody>
                         @foreach (var e in _evaluations)
@@ -125,6 +128,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     }

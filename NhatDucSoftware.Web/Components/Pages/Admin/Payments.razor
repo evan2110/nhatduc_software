@@ -41,6 +41,7 @@ else
             <button class="btn btn-primary" @onclick="FinalizeMonth" disabled="@_isFinalized">Chốt số liệu</button>
         </div>
 
+        <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th></th></tr>
@@ -59,13 +60,14 @@ else
                         <td>
                             @if (row.StudentId > 0)
                             {
-                                <button class="btn btn-secondary" style="padding:0.2rem 0.5rem;font-size:0.8rem" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
+                                <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
                             }
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+        </div>
     </div>
 
     @if (_selectedStudentId > 0)
@@ -95,7 +97,8 @@ else
         <div class="modal-backdrop" @onclick="() => _showDetail = false">
             <div class="modal-content" @onclick:stopPropagation="true">
                 <h3>Chi tiết thu phí - @_detailStudentName</h3>
-                <table class="data-table">
+                <div class="table-responsive">
+                <table class="data-table compact">
                     <thead><tr><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th>Ghi chú</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var h in _detailHistory)
@@ -108,13 +111,14 @@ else
                                 <td>
                                     @if (!_isFinalized)
                                     {
-                                        <button class="btn btn-danger" style="padding:0.2rem 0.5rem;font-size:0.8rem" @onclick="() => DeleteHistory(h.PaymentId)">Xóa</button>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteHistory(h.PaymentId)">Xóa</button>
                                     }
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
+                </div>
                 <button class="btn btn-secondary" @onclick="() => _showDetail = false">Đóng</button>
             </div>
         </div>

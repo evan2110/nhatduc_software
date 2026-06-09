@@ -30,11 +30,11 @@ else
                 @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
             <button class="btn btn-primary" @onclick="SaveTimesheet">Lưu chấm công</button>
-            <span style="font-weight:600">Tổng ca: @_totalShifts</span>
+            <span class="text-bold">Tổng ca: @_totalShifts</span>
         </div>
-        <p style="font-size:0.85rem;color:#64748b">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng).</p>
+        <p class="text-muted">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng).</p>
 
-        <div style="overflow-x:auto">
+        <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -57,7 +57,7 @@ else
                                 <td>
                                     @if (day.IsToday)
                                     {
-                                        <input value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" style="width:50px;text-align:center" />
+                                        <input class="input-shift" value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
                                     }
                                     else
                                     {
@@ -68,7 +68,7 @@ else
                             <td>
                                 @if (day.IsToday)
                                 {
-                                    <input @bind="day.Note" style="width:120px" />
+                                    <input class="input-note" @bind="day.Note" />
                                 }
                                 else
                                 {

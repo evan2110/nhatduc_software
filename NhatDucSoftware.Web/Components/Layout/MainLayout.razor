@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
 @inject UserSession Session
-@inject NavigationManager Nav
 
 @if (!Session.IsAuthenticated)
 {
@@ -9,8 +8,20 @@
 else
 {
     <div class="app-shell">
+        <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input" aria-hidden="true" />
+        <header class="mobile-header">
+            <label for="sidebar-toggle" class="sidebar-toggle-btn" aria-label="Mở menu">
+                <span class="hamburger"></span>
+            </label>
+            <span class="mobile-header-title">Nhat Duc Software</span>
+            <span class="mobile-header-user">@Session.CurrentUser!.Username</span>
+        </header>
+        <label for="sidebar-toggle" class="sidebar-overlay" aria-label="Đóng menu"></label>
         <aside class="sidebar">
-            <div class="sidebar-brand">Nhat Duc Software</div>
+            <div class="sidebar-header">
+                <div class="sidebar-brand">Nhat Duc Software</div>
+                <label for="sidebar-toggle" class="sidebar-close-btn" aria-label="Đóng menu">✕</label>
+            </div>
             <div class="sidebar-user">@Session.CurrentUser!.Role: @Session.CurrentUser.Username</div>
             <nav>
                 @if (Session.IsAdmin)
