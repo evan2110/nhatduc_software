@@ -1,3 +1,4 @@
+using System.Data.Common;
 using NhatDucSoftware.Core.Data;
 
 namespace NhatDucSoftware.Core.Services;
@@ -36,10 +37,14 @@ VALUES(@studentId, @classId, @teacherId, @score, @comment, @createdAt);";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT c.ClassName, t.FullName, se.Score, se.Comment, se.CreatedAt
+SELECT COALESCE(c.ClassName, ''),
+       COALESCE(t.FullName, ''),
+       se.Score,
+       se.Comment,
+       se.CreatedAt
 FROM StudentEvaluations se
-INNER JOIN Classes c ON c.Id = se.ClassId
-INNER JOIN Teachers t ON t.Id = se.TeacherId
+LEFT JOIN Classes c ON c.Id = se.ClassId
+LEFT JOIN Teachers t ON t.Id = se.TeacherId
 WHERE se.StudentId = @studentId
 ORDER BY se.CreatedAt DESC;";
         command.Parameters.AddWithValue("@studentId", studentId);
@@ -47,14 +52,7 @@ ORDER BY se.CreatedAt DESC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            results.Add(new StudentEvaluationRow
-            {
-                Lop = reader.GetString(0),
-                GiaoVien = reader.GetString(1),
-                Diem = reader.IsDBNull(2) ? "" : reader.GetDecimal(2).ToString("0.#"),
-                NhanXet = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                Ngay = reader.IsDBNull(4) ? "" : reader.GetString(4).Length > 10 ? reader.GetString(4)[..10] : reader.GetString(4)
-            });
+            results.Add(MapRow(reader));
         }
 
         return results;
@@ -62,42 +60,101 @@ ORDER BY se.CreatedAt DESC;";
 
     public List<StudentEvaluationRow> GetByStudentInMonth(int studentId, int year, int month)
     {
+        if (month is < 1 or > 12)
+        {
+            return new List<StudentEvaluationRow>();
+        }
+
         var results = new List<StudentEvaluationRow>();
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT c.ClassName, t.FullName, se.Score, se.Comment, se.CreatedAt
+SELECT COALESCE(c.ClassName, ''),
+       COALESCE(t.FullName, ''),
+       se.Score,
+       se.Comment,
+       se.CreatedAt
 FROM StudentEvaluations se
-INNER JOIN Classes c ON c.Id = se.ClassId
-INNER JOIN Teachers t ON t.Id = se.TeacherId
+LEFT JOIN Classes c ON c.Id = se.ClassId
+LEFT JOIN Teachers t ON t.Id = se.TeacherId
 WHERE se.StudentId = @studentId
-  AND se.CreatedAt >= @fromDate
-  AND se.CreatedAt < @toDate
+  AND LEFT(se.CreatedAt::text, 7) = @yearMonth
 ORDER BY se.CreatedAt DESC;";
-        
-        var fromDate = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var toDate = fromDate.AddMonths(1);
 
         command.Parameters.AddWithValue("@studentId", studentId);
-        command.Parameters.AddWithValue("@fromDate", fromDate.ToString("o"));
-        command.Parameters.AddWithValue("@toDate", toDate.ToString("o"));
+        command.Parameters.AddWithValue("@yearMonth", $"{year}-{month:D2}");
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            results.Add(new StudentEvaluationRow
-            {
-                Lop = reader.GetString(0),
-                GiaoVien = reader.GetString(1),
-                Diem = reader.IsDBNull(2) ? "" : reader.GetDecimal(2).ToString("0.#"),
-                NhanXet = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                Ngay = reader.IsDBNull(4) ? "" : reader.GetString(4).Length > 10 ? reader.GetString(4)[..10] : reader.GetString(4)
-            });
+            results.Add(MapRow(reader));
         }
 
         return results;
+    }
+
+    private static StudentEvaluationRow MapRow(DbDataReader reader)
+    {
+        return new StudentEvaluationRow
+        {
+            Lop = ReadString(reader, 0),
+            GiaoVien = ReadString(reader, 1),
+            Diem = ReadScore(reader, 2),
+            NhanXet = ReadString(reader, 3),
+            Ngay = ReadDate(reader, 4)
+        };
+    }
+
+    private static string ReadString(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return "";
+        }
+
+        return Convert.ToString(reader.GetValue(ordinal)) ?? "";
+    }
+
+    private static string ReadScore(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return "";
+        }
+
+        return reader.GetValue(ordinal) switch
+        {
+            decimal d => d.ToString("0.#"),
+            double d => d.ToString("0.#"),
+            float f => f.ToString("0.#"),
+            int i => i.ToString(),
+            long l => l.ToString(),
+            _ => Convert.ToString(reader.GetValue(ordinal)) ?? ""
+        };
+    }
+
+    private static string ReadDate(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return "";
+        }
+
+        var value = reader.GetValue(ordinal);
+        if (value is DateTime dt)
+        {
+            return dt.ToLocalTime().ToString("dd/MM/yyyy");
+        }
+
+        var text = Convert.ToString(value) ?? "";
+        if (DateTime.TryParse(text, out var parsed))
+        {
+            return parsed.ToLocalTime().ToString("dd/MM/yyyy");
+        }
+
+        return text.Length > 10 ? text[..10] : text;
     }
 }
 

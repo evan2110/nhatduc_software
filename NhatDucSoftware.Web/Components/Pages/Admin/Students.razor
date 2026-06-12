@@ -379,15 +379,32 @@ else
     private void ShowEvaluations()
     {
         if (_selectedId is null) return;
-        _evalStudentName = _students.First(s => s.Id == _selectedId).FullName;
+
+        var student = _students.FirstOrDefault(s => s.Id == _selectedId);
+        if (student is null)
+        {
+            _message = "Không tìm thấy học viên đã chọn.";
+            return;
+        }
+
+        _evalStudentName = student.FullName;
         _showEvalModal = true;
         LoadEvaluations();
     }
 
     private void LoadEvaluations()
     {
-        if (_selectedId is null) return;
-        _evaluations = EvaluationService.GetByStudentInMonth(_selectedId.Value, _evalYear, _evalMonth);
+        if (_selectedId is null || _evalMonth is < 1 or > 12) return;
+
+        try
+        {
+            _evaluations = EvaluationService.GetByStudentInMonth(_selectedId.Value, _evalYear, _evalMonth);
+        }
+        catch (Exception ex)
+        {
+            _evaluations = new();
+            _message = $"Không thể tải điểm/nhận xét: {ex.Message}";
+        }
     }
 
     private void CloseEvalModal() => _showEvalModal = false;
