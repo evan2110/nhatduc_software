@@ -81,15 +81,42 @@ else
         </div>
         <div>
             <h3>Học viên trong lớp</h3>
+            <div class="student-add-panel">
+                <div class="search-box">
+                    <input type="search"
+                           placeholder="Tìm theo tên, SĐT, email, ID..."
+                           value="@_studentSearchText"
+                           @oninput="OnStudentSearchChanged" />
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_studentSearchText))
+                {
+                    <div class="student-search-results">
+                        @if (FilteredStudentsForAdd.Count == 0)
+                        {
+                            <div class="student-search-empty">Không tìm thấy học viên phù hợp.</div>
+                        }
+                        else
+                        {
+                            @foreach (var s in FilteredStudentsForAdd)
+                            {
+                                <button type="button"
+                                        class="student-search-item @(_addStudentId == s.Id ? "selected" : "")"
+                                        @onclick="() => SelectStudentToAdd(s)">
+                                    <span class="student-search-name">@s.FullName</span>
+                                    <span class="student-search-meta">ID @s.Id · @s.Phone</span>
+                                </button>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted student-search-hint">Nhập tên, SĐT hoặc ID để tìm học viên thêm vào lớp.</p>
+                }
+            </div>
             <div class="toolbar">
-                <select @bind="_addStudentId">
-                    <option value="0">-- Chọn học viên --</option>
-                    @foreach (var s in _allStudents)
-                    {
-                        <option value="@s.Id">@s.FullName</option>
-                    }
-                </select>
-                <button class="btn btn-primary" @onclick="AddStudentToClass" disabled="@(_selectedClassId is null)">Thêm vào lớp</button>
+                <button class="btn btn-primary" @onclick="AddStudentToClass" disabled="@(_selectedClassId is null || _addStudentId <= 0)">Thêm vào lớp</button>
+                <button class="btn btn-secondary" @onclick="OpenTransferModal" disabled="@(_selectedClassId is null || _selectedStudentInClassId is null)">Chuyển lớp</button>
                 <button class="btn btn-danger" @onclick="RemoveStudentFromClass" disabled="@(_selectedStudentInClassId is null)">Xóa khỏi lớp</button>
             </div>
             <div class="table-responsive">
@@ -108,6 +135,30 @@ else
             </div>
         </div>
     </div>
+
+    @if (_showTransferModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseTransferModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Chuyển lớp học viên</h3>
+                <p><strong>@_transferStudentName</strong> · từ lớp <strong>@_className</strong></p>
+                <div class="form-group">
+                    <label>Chuyển sang lớp</label>
+                    <select @bind="_transferTargetClassId">
+                        <option value="0">-- Chọn lớp --</option>
+                        @foreach (var c in TransferTargetClasses)
+                        {
+                            <option value="@c.Id">@c.ClassName (@c.CourseCode)</option>
+                        }
+                    </select>
+                </div>
+                <div class="toolbar">
+                    <button class="btn btn-primary" @onclick="ConfirmTransfer" disabled="@(_transferTargetClassId <= 0)">Xác nhận chuyển</button>
+                    <button class="btn btn-secondary" @onclick="CloseTransferModal">Hủy</button>
+                </div>
+            </div>
+        </div>
+    }
 
     @if (_showSchedule)
     {
@@ -166,7 +217,12 @@ else
     private int _courseId;
     private int _teacherId;
     private int _addStudentId;
+    private string _studentSearchText = "";
     private string? _message;
+
+    private bool _showTransferModal;
+    private int _transferTargetClassId;
+    private string _transferStudentName = "";
 
     private bool _showSchedule;
     private string _scheduleClassName = "";
@@ -185,6 +241,46 @@ else
 
     private void LoadClasses() => _classes = ClassService.GetAll();
 
+    private HashSet<int> ClassStudentIds => _classStudents.Select(s => s.StudentId).ToHashSet();
+
+    private List<Student> FilteredStudentsForAdd
+    {
+        get
+        {
+            var q = _studentSearchText.Trim();
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return new List<Student>();
+            }
+
+            return _allStudents
+                .Where(s => !ClassStudentIds.Contains(s.Id) && MatchesStudentSearch(s, q))
+                .Take(20)
+                .ToList();
+        }
+    }
+
+    private IEnumerable<ClassInfo> TransferTargetClasses =>
+        _classes.Where(c => c.Id != _selectedClassId);
+
+    private bool MatchesStudentSearch(Student s, string q) =>
+        s.FullName.Contains(q, StringComparison.OrdinalIgnoreCase)
+        || s.Phone.Contains(q, StringComparison.OrdinalIgnoreCase)
+        || (s.Email?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        || s.Id.ToString().Contains(q, StringComparison.OrdinalIgnoreCase);
+
+    private void OnStudentSearchChanged(ChangeEventArgs e)
+    {
+        _studentSearchText = e.Value?.ToString() ?? "";
+        _addStudentId = 0;
+    }
+
+    private void SelectStudentToAdd(Student s)
+    {
+        _addStudentId = s.Id;
+        _studentSearchText = s.FullName;
+    }
+
     private void SelectClass(ClassInfo c)
     {
         _selectedClassId = c.Id;
@@ -193,6 +289,8 @@ else
         _teacherId = c.TeacherId ?? 0;
         _classStudents = ClassService.GetStudentsInClass(c.Id);
         _selectedStudentInClassId = null;
+        _addStudentId = 0;
+        _studentSearchText = "";
     }
 
     private void CreateClass()
@@ -232,6 +330,8 @@ else
             ClassService.AddStudentToClass(_selectedClassId.Value, _addStudentId);
             _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
             LoadClasses();
+            _addStudentId = 0;
+            _studentSearchText = "";
             _message = "Đã thêm học viên vào lớp.";
         }
         catch (Exception ex) { _message = ex.Message; }
@@ -242,8 +342,37 @@ else
         if (_selectedClassId is null || _selectedStudentInClassId is null) return;
         ClassService.RemoveStudentFromClass(_selectedClassId.Value, _selectedStudentInClassId.Value);
         _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
+        _selectedStudentInClassId = null;
         LoadClasses();
         _message = "Đã xóa học viên khỏi lớp.";
+    }
+
+    private void OpenTransferModal()
+    {
+        if (_selectedClassId is null || _selectedStudentInClassId is null) return;
+
+        var student = _classStudents.FirstOrDefault(s => s.StudentId == _selectedStudentInClassId);
+        _transferStudentName = student.FullName;
+        _transferTargetClassId = 0;
+        _showTransferModal = true;
+    }
+
+    private void CloseTransferModal() => _showTransferModal = false;
+
+    private void ConfirmTransfer()
+    {
+        if (_selectedClassId is null || _selectedStudentInClassId is null || _transferTargetClassId <= 0) return;
+
+        try
+        {
+            ClassService.TransferStudentToClass(_selectedClassId.Value, _transferTargetClassId, _selectedStudentInClassId.Value);
+            _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
+            _selectedStudentInClassId = null;
+            LoadClasses();
+            _showTransferModal = false;
+            _message = "Đã chuyển học viên sang lớp mới.";
+        }
+        catch (Exception ex) { _message = ex.Message; }
     }
 
     private void OpenSchedule()

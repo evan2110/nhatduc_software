@@ -266,6 +266,68 @@ VALUES(@classId, @studentId, @joinedDate);";
         command.ExecuteNonQuery();
     }
 
+    public void TransferStudentToClass(int fromClassId, int toClassId, int studentId)
+    {
+        if (fromClassId == toClassId)
+        {
+            throw new InvalidOperationException("Lớp đích phải khác lớp hiện tại.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var checkSource = connection.CreateCommand())
+        {
+            checkSource.Transaction = transaction;
+            checkSource.CommandText = @"
+SELECT COUNT(1) FROM ClassStudents
+WHERE ClassId = @classId AND StudentId = @studentId;";
+            checkSource.Parameters.AddWithValue("@classId", fromClassId);
+            checkSource.Parameters.AddWithValue("@studentId", studentId);
+            if (Convert.ToInt32(checkSource.ExecuteScalar()) == 0)
+            {
+                throw new InvalidOperationException("Học viên không thuộc lớp nguồn.");
+            }
+        }
+
+        using (var checkTarget = connection.CreateCommand())
+        {
+            checkTarget.Transaction = transaction;
+            checkTarget.CommandText = @"
+SELECT COUNT(1) FROM ClassStudents
+WHERE ClassId = @classId AND StudentId = @studentId;";
+            checkTarget.Parameters.AddWithValue("@classId", toClassId);
+            checkTarget.Parameters.AddWithValue("@studentId", studentId);
+            if (Convert.ToInt32(checkTarget.ExecuteScalar()) > 0)
+            {
+                throw new InvalidOperationException("Học viên đã có trong lớp đích.");
+            }
+        }
+
+        using (var remove = connection.CreateCommand())
+        {
+            remove.Transaction = transaction;
+            remove.CommandText = "DELETE FROM ClassStudents WHERE ClassId = @classId AND StudentId = @studentId;";
+            remove.Parameters.AddWithValue("@classId", fromClassId);
+            remove.Parameters.AddWithValue("@studentId", studentId);
+            remove.ExecuteNonQuery();
+        }
+
+        using (var add = connection.CreateCommand())
+        {
+            add.Transaction = transaction;
+            add.CommandText = @"INSERT INTO ClassStudents(ClassId, StudentId, JoinedDate)
+VALUES(@classId, @studentId, @joinedDate);";
+            add.Parameters.AddWithValue("@classId", toClassId);
+            add.Parameters.AddWithValue("@studentId", studentId);
+            add.Parameters.AddWithValue("@joinedDate", DateTime.UtcNow.ToString("o"));
+            add.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
     public List<(int StudentId, string FullName)> GetStudentsInClass(int classId)
     {
         var result = new List<(int, string)>();
