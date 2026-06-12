@@ -1,3 +1,4 @@
+using System.Data.Common;
 using NhatDucSoftware.Core.Data;
 
 namespace NhatDucSoftware.Core.Services;
@@ -262,19 +263,7 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var rawDate = reader.GetString(1);
-            var displayDate = DateTime.TryParse(rawDate, out var parsed)
-                ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                : rawDate;
-
-            results.Add(new PaymentHistoryRow
-            {
-                PaymentId = reader.GetInt32(0),
-                NgayThu = displayDate,
-                SoTien = reader.GetDecimal(2),
-                NguoiThu = reader.GetString(3),
-                GhiChu = reader.GetString(4)
-            });
+            results.Add(MapPaymentHistoryRow(reader));
         }
 
         return results;
@@ -282,6 +271,11 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
 
     public List<PaymentHistoryRow> GetPaymentHistoryByClassMonthYear(int studentId, int classId, int month, int year)
     {
+        if (month is < 1 or > 12)
+        {
+            return new List<PaymentHistoryRow>();
+        }
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -295,8 +289,7 @@ SELECT p.Id,
 FROM Payments p
 LEFT JOIN Users u ON u.Id = p.CreatedBy
 WHERE p.StudentId = @studentId
-  AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
-  AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
+  AND LEFT(p.PaymentDate::text, 7) = @yearMonth
   AND (@classId = 0 OR EXISTS (
       SELECT 1
       FROM ClassStudents cs
@@ -306,29 +299,67 @@ WHERE p.StudentId = @studentId
 ORDER BY p.PaymentDate DESC, p.Id DESC;";
         command.Parameters.AddWithValue("@studentId", studentId);
         command.Parameters.AddWithValue("@classId", classId);
-        command.Parameters.AddWithValue("@month", month);
-        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@yearMonth", $"{year}-{month:D2}");
 
         var results = new List<PaymentHistoryRow>();
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var rawDate = reader.GetString(1);
-            var displayDate = DateTime.TryParse(rawDate, out var parsed)
-                ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                : rawDate;
-
-            results.Add(new PaymentHistoryRow
-            {
-                PaymentId = reader.GetInt32(0),
-                NgayThu = displayDate,
-                SoTien = reader.GetDecimal(2),
-                NguoiThu = reader.GetString(3),
-                GhiChu = reader.GetString(4)
-            });
+            results.Add(MapPaymentHistoryRow(reader));
         }
 
         return results;
+    }
+
+    private static PaymentHistoryRow MapPaymentHistoryRow(DbDataReader reader)
+    {
+        return new PaymentHistoryRow
+        {
+            PaymentId = Convert.ToInt32(reader.GetValue(0)),
+            NgayThu = FormatPaymentDate(reader, 1),
+            SoTien = ReadDecimal(reader, 2),
+            NguoiThu = ReadString(reader, 3),
+            GhiChu = ReadString(reader, 4)
+        };
+    }
+
+    private static string ReadString(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return "";
+        }
+
+        return Convert.ToString(reader.GetValue(ordinal)) ?? "";
+    }
+
+    private static decimal ReadDecimal(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return 0;
+        }
+
+        return Convert.ToDecimal(reader.GetValue(ordinal));
+    }
+
+    private static string FormatPaymentDate(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return "";
+        }
+
+        var value = reader.GetValue(ordinal);
+        if (value is DateTime dt)
+        {
+            return dt.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+        }
+
+        var text = Convert.ToString(value) ?? "";
+        return DateTime.TryParse(text, out var parsed)
+            ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+            : text;
     }
 
     public List<PaymentClassListRow> GetPaymentListByClassMonthYear(int classId, int month, int year)
@@ -410,10 +441,7 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
             var displayDate = string.Empty;
             if (!reader.IsDBNull(4))
             {
-                var rawDate = reader.GetString(4);
-                displayDate = DateTime.TryParse(rawDate, out var parsed)
-                    ? parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
-                    : rawDate;
+                displayDate = FormatPaymentDate(reader, 4);
             }
 
             results.Add(new PaymentClassListRow

@@ -141,6 +141,7 @@ else
     private bool _isError;
     private bool _isFinalized;
     private bool _showDetail;
+    private int _detailStudentId;
     private string _detailStudentName = "";
     private List<PaymentHistoryRow> _detailHistory = new();
 
@@ -247,17 +248,28 @@ else
 
     private void ShowDetail(PaymentClassListRow row)
     {
-        _detailStudentName = row.HoVaTen;
-        _detailHistory = PaymentService.GetPaymentHistory(row.StudentId);
-        _showDetail = true;
+        try
+        {
+            _detailStudentId = row.StudentId;
+            _detailStudentName = row.HoVaTen;
+            _detailHistory = PaymentService.GetPaymentHistoryByClassMonthYear(row.StudentId, _classId, _month, _year);
+            _showDetail = true;
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _showDetail = false;
+            _message = $"Không thể tải chi tiết thu phí: {ex.Message}";
+            _isError = true;
+        }
     }
 
     private void DeleteHistory(int paymentId)
     {
         try
         {
-            PaymentService.DeletePaymentHistory(paymentId, _selectedStudentId);
-            _detailHistory = PaymentService.GetPaymentHistory(_selectedStudentId);
+            PaymentService.DeletePaymentHistory(paymentId, _detailStudentId);
+            _detailHistory = PaymentService.GetPaymentHistoryByClassMonthYear(_detailStudentId, _classId, _month, _year);
             LoadGrid();
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }
