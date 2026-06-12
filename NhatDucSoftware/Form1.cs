@@ -2705,7 +2705,7 @@ namespace NhatDucSoftware
             foreach (var teacher in teachers)
             {
                 var totalShifts = _timesheetService.GetTotalShiftsInMonth(teacher.Id, year, month);
-                var pay = totalShifts * TeacherTimesheet.PayPerShift;
+                var pay = _timesheetService.CalculateMonthlyPay(teacher.Id, year, month);
                 var row = table.NewRow();
                 row["TeacherId"] = teacher.Id;
                 row["Giáo viên"] = teacher.FullName;

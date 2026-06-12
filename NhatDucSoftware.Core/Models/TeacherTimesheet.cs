@@ -21,7 +21,9 @@ public class TeacherTimesheet
         { 5, (new TimeSpan(17, 30, 0), new TimeSpan(19, 0, 0)) },
     };
 
-    public const decimal PayPerShift = 100_000; // 100k VND per shift
+    public const decimal DefaultPayPerShift = 100_000;
+
+    public const decimal PayPerShift = DefaultPayPerShift;
 
     public static string GetShiftDescription(int shiftNumber)
     {

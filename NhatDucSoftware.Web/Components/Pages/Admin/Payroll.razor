@@ -33,6 +33,7 @@ else
             <select @bind="_year" @bind:after="LoadPayroll">
                 @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
+            <button class="btn btn-secondary" @onclick="OpenPaySettings">Cài đặt lương/ca</button>
             <button class="btn btn-secondary" @onclick="OpenMakeupTimesheet" disabled="@(_selectedTeacherId is null)">Chấm công bù GV</button>
             <button class="btn btn-secondary" @onclick="() => _showMakeupAttendance = true">Điểm danh bù HS</button>
         </div>
@@ -57,7 +58,7 @@ else
                 <h3>Chi tiết ca</h3>
                 <div class="table-responsive">
                 <table class="data-table compact">
-                    <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+                    <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Lương ca</th><th>Ghi chú</th></tr></thead>
                     <tbody>
                         @foreach (var r in _detailRecords)
                         {
@@ -65,6 +66,7 @@ else
                                 <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
                                 <td>@r.ShiftNumber</td>
                                 <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
+                                <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
                                 <td>@r.Note</td>
                             </tr>
                         }
@@ -74,6 +76,55 @@ else
             </div>
         </div>
     </div>
+
+    @if (_showPaySettings)
+    {
+        <div class="modal-backdrop" @onclick="ClosePaySettings">
+            <div class="modal-content modal-lg" @onclick:stopPropagation="true">
+                <h3>Cài đặt lương theo lớp</h3>
+                <p class="text-muted">Mặc định @MoneyHelper.FormatCurrency(TeacherTimesheet.DefaultPayPerShift)/ca nếu chưa cấu hình hoặc ca không khớp lịch lớp.</p>
+                <div class="form-group">
+                    <label>Giáo viên</label>
+                    <select @bind="_paySettingsTeacherId" @bind:after="LoadPaySettings">
+                        @foreach (var t in _teachers)
+                        {
+                            <option value="@t.Id">@t.FullName</option>
+                        }
+                    </select>
+                </div>
+                @if (_paySettings.Count == 0)
+                {
+                    <p>Giáo viên này chưa được phân công lớp nào.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                    <table class="data-table compact">
+                        <thead><tr><th>Lớp</th><th>Lương/ca (VNĐ)</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var item in _paySettings)
+                            {
+                                <tr @key="item.ClassId">
+                                    <td>@item.ClassName</td>
+                                    <td>
+                                        <input type="number"
+                                               min="1"
+                                               step="1000"
+                                               @bind="item.PayPerShift" />
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm" @onclick="() => SavePaySetting(item)">Lưu</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                }
+                <button class="btn btn-secondary" @onclick="ClosePaySettings">Đóng</button>
+            </div>
+        </div>
+    }
 
     @if (_showMakeupTimesheet)
     {
@@ -142,15 +193,19 @@ else
 }
 
 @code {
+    private List<Teacher> _teachers = new();
     private List<PayrollRow> _payrollRows = new();
-    private List<TeacherTimesheet> _detailRecords = new();
+    private List<TimesheetDetailRow> _detailRecords = new();
     private List<ClassInfo> _classes = new();
+    private List<TeacherClassPaySetting> _paySettings = new();
     private List<AttendanceRow> _makeupAttendanceRows = new();
     private int _month = DateTime.Now.Month;
     private int _year = DateTime.Now.Year;
     private int? _selectedTeacherId;
+    private int _paySettingsTeacherId;
     private string? _message;
 
+    private bool _showPaySettings;
     private bool _showMakeupTimesheet;
     private string _makeupTeacherName = "";
     private DateTime _makeupDate = DateTime.Today.AddDays(-1);
@@ -165,15 +220,16 @@ else
     protected override void OnInitialized()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _teachers = TeacherService.GetAll();
         _classes = ClassService.GetAll();
         if (_classes.Count > 0) _makeupClassId = _classes[0].Id;
+        if (_teachers.Count > 0) _paySettingsTeacherId = _teachers[0].Id;
         LoadPayroll();
     }
 
     private void LoadPayroll()
     {
-        var teachers = TeacherService.GetAll();
-        _payrollRows = teachers.Select(t =>
+        _payrollRows = _teachers.Select(t =>
         {
             var shifts = TimesheetService.GetTotalShiftsInMonth(t.Id, _year, _month);
             return new PayrollRow
@@ -181,7 +237,7 @@ else
                 TeacherId = t.Id,
                 Name = t.FullName,
                 TotalShifts = shifts,
-                Pay = shifts * TeacherTimesheet.PayPerShift
+                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month)
             };
         }).ToList();
     }
@@ -189,7 +245,67 @@ else
     private void SelectTeacher(PayrollRow row)
     {
         _selectedTeacherId = row.TeacherId;
-        _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month);
+        _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month)
+            .Select(r => new TimesheetDetailRow
+            {
+                WorkDate = r.WorkDate,
+                ShiftNumber = r.ShiftNumber,
+                IsPresent = r.IsPresent,
+                Note = r.Note,
+                ShiftPay = r.IsPresent
+                    ? TimesheetService.GetShiftPay(row.TeacherId, r.WorkDate, r.ShiftNumber)
+                    : 0
+            })
+            .ToList();
+    }
+
+    private void OpenPaySettings()
+    {
+        if (_teachers.Count == 0)
+        {
+            _message = "Chưa có giáo viên để cấu hình lương.";
+            return;
+        }
+
+        if (_selectedTeacherId is int teacherId)
+        {
+            _paySettingsTeacherId = teacherId;
+        }
+        else if (_paySettingsTeacherId <= 0)
+        {
+            _paySettingsTeacherId = _teachers[0].Id;
+        }
+
+        LoadPaySettings();
+        _showPaySettings = true;
+    }
+
+    private void ClosePaySettings() => _showPaySettings = false;
+
+    private void LoadPaySettings()
+    {
+        if (_paySettingsTeacherId <= 0) return;
+        _paySettings = TimesheetService.GetClassPaySettings(_paySettingsTeacherId);
+    }
+
+    private void SavePaySetting(TeacherClassPaySetting item)
+    {
+        try
+        {
+            TimesheetService.SaveClassPayRate(_paySettingsTeacherId, item.ClassId, item.PayPerShift);
+            _message = $"Đã lưu lương/ca cho lớp {item.ClassName}.";
+            LoadPaySettings();
+            LoadPayroll();
+            if (_selectedTeacherId == _paySettingsTeacherId)
+            {
+                var row = _payrollRows.FirstOrDefault(r => r.TeacherId == _paySettingsTeacherId);
+                if (row is not null) SelectTeacher(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
     }
 
     private void OpenMakeupTimesheet()
@@ -214,7 +330,10 @@ else
         _showMakeupTimesheet = false;
         LoadPayroll();
         if (_selectedTeacherId is not null)
-            _detailRecords = TimesheetService.GetTimesheetByMonth(_selectedTeacherId.Value, _year, _month);
+        {
+            var row = _payrollRows.FirstOrDefault(r => r.TeacherId == _selectedTeacherId);
+            if (row is not null) SelectTeacher(row);
+        }
     }
 
     private void LoadMakeupStudents()
@@ -271,5 +390,14 @@ else
         public string Name { get; set; } = "";
         public int TotalShifts { get; set; }
         public decimal Pay { get; set; }
+    }
+
+    private class TimesheetDetailRow
+    {
+        public DateTime WorkDate { get; set; }
+        public int ShiftNumber { get; set; }
+        public bool IsPresent { get; set; }
+        public string? Note { get; set; }
+        public decimal ShiftPay { get; set; }
     }
 }

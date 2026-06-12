@@ -13,8 +13,9 @@ public static class DatabaseInitializer
             ping.ExecuteScalar();
         }
 
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
+        using (var createEvaluations = connection.CreateCommand())
+        {
+            createEvaluations.CommandText = @"
 CREATE TABLE IF NOT EXISTS StudentEvaluations (
     Id BIGSERIAL PRIMARY KEY,
     StudentId BIGINT NOT NULL,
@@ -24,6 +25,20 @@ CREATE TABLE IF NOT EXISTS StudentEvaluations (
     Comment TEXT NULL,
     CreatedAt TEXT NOT NULL
 );";
-        command.ExecuteNonQuery();
+            createEvaluations.ExecuteNonQuery();
+        }
+
+        using (var createPayRates = connection.CreateCommand())
+        {
+            createPayRates.CommandText = @"
+CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
+    Id BIGSERIAL PRIMARY KEY,
+    TeacherId BIGINT NOT NULL,
+    ClassId BIGINT NOT NULL,
+    PayPerShift NUMERIC(18,2) NOT NULL DEFAULT 100000,
+    CONSTRAINT UQ_TeacherClassPayRates_TeacherId_ClassId UNIQUE (TeacherId, ClassId)
+);";
+            createPayRates.ExecuteNonQuery();
+        }
     }
 }
