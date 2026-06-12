@@ -1,3 +1,4 @@
+using System.Data.Common;
 using NhatDucSoftware.Core.Data;
 using NhatDucSoftware.Core.Models;
 
@@ -36,10 +37,12 @@ public class ReportService
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp))::int AS RevenueYear,
+SELECT CAST(LEFT(PaymentDate::text, 4) AS INTEGER) AS RevenueYear,
        COALESCE(SUM(Amount), 0) AS TotalRevenue
 FROM RevenueLedger
-GROUP BY EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp))
+WHERE LENGTH(PaymentDate::text) >= 4
+  AND LEFT(PaymentDate::text, 4) ~ '^\d{4}$'
+GROUP BY LEFT(PaymentDate::text, 4)
 ORDER BY RevenueYear DESC;";
 
         using var reader = command.ExecuteReader();
@@ -47,8 +50,8 @@ ORDER BY RevenueYear DESC;";
         {
             result.Add(new RevenueByYearStat
             {
-                Year = reader.GetInt32(0),
-                TotalRevenue = reader.GetDecimal(1)
+                Year = Convert.ToInt32(reader.GetValue(0)),
+                TotalRevenue = ReadDecimal(reader, 1)
             });
         }
 
@@ -64,27 +67,28 @@ ORDER BY RevenueYear DESC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT EXTRACT(MONTH FROM CAST(PaymentDate AS timestamp))::int AS Month,
+SELECT CAST(SUBSTRING(PaymentDate::text FROM 6 FOR 2) AS INTEGER) AS Month,
        COALESCE(SUM(Amount), 0) AS TotalRevenue
 FROM RevenueLedger
-WHERE EXTRACT(YEAR FROM CAST(PaymentDate AS timestamp)) = @year
-GROUP BY EXTRACT(MONTH FROM CAST(PaymentDate AS timestamp))
+WHERE LEFT(PaymentDate::text, 4) = @yearText
+  AND LENGTH(PaymentDate::text) >= 7
+  AND SUBSTRING(PaymentDate::text FROM 6 FOR 2) ~ '^\d{2}$'
+GROUP BY SUBSTRING(PaymentDate::text FROM 6 FOR 2)
 ORDER BY Month;";
-        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@yearText", year.ToString());
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var month = reader.GetInt32(0);
+            var month = Convert.ToInt32(reader.GetValue(0));
             result.Add(new RevenueByMonthStat
             {
                 Month = month,
                 MonthName = GetMonthName(month),
-                TotalRevenue = reader.GetDecimal(1)
+                TotalRevenue = ReadDecimal(reader, 1)
             });
         }
 
-        // Ensure all 12 months are present
         for (int i = 1; i <= 12; i++)
         {
             if (!result.Any(x => x.Month == i))
@@ -99,6 +103,16 @@ ORDER BY Month;";
         }
 
         return result.OrderBy(x => x.Month).ToList();
+    }
+
+    private static decimal ReadDecimal(DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+        {
+            return 0;
+        }
+
+        return Convert.ToDecimal(reader.GetValue(ordinal));
     }
 
     private static string GetMonthName(int month)

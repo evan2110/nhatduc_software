@@ -14,6 +14,11 @@ else
 {
     <h1 class="page-title">Báo cáo</h1>
 
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-danger">@_message</div>
+    }
+
     <div class="card">
         <div class="summary-box">
             <span>Tổng học viên: @_summary.TotalStudents</span>
@@ -94,14 +99,23 @@ else
     private List<RevenueByMonthStat> _revenueByMonth = new();
     private List<int> _years = new();
     private int _selectedYear = DateTime.Now.Year;
+    private string? _message;
 
     protected override void OnInitialized()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
-        _summary = ReportService.GetSummary();
-        _revenueByYear = ReportService.GetRevenueByYear();
-        BindYears();
-        LoadMonthly();
+
+        try
+        {
+            _summary = ReportService.GetSummary();
+            _revenueByYear = ReportService.GetRevenueByYear();
+            BindYears();
+            LoadMonthly();
+        }
+        catch (Exception ex)
+        {
+            _message = $"Không thể tải báo cáo: {ex.Message}";
+        }
     }
 
     private void BindYears()
@@ -122,6 +136,15 @@ else
 
     private void LoadMonthly()
     {
-        _revenueByMonth = ReportService.GetRevenueByMonth(_selectedYear);
+        try
+        {
+            _revenueByMonth = ReportService.GetRevenueByMonth(_selectedYear);
+            _message = null;
+        }
+        catch (Exception ex)
+        {
+            _revenueByMonth = new();
+            _message = $"Không thể tải doanh thu theo tháng: {ex.Message}";
+        }
     }
 }
