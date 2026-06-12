@@ -71,7 +71,7 @@ else
                     var height = (double)(item.TotalRevenue / maxRev) * 180;
                     <div class="chart-bar-group">
                         <div class="chart-bar" style="height:@(height)px" title="@MoneyHelper.FormatCurrency(item.TotalRevenue)"></div>
-                        <span class="chart-label">T@item.Month</span>
+                        <span class="chart-label">T@(item.Month)</span>
                     </div>
                 }
             </div>
