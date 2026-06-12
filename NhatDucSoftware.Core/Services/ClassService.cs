@@ -16,7 +16,9 @@ public class ClassService
         command.CommandText = @"
 SELECT c.Id,
        c.ClassName,
+       c.CourseId,
        co.Name,
+       c.TeacherId,
        COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id) AS CurrentSize,
        c.Status
@@ -32,10 +34,12 @@ ORDER BY c.Id ASC;";
             {
                 Id = reader.GetInt32(0),
                 ClassName = reader.GetString(1),
-                CourseCode = reader.GetString(2),
-                TeacherName = reader.GetString(3),
-                CurrentSize = reader.GetInt32(4),
-                Status = reader.GetString(5)
+                CourseId = reader.GetInt32(2),
+                CourseCode = reader.GetString(3),
+                TeacherId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                TeacherName = reader.GetString(5),
+                CurrentSize = reader.GetInt32(6),
+                Status = reader.GetString(7)
             });
         }
 
@@ -50,7 +54,7 @@ ORDER BY c.Id ASC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT c.Id, c.ClassName, co.Name, COALESCE(t.FullName, ''),
+SELECT c.Id, c.ClassName, c.CourseId, co.Name, c.TeacherId, COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id),
        c.Status
 FROM Classes c
@@ -67,10 +71,12 @@ ORDER BY c.Id ASC;";
             {
                 Id = reader.GetInt32(0),
                 ClassName = reader.GetString(1),
-                CourseCode = reader.GetString(2),
-                TeacherName = reader.GetString(3),
-                CurrentSize = reader.GetInt32(4),
-                Status = reader.GetString(5)
+                CourseId = reader.GetInt32(2),
+                CourseCode = reader.GetString(3),
+                TeacherId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                TeacherName = reader.GetString(5),
+                CurrentSize = reader.GetInt32(6),
+                Status = reader.GetString(7)
             });
         }
 

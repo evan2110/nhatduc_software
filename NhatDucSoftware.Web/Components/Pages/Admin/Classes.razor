@@ -189,6 +189,8 @@ else
     {
         _selectedClassId = c.Id;
         _className = c.ClassName;
+        _courseId = c.CourseId;
+        _teacherId = c.TeacherId ?? 0;
         _classStudents = ClassService.GetStudentsInClass(c.Id);
         _selectedStudentInClassId = null;
     }
