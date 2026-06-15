@@ -613,7 +613,10 @@ namespace NhatDucSoftware
             var lblDate = new Label { Text = "Ngày học", Location = new Point(320, 10), Size = new Size(120, 20) };
             var dtpDate = new DateTimePicker { Location = new Point(320, 32), Size = new Size(180, 23), Format = DateTimePickerFormat.Short };
 
-            var btnSave = new Button { Text = "Lưu điểm danh bù", Location = new Point(510, 31), Size = new Size(370, 25), Enabled = false };
+            var lblShift = new Label { Text = "Ca học", Location = new Point(510, 10), Size = new Size(120, 20) };
+            var cmbShift = new ComboBox { Location = new Point(510, 32), Size = new Size(240, 23), DropDownStyle = ComboBoxStyle.DropDownList };
+
+            var btnSave = new Button { Text = "Lưu điểm danh bù", Location = new Point(760, 31), Size = new Size(120, 25), Enabled = false };
 
             var dgv = new DataGridView
             {
@@ -636,6 +639,32 @@ namespace NhatDucSoftware
                 btnSave.Enabled = rows is { Count: > 0 } && rows.All(x => IsValidAttendanceStatus(x.Status));
             }
 
+            void LoadShiftsForMakeup()
+            {
+                if (cmbClass.SelectedValue is not int classId)
+                {
+                    cmbShift.DataSource = null;
+                    cmbShift.Enabled = false;
+                    return;
+                }
+
+                var shifts = _attendanceService.GetShiftsForClassOnDate(classId, dtpDate.Value.Date);
+                cmbShift.DataSource = null;
+                if (shifts.Count == 0)
+                {
+                    cmbShift.Enabled = false;
+                    return;
+                }
+
+                cmbShift.Enabled = true;
+                cmbShift.DataSource = shifts
+                    .Select(s => new { Value = s, Text = TeacherTimesheet.GetShiftDescription(s) })
+                    .ToList();
+                cmbShift.DisplayMember = "Text";
+                cmbShift.ValueMember = "Value";
+                cmbShift.SelectedIndex = 0;
+            }
+
             void LoadStudentsForMakeup()
             {
                 if (cmbClass.SelectedValue is not int classId)
@@ -645,7 +674,15 @@ namespace NhatDucSoftware
                     return;
                 }
 
-                var savedRecords = _attendanceService.GetAttendanceByClassAndDate(classId, dtpDate.Value.Date);
+                LoadShiftsForMakeup();
+                if (cmbShift.SelectedValue is not int shiftNumber || shiftNumber <= 0)
+                {
+                    dgv.DataSource = null;
+                    btnSave.Enabled = false;
+                    return;
+                }
+
+                var savedRecords = _attendanceService.GetAttendanceByClassDateAndShift(classId, dtpDate.Value.Date, shiftNumber);
                 var students = _attendanceService.GetStudentsByClass(classId)
                     .Select(x => new AttendanceRow
                     {
@@ -671,6 +708,7 @@ namespace NhatDucSoftware
 
             cmbClass.SelectedIndexChanged += (_, _) => LoadStudentsForMakeup();
             dtpDate.ValueChanged += (_, _) => LoadStudentsForMakeup();
+            cmbShift.SelectedIndexChanged += (_, _) => LoadStudentsForMakeup();
 
             dgv.CurrentCellDirtyStateChanged += (_, _) =>
             {
@@ -701,6 +739,12 @@ namespace NhatDucSoftware
                 if (cmbClass.SelectedValue is not int classId)
                 {
                     MessageBox.Show("Vui lòng chọn lớp.");
+                    return;
+                }
+
+                if (cmbShift.SelectedValue is not int shiftNumber || shiftNumber <= 0)
+                {
+                    MessageBox.Show("Vui lòng chọn ca học.");
                     return;
                 }
 
@@ -743,8 +787,8 @@ namespace NhatDucSoftware
                 }
 
                 var records = rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
-                _attendanceService.SaveAttendance(classId, teacherId.Value, dtpDate.Value.Date, records);
-                MessageBox.Show("Đã lưu điểm danh bù.");
+                _attendanceService.SaveAttendance(classId, teacherId.Value, dtpDate.Value.Date, shiftNumber, records);
+                MessageBox.Show($"Đã lưu điểm danh bù ca {shiftNumber}.");
                 UpdateSaveButtonState();
             };
 
@@ -752,6 +796,8 @@ namespace NhatDucSoftware
             form.Controls.Add(cmbClass);
             form.Controls.Add(lblDate);
             form.Controls.Add(dtpDate);
+            form.Controls.Add(lblShift);
+            form.Controls.Add(cmbShift);
             form.Controls.Add(btnSave);
             form.Controls.Add(dgv);
 
@@ -2417,7 +2463,25 @@ namespace NhatDucSoftware
                 return;
             }
 
-            var savedRecords = _attendanceService.GetAttendanceByClassAndDate(classId, dtpSessionDate.Value);
+            if (_currentUser.TeacherId is not int teacherId)
+            {
+                dgvAttendance.DataSource = null;
+                btnSaveAttendance.Enabled = false;
+                return;
+            }
+
+            var sessionDate = dtpSessionDate.Value.Date;
+            var shifts = _attendanceService.GetTeacherShiftsForClassOnDate(classId, teacherId, sessionDate);
+            PopulateShiftAttendanceCombo(shifts);
+
+            if (cmbShiftAttendance.SelectedValue is not int shiftNumber || shiftNumber <= 0)
+            {
+                dgvAttendance.DataSource = null;
+                UpdateTeacherAttendanceSaveButtonState();
+                return;
+            }
+
+            var savedRecords = _attendanceService.GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
             var students = _attendanceService.GetStudentsByClass(classId)
                 .Select(x => new AttendanceRow
                 {
@@ -2431,6 +2495,28 @@ namespace NhatDucSoftware
             dgvAttendance.DataSource = students;
             ApplyAttendanceHeaders();
             UpdateTeacherAttendanceSaveButtonState();
+        }
+
+        private void PopulateShiftAttendanceCombo(List<int> shifts)
+        {
+            var selectedShift = cmbShiftAttendance.SelectedValue is int current && shifts.Contains(current)
+                ? current
+                : shifts.FirstOrDefault();
+
+            cmbShiftAttendance.DataSource = null;
+            if (shifts.Count == 0)
+            {
+                cmbShiftAttendance.Enabled = false;
+                return;
+            }
+
+            cmbShiftAttendance.Enabled = true;
+            cmbShiftAttendance.DataSource = shifts
+                .Select(s => new { Value = s, Text = TeacherTimesheet.GetShiftDescription(s) })
+                .ToList();
+            cmbShiftAttendance.DisplayMember = "Text";
+            cmbShiftAttendance.ValueMember = "Value";
+            cmbShiftAttendance.SelectedValue = selectedShift;
         }
 
         private void cmbAttendanceFilter_Changed(object? sender, EventArgs e)
@@ -2449,6 +2535,20 @@ namespace NhatDucSoftware
             if (_currentUser.Role == "Teacher" && dtpSessionDate.Value.Date != DateTime.Today)
             {
                 MessageBox.Show("Tài khoản giáo viên chỉ được điểm danh trong ngày hôm nay.");
+                return;
+            }
+
+            if (cmbShiftAttendance.SelectedValue is not int shiftNumber || shiftNumber <= 0)
+            {
+                MessageBox.Show("Vui lòng chọn ca học.");
+                return;
+            }
+
+            var teacherShifts = _attendanceService.GetTeacherShiftsForClassOnDate(
+                classId, _currentUser.TeacherId.Value, dtpSessionDate.Value.Date);
+            if (!teacherShifts.Contains(shiftNumber))
+            {
+                MessageBox.Show("Bạn không được phép điểm danh ca này.");
                 return;
             }
 
@@ -2478,8 +2578,8 @@ namespace NhatDucSoftware
             }
 
             var records = rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
-            _attendanceService.SaveAttendance(classId, _currentUser.TeacherId.Value, dtpSessionDate.Value, records);
-            MessageBox.Show("Đã lưu điểm danh.");
+            _attendanceService.SaveAttendance(classId, _currentUser.TeacherId.Value, dtpSessionDate.Value, shiftNumber, records);
+            MessageBox.Show($"Đã lưu điểm danh ca {shiftNumber}.");
             UpdateTeacherAttendanceSaveButtonState();
         }
 

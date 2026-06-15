@@ -40,5 +40,54 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
 );";
             createPayRates.ExecuteNonQuery();
         }
+
+        MigrateAttendanceSessionsShiftNumber(connection);
+    }
+
+    private static void MigrateAttendanceSessionsShiftNumber(System.Data.Common.DbConnection connection)
+    {
+        using (var addColumn = connection.CreateCommand())
+        {
+            addColumn.CommandText = @"
+ALTER TABLE AttendanceSessions
+ADD COLUMN IF NOT EXISTS ShiftNumber INTEGER NOT NULL DEFAULT 1;";
+            addColumn.ExecuteNonQuery();
+        }
+
+        using (var dedupeRecords = connection.CreateCommand())
+        {
+            dedupeRecords.CommandText = @"
+DELETE FROM AttendanceRecords
+WHERE SessionId IN (
+    SELECT s.Id
+    FROM AttendanceSessions s
+    WHERE s.Id NOT IN (
+        SELECT DISTINCT ON (ClassId, SessionDate) Id
+        FROM AttendanceSessions
+        ORDER BY ClassId, SessionDate, Id DESC
+    )
+);";
+            dedupeRecords.ExecuteNonQuery();
+        }
+
+        using (var dedupeSessions = connection.CreateCommand())
+        {
+            dedupeSessions.CommandText = @"
+DELETE FROM AttendanceSessions
+WHERE Id NOT IN (
+    SELECT DISTINCT ON (ClassId, SessionDate) Id
+    FROM AttendanceSessions
+    ORDER BY ClassId, SessionDate, Id DESC
+);";
+            dedupeSessions.ExecuteNonQuery();
+        }
+
+        using (var createIndex = connection.CreateCommand())
+        {
+            createIndex.CommandText = @"
+CREATE UNIQUE INDEX IF NOT EXISTS UQ_AttendanceSessions_ClassId_SessionDate_ShiftNumber
+ON AttendanceSessions(ClassId, SessionDate, ShiftNumber);";
+            createIndex.ExecuteNonQuery();
+        }
     }
 }

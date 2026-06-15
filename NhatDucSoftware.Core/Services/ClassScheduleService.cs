@@ -141,4 +141,57 @@ VALUES(@classId, @week, @day, @shift);";
 
         return result.OrderBy(x => x.Item2).ThenBy(x => x.Item3).ToList();
     }
+
+    /// <summary>
+    /// Lấy các ca học của lớp trong ngày chỉ định (theo lịch tuần).
+    /// </summary>
+    public List<int> GetShiftsForClassOnDate(int classId, DateTime date)
+    {
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(date);
+        var scheduleDay = ToScheduleDayOfWeek(date);
+        return GetScheduleForWeek(classId, monday)
+            .Where(s => s.DayOfWeek == scheduleDay)
+            .Select(s => s.ShiftNumber)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Lấy các ca giáo viên được điểm danh: lớp thuộc GV và có lịch học ca đó trong ngày.
+    /// </summary>
+    public List<int> GetTeacherShiftsForClassOnDate(int classId, int teacherId, DateTime date)
+    {
+        if (!IsTeacherAssignedToClass(classId, teacherId))
+        {
+            return new List<int>();
+        }
+
+        return GetShiftsForClassOnDate(classId, date);
+    }
+
+    private static bool IsTeacherAssignedToClass(int classId, int teacherId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM Classes WHERE Id = @classId AND TeacherId = @teacherId;";
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    private static int ToScheduleDayOfWeek(DateTime date) => date.DayOfWeek switch
+    {
+        DayOfWeek.Monday => 0,
+        DayOfWeek.Tuesday => 1,
+        DayOfWeek.Wednesday => 2,
+        DayOfWeek.Thursday => 3,
+        DayOfWeek.Friday => 4,
+        DayOfWeek.Saturday => 5,
+        DayOfWeek.Sunday => 6,
+        _ => 0
+    };
 }

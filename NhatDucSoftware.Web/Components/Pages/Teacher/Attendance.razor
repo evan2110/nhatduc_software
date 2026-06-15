@@ -5,6 +5,7 @@
 @inject ClassService ClassService
 @inject PaymentService PaymentService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
 
 <PageTitle>Điểm danh</PageTitle>
 
@@ -24,39 +25,55 @@ else
     <div class="card">
         <div class="toolbar">
             <label>Lớp</label>
-            <select @bind="_classId" @bind:after="LoadStudents">
+            <select @bind="_classId" @bind:after="OnFilterChanged">
                 @foreach (var c in _classes)
                 {
                     <option value="@c.Id">@c.ClassName</option>
                 }
             </select>
             <label>Ngày</label>
-            <input type="date" @bind="_sessionDate" @bind:after="LoadStudents" min="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            <input type="date" @bind="_sessionDate" @bind:after="OnFilterChanged" min="@DateTime.Today.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            <label>Ca</label>
+            <select @bind="_shiftNumber" @bind:after="LoadStudents" disabled="@(_shifts.Count == 0)">
+                @foreach (var shift in _shifts)
+                {
+                    <option value="@shift">@TeacherTimesheet.GetShiftDescription(shift)</option>
+                }
+            </select>
             <button class="btn btn-primary" @onclick="SaveAttendance" disabled="@(!CanSave)">Lưu điểm danh</button>
         </div>
-        <p class="text-muted">Giáo viên chỉ được điểm danh trong ngày hôm nay. Nhập C (có mặt) hoặc V (vắng).</p>
+        <p class="text-muted">Giáo viên chỉ được điểm danh trong ngày hôm nay, theo ca lớp có học và do bạn phụ trách. Nhập C (có mặt) hoặc V (vắng).</p>
 
-        <div class="table-responsive">
-        <table class="data-table compact">
-            <thead><tr><th>Học viên</th><th>Điểm danh (C/V)</th></tr></thead>
-            <tbody>
-                @foreach (var row in _rows)
-                {
-                    <tr>
-                        <td>@row.StudentName</td>
-                        <td><input class="input-attendance" @bind="row.Status" maxlength="1" /></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        </div>
+        @if (_shifts.Count == 0)
+        {
+            <p class="text-muted">Lớp này không có ca học nào trong ngày đã chọn.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+            <table class="data-table compact">
+                <thead><tr><th>Học viên</th><th>Điểm danh (C/V)</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _rows)
+                    {
+                        <tr>
+                            <td>@row.StudentName</td>
+                            <td><input class="input-attendance" @bind="row.Status" maxlength="1" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
     </div>
 }
 
 @code {
     private List<ClassInfo> _classes = new();
     private List<AttendanceRow> _rows = new();
+    private List<int> _shifts = new();
     private int _classId;
+    private int _shiftNumber;
     private DateTime _sessionDate = DateTime.Today;
     private string? _message;
     private bool _isError;
@@ -66,12 +83,46 @@ else
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
         if (Session.CurrentUser?.TeacherId is int teacherId)
             _classes = ClassService.GetClassesByTeacher(teacherId);
-        if (_classes.Count > 0) { _classId = _classes[0].Id; LoadStudents(); }
+        if (_classes.Count > 0) { _classId = _classes[0].Id; OnFilterChanged(); }
+    }
+
+    private void OnFilterChanged()
+    {
+        LoadShifts();
+        LoadStudents();
+    }
+
+    private void LoadShifts()
+    {
+        _message = null;
+        if (Session.CurrentUser?.TeacherId is not int teacherId)
+        {
+            _shifts = new();
+            _rows = new();
+            return;
+        }
+
+        _shifts = AttendanceService.GetTeacherShiftsForClassOnDate(_classId, teacherId, _sessionDate);
+        if (_shifts.Count == 0)
+        {
+            _shiftNumber = 0;
+            _rows = new();
+            return;
+        }
+
+        if (!_shifts.Contains(_shiftNumber))
+            _shiftNumber = _shifts[0];
     }
 
     private void LoadStudents()
     {
-        var saved = AttendanceService.GetAttendanceByClassAndDate(_classId, _sessionDate);
+        if (_shiftNumber <= 0)
+        {
+            _rows = new();
+            return;
+        }
+
+        var saved = AttendanceService.GetAttendanceByClassDateAndShift(_classId, _sessionDate, _shiftNumber);
         _rows = AttendanceService.GetStudentsByClass(_classId)
             .Select(x => new AttendanceRow
             {
@@ -81,7 +132,7 @@ else
             }).ToList();
     }
 
-    private bool CanSave => _rows.Count > 0 && _rows.All(r => IsValid(r.Status));
+    private bool CanSave => _shiftNumber > 0 && _rows.Count > 0 && _rows.All(r => IsValid(r.Status));
 
     private static bool IsValid(string? s)
     {
@@ -93,9 +144,23 @@ else
     {
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
 
+        if (_shiftNumber <= 0)
+        {
+            _message = "Vui lòng chọn ca học.";
+            _isError = true;
+            return;
+        }
+
         if (_sessionDate.Date != DateTime.Today)
         {
             _message = "Tài khoản giáo viên chỉ được điểm danh trong ngày hôm nay.";
+            _isError = true;
+            return;
+        }
+
+        if (!_shifts.Contains(_shiftNumber))
+        {
+            _message = "Bạn không được phép điểm danh ca này.";
             _isError = true;
             return;
         }
@@ -116,8 +181,8 @@ else
         }
 
         var records = _rows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
-        AttendanceService.SaveAttendance(_classId, teacherId, _sessionDate, records);
-        _message = "Đã lưu điểm danh.";
+        AttendanceService.SaveAttendance(_classId, teacherId, _sessionDate, _shiftNumber, records);
+        _message = $"Đã lưu điểm danh ca {_shiftNumber}.";
         _isError = false;
     }
 }

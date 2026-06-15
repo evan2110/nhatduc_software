@@ -134,8 +134,10 @@
             tabTeacherAttendance = new TabPage();
             lblAttendanceClass = new Label();
             lblAttendanceDate = new Label();
+            lblAttendanceShift = new Label();
             cmbClassAttendance = new ComboBox();
             dtpSessionDate = new DateTimePicker();
+            cmbShiftAttendance = new ComboBox();
             dgvAttendance = new DataGridView();
             btnSaveAttendance = new Button();
             tabTeacherEvaluation = new TabPage();
@@ -1370,8 +1372,10 @@
             // 
             tabTeacherAttendance.Controls.Add(lblAttendanceClass);
             tabTeacherAttendance.Controls.Add(lblAttendanceDate);
+            tabTeacherAttendance.Controls.Add(lblAttendanceShift);
             tabTeacherAttendance.Controls.Add(cmbClassAttendance);
             tabTeacherAttendance.Controls.Add(dtpSessionDate);
+            tabTeacherAttendance.Controls.Add(cmbShiftAttendance);
             tabTeacherAttendance.Controls.Add(dgvAttendance);
             tabTeacherAttendance.Controls.Add(btnSaveAttendance);
             tabTeacherAttendance.Location = new Point(4, 24);
@@ -1398,6 +1402,15 @@
             lblAttendanceDate.Text = "Ngày học";
             lblAttendanceDate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
+            // lblAttendanceShift
+            // 
+            lblAttendanceShift.Location = new Point(510, 2);
+            lblAttendanceShift.Name = "lblAttendanceShift";
+            lblAttendanceShift.Size = new Size(120, 15);
+            lblAttendanceShift.TabIndex = 7;
+            lblAttendanceShift.Text = "Ca học";
+            lblAttendanceShift.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
             // cmbClassAttendance
             // 
             cmbClassAttendance.Location = new Point(10, 20);
@@ -1415,6 +1428,16 @@
             dtpSessionDate.TabIndex = 3;
             dtpSessionDate.ValueChanged += cmbAttendanceFilter_Changed;
             dtpSessionDate.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            // 
+            // cmbShiftAttendance
+            // 
+            cmbShiftAttendance.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbShiftAttendance.Location = new Point(510, 20);
+            cmbShiftAttendance.Name = "cmbShiftAttendance";
+            cmbShiftAttendance.Size = new Size(240, 23);
+            cmbShiftAttendance.TabIndex = 8;
+            cmbShiftAttendance.SelectedIndexChanged += cmbAttendanceFilter_Changed;
+            cmbShiftAttendance.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             // 
             // dgvAttendance
             // 
@@ -1728,6 +1751,8 @@
         private Label lblTimesheetSummary;
         private Label lblAttendanceClass;
         private Label lblAttendanceDate;
+        private Label lblAttendanceShift;
+        private ComboBox cmbShiftAttendance;
         private Label lblEvaluateClass;
         private Label lblEvaluateStudent;
         private Label lblEvaluateScore;

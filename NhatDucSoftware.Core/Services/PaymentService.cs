@@ -76,14 +76,7 @@ WHERE ar.StudentId = @studentId
   AND ar.Status = 'C'
   AND (@classId = 0 OR ats.ClassId = @classId)
   AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
-  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-  AND ats.Id = (
-      SELECT s2.Id
-      FROM AttendanceSessions s2
-      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
-      ORDER BY s2.Id DESC
-      LIMIT 1
-  );";
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric;";
         command.Parameters.AddWithValue("@studentId", studentId);
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
@@ -188,12 +181,7 @@ SELECT
     COALESCE(SUM(CASE WHEN Status = 'V' THEN 1 ELSE 0 END), 0) AS Absent
 FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-WHERE ar.StudentId = @studentId
-  AND ats.Id = (
-      SELECT s2.Id FROM AttendanceSessions s2
-      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
-      Order BY s2.Id DESC LIMIT 1
-  );";
+WHERE ar.StudentId = @studentId;";
         command.Parameters.AddWithValue("@studentId", studentId);
 
         using var reader = command.ExecuteReader();
@@ -214,17 +202,12 @@ WHERE ar.StudentId = @studentId
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT ats.SessionDate, c.ClassName, ar.Status
+SELECT ats.SessionDate, c.ClassName, ats.ShiftNumber, ar.Status
 FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
 INNER JOIN Classes c ON c.Id = ats.ClassId
 WHERE ar.StudentId = @studentId
-  AND ats.Id = (
-      SELECT s2.Id FROM AttendanceSessions s2
-      WHERE s2.ClassId = ats.ClassId AND s2.SessionDate = ats.SessionDate
-      ORDER BY s2.Id DESC LIMIT 1
-  )
-ORDER BY ats.SessionDate DESC;";
+ORDER BY ats.SessionDate DESC, ats.ShiftNumber;";
         command.Parameters.AddWithValue("@studentId", studentId);
 
         var results = new List<AttendanceDetailRow>();
@@ -235,7 +218,8 @@ ORDER BY ats.SessionDate DESC;";
             {
                 Ngay = reader2.GetString(0),
                 Lop = reader2.GetString(1),
-                TrangThai = reader2.GetString(2) == "C" ? "Có mặt" : "Vắng"
+                Ca = reader2.GetInt32(2),
+                TrangThai = reader2.GetString(3) == "C" ? "Có mặt" : "Vắng"
             });
         }
         return results;
@@ -633,6 +617,7 @@ public class AttendanceDetailRow
 {
     public string Ngay { get; set; } = "";
     public string Lop { get; set; } = "";
+    public int Ca { get; set; }
     public string TrangThai { get; set; } = "";
 }
 

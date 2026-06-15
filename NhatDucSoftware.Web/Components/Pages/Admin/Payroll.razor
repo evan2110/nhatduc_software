@@ -7,6 +7,7 @@
 @inject ClassService ClassService
 @inject PaymentService PaymentService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
 
 <PageTitle>Ngày công</PageTitle>
 
@@ -35,7 +36,7 @@ else
             </select>
             <button class="btn btn-secondary" @onclick="OpenPaySettings">Cài đặt lương/ca</button>
             <button class="btn btn-secondary" @onclick="OpenMakeupTimesheet" disabled="@(_selectedTeacherId is null)">Chấm công bù GV</button>
-            <button class="btn btn-secondary" @onclick="() => _showMakeupAttendance = true">Điểm danh bù HS</button>
+            <button class="btn btn-secondary" @onclick="OpenMakeupAttendance">Điểm danh bù HS</button>
         </div>
 
         <div class="split-grid">
@@ -163,14 +164,21 @@ else
                 <h3>Điểm danh bù học sinh (Admin)</h3>
                 <div class="toolbar">
                     <label>Lớp</label>
-                    <select @bind="_makeupClassId" @bind:after="LoadMakeupStudents">
+                    <select @bind="_makeupClassId" @bind:after="OnMakeupAttendanceFilterChanged">
                         @foreach (var c in _classes)
                         {
                             <option value="@c.Id">@c.ClassName</option>
                         }
                     </select>
                     <label>Ngày</label>
-                    <input type="date" @bind="_makeupAttDate" @bind:after="LoadMakeupStudents" />
+                    <input type="date" @bind="_makeupAttDate" @bind:after="OnMakeupAttendanceFilterChanged" />
+                    <label>Ca</label>
+                    <select @bind="_makeupAttShift" @bind:after="LoadMakeupStudents" disabled="@(_makeupAttShifts.Count == 0)">
+                        @foreach (var shift in _makeupAttShifts)
+                        {
+                            <option value="@shift">@TeacherTimesheet.GetShiftDescription(shift)</option>
+                        }
+                    </select>
                     <button class="btn btn-primary" @onclick="SaveMakeupAttendance" disabled="@(!CanSaveMakeupAttendance)">Lưu điểm danh bù</button>
                 </div>
                 <div class="table-responsive">
@@ -216,6 +224,8 @@ else
     private bool _showMakeupAttendance;
     private int _makeupClassId;
     private DateTime _makeupAttDate = DateTime.Today.AddDays(-1);
+    private int _makeupAttShift;
+    private List<int> _makeupAttShifts = new();
 
     protected override void OnInitialized()
     {
@@ -315,6 +325,21 @@ else
         _showMakeupTimesheet = true;
     }
 
+    private void OpenMakeupAttendance()
+    {
+        if (_classes.Count == 0)
+        {
+            _message = "Chưa có lớp để điểm danh bù.";
+            return;
+        }
+
+        if (_makeupClassId <= 0)
+            _makeupClassId = _classes[0].Id;
+
+        _showMakeupAttendance = true;
+        OnMakeupAttendanceFilterChanged();
+    }
+
     private void SaveMakeupTimesheet()
     {
         if (_selectedTeacherId is null) return;
@@ -336,9 +361,34 @@ else
         }
     }
 
+    private void LoadMakeupShifts()
+    {
+        _makeupAttShifts = AttendanceService.GetShiftsForClassOnDate(_makeupClassId, _makeupAttDate);
+        if (_makeupAttShifts.Count == 0)
+        {
+            _makeupAttShift = 0;
+            return;
+        }
+
+        if (!_makeupAttShifts.Contains(_makeupAttShift))
+            _makeupAttShift = _makeupAttShifts[0];
+    }
+
+    private void OnMakeupAttendanceFilterChanged()
+    {
+        LoadMakeupShifts();
+        LoadMakeupStudents();
+    }
+
     private void LoadMakeupStudents()
     {
-        var saved = AttendanceService.GetAttendanceByClassAndDate(_makeupClassId, _makeupAttDate);
+        if (_makeupAttShift <= 0)
+        {
+            _makeupAttendanceRows = new();
+            return;
+        }
+
+        var saved = AttendanceService.GetAttendanceByClassDateAndShift(_makeupClassId, _makeupAttDate, _makeupAttShift);
         _makeupAttendanceRows = AttendanceService.GetStudentsByClass(_makeupClassId)
             .Select(x => new AttendanceRow
             {
@@ -349,7 +399,7 @@ else
     }
 
     private bool CanSaveMakeupAttendance =>
-        _makeupAttendanceRows.Count > 0 && _makeupAttendanceRows.All(x => IsValidStatus(x.Status));
+        _makeupAttShift > 0 && _makeupAttendanceRows.Count > 0 && _makeupAttendanceRows.All(x => IsValidStatus(x.Status));
 
     private static bool IsValidStatus(string? status)
     {
@@ -372,6 +422,18 @@ else
             return;
         }
 
+        if (_makeupAttShift <= 0)
+        {
+            _message = "Vui lòng chọn ca học.";
+            return;
+        }
+
+        if (!_makeupAttShifts.Contains(_makeupAttShift))
+        {
+            _message = "Lớp không có ca học này trong ngày đã chọn.";
+            return;
+        }
+
         if (PaymentService.IsFinalized(_makeupClassId, _makeupAttDate.Month, _makeupAttDate.Year))
         {
             _message = $"Lớp này đã được chốt số liệu cho tháng {_makeupAttDate.Month:D2}/{_makeupAttDate.Year}.";
@@ -379,8 +441,8 @@ else
         }
 
         var records = _makeupAttendanceRows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
-        AttendanceService.SaveAttendance(_makeupClassId, teacherId.Value, _makeupAttDate, records);
-        _message = "Đã lưu điểm danh bù.";
+        AttendanceService.SaveAttendance(_makeupClassId, teacherId.Value, _makeupAttDate, _makeupAttShift, records);
+        _message = $"Đã lưu điểm danh bù ca {_makeupAttShift}.";
         _showMakeupAttendance = false;
     }
 

@@ -4,6 +4,8 @@ namespace NhatDucSoftware.Core.Services;
 
 public class AttendanceService
 {
+    private readonly ClassScheduleService _scheduleService = new();
+
     public List<(int StudentId, string FullName)> GetStudentsByClass(int classId)
     {
         var result = new List<(int, string)>();
@@ -28,7 +30,17 @@ ORDER BY s.FullName;";
         return result;
     }
 
-    public Dictionary<int, string> GetAttendanceByClassAndDate(int classId, DateTime sessionDate)
+    public List<int> GetTeacherShiftsForClassOnDate(int classId, int teacherId, DateTime sessionDate)
+    {
+        return _scheduleService.GetTeacherShiftsForClassOnDate(classId, teacherId, sessionDate);
+    }
+
+    public List<int> GetShiftsForClassOnDate(int classId, DateTime sessionDate)
+    {
+        return _scheduleService.GetShiftsForClassOnDate(classId, sessionDate);
+    }
+
+    public Dictionary<int, string> GetAttendanceByClassDateAndShift(int classId, DateTime sessionDate, int shiftNumber)
     {
         var result = new Dictionary<int, string>();
         using var connection = DbContext.CreateConnection();
@@ -39,15 +51,12 @@ ORDER BY s.FullName;";
 SELECT ar.StudentId, ar.Status
 FROM AttendanceRecords ar
 INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-WHERE ats.Id = (
-    SELECT Id
-    FROM AttendanceSessions
-    WHERE ClassId = @classId AND SessionDate = @date
-    ORDER BY Id DESC
-    LIMIT 1
-);";
+WHERE ats.ClassId = @classId
+  AND ats.SessionDate = @date
+  AND ats.ShiftNumber = @shift;";
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@date", sessionDate.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("@shift", shiftNumber);
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
@@ -58,7 +67,7 @@ WHERE ats.Id = (
         return result;
     }
 
-    public void SaveAttendance(int classId, int teacherId, DateTime sessionDate, Dictionary<int, string> records)
+    public void SaveAttendance(int classId, int teacherId, DateTime sessionDate, int shiftNumber, Dictionary<int, string> records)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
@@ -72,38 +81,27 @@ WHERE ats.Id = (
             findSessionCmd.CommandText = @"
 SELECT Id
 FROM AttendanceSessions
-WHERE ClassId = @classId AND SessionDate = @date
-ORDER BY Id DESC
+WHERE ClassId = @classId AND SessionDate = @date AND ShiftNumber = @shift
 LIMIT 1;";
             findSessionCmd.Parameters.AddWithValue("@classId", classId);
             findSessionCmd.Parameters.AddWithValue("@date", sessionDate.ToString("yyyy-MM-dd"));
+            findSessionCmd.Parameters.AddWithValue("@shift", shiftNumber);
 
             var existingSessionId = findSessionCmd.ExecuteScalar();
             if (existingSessionId is not null && existingSessionId != DBNull.Value)
             {
                 sessionId = Convert.ToInt64(existingSessionId);
-
-                // Delete older duplicate sessions for same class+date
-                using var deleteOldCmd = connection.CreateCommand();
-                deleteOldCmd.Transaction = transaction;
-                deleteOldCmd.CommandText = @"DELETE FROM AttendanceRecords WHERE SessionId IN (
-    SELECT Id FROM AttendanceSessions WHERE ClassId = @classId AND SessionDate = @date AND Id <> @keepId
-);
-DELETE FROM AttendanceSessions WHERE ClassId = @classId AND SessionDate = @date AND Id <> @keepId;";
-                deleteOldCmd.Parameters.AddWithValue("@classId", classId);
-                deleteOldCmd.Parameters.AddWithValue("@date", sessionDate.ToString("yyyy-MM-dd"));
-                deleteOldCmd.Parameters.AddWithValue("@keepId", sessionId);
-                deleteOldCmd.ExecuteNonQuery();
             }
             else
             {
                 using var sessionCmd = connection.CreateCommand();
                 sessionCmd.Transaction = transaction;
-                sessionCmd.CommandText = @"INSERT INTO AttendanceSessions(ClassId, SessionDate, CreatedByTeacherId)
-VALUES(@classId, @date, @teacherId)
+                sessionCmd.CommandText = @"INSERT INTO AttendanceSessions(ClassId, SessionDate, ShiftNumber, CreatedByTeacherId)
+VALUES(@classId, @date, @shift, @teacherId)
 RETURNING Id;";
                 sessionCmd.Parameters.AddWithValue("@classId", classId);
                 sessionCmd.Parameters.AddWithValue("@date", sessionDate.ToString("yyyy-MM-dd"));
+                sessionCmd.Parameters.AddWithValue("@shift", shiftNumber);
                 sessionCmd.Parameters.AddWithValue("@teacherId", teacherId);
                 sessionId = Convert.ToInt64(sessionCmd.ExecuteScalar());
             }
