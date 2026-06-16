@@ -547,7 +547,7 @@ namespace NhatDucSoftware
             };
 
             var lblDate = new Label { Text = "Ngày", Location = new Point(20, 20), Size = new Size(120, 20) };
-            var dtpDate = new DateTimePicker { Location = new Point(20, 42), Size = new Size(360, 23), Format = DateTimePickerFormat.Short };
+            var dtpDate = new DateTimePicker { Location = new Point(20, 42), Size = new Size(360, 23), Format = DateTimePickerFormat.Short, MaxDate = DateTime.Today };
 
             var lblShift = new Label { Text = "Ca", Location = new Point(20, 75), Size = new Size(120, 20) };
             var cmbShift = new ComboBox { Location = new Point(20, 97), Size = new Size(360, 23), DropDownStyle = ComboBoxStyle.DropDownList };
@@ -568,9 +568,9 @@ namespace NhatDucSoftware
                     return;
                 }
 
-                if (dtpDate.Value.Date >= DateTime.Today)
+                if (dtpDate.Value.Date > DateTime.Today)
                 {
-                    MessageBox.Show("Chỉ được phép chấm công bù cho các ngày trước ngày hôm nay.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Chỉ được phép chấm công bù cho các ngày từ hôm nay trở về trước.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -611,7 +611,7 @@ namespace NhatDucSoftware
             cmbClass.ValueMember = nameof(ClassInfo.Id);
 
             var lblDate = new Label { Text = "Ngày học", Location = new Point(320, 10), Size = new Size(120, 20) };
-            var dtpDate = new DateTimePicker { Location = new Point(320, 32), Size = new Size(180, 23), Format = DateTimePickerFormat.Short };
+            var dtpDate = new DateTimePicker { Location = new Point(320, 32), Size = new Size(180, 23), Format = DateTimePickerFormat.Short, MaxDate = DateTime.Today };
 
             var lblShift = new Label { Text = "Ca học", Location = new Point(510, 10), Size = new Size(120, 20) };
             var cmbShift = new ComboBox { Location = new Point(510, 32), Size = new Size(240, 23), DropDownStyle = ComboBoxStyle.DropDownList };
@@ -756,9 +756,9 @@ namespace NhatDucSoftware
                 }
 
                 var sessionDate = dtpDate.Value.Date;
-                if (sessionDate >= DateTime.Today)
+                if (sessionDate > DateTime.Today)
                 {
-                    MessageBox.Show("Chỉ được phép điểm danh bù cho các ngày trước ngày hôm nay.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Chỉ được phép điểm danh bù cho các ngày từ hôm nay trở về trước.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 

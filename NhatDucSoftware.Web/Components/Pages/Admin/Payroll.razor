@@ -135,7 +135,7 @@ else
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Ngày</label>
-                        <input type="date" @bind="_makeupDate" max="@DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd")" />
+                        <input type="date" @bind="_makeupDate" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                     </div>
                     <div class="form-group">
                         <label>Ca</label>
@@ -171,7 +171,7 @@ else
                         }
                     </select>
                     <label>Ngày</label>
-                    <input type="date" @bind="_makeupAttDate" @bind:after="OnMakeupAttendanceFilterChanged" />
+                    <input type="date" @bind="_makeupAttDate" @bind:after="OnMakeupAttendanceFilterChanged" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                     <label>Ca</label>
                     <select @bind="_makeupAttShift" @bind:after="LoadMakeupStudents" disabled="@(_makeupAttShifts.Count == 0)">
                         @foreach (var shift in _makeupAttShifts)
@@ -216,14 +216,14 @@ else
     private bool _showPaySettings;
     private bool _showMakeupTimesheet;
     private string _makeupTeacherName = "";
-    private DateTime _makeupDate = DateTime.Today.AddDays(-1);
+    private DateTime _makeupDate = DateTime.Today;
     private int _makeupShift = 1;
     private bool _makeupPresent = true;
     private string _makeupNote = "";
 
     private bool _showMakeupAttendance;
     private int _makeupClassId;
-    private DateTime _makeupAttDate = DateTime.Today.AddDays(-1);
+    private DateTime _makeupAttDate = DateTime.Today;
     private int _makeupAttShift;
     private List<int> _makeupAttShifts = new();
 
@@ -322,6 +322,7 @@ else
     {
         if (_selectedTeacherId is null) return;
         _makeupTeacherName = _payrollRows.First(r => r.TeacherId == _selectedTeacherId).Name;
+        _makeupDate = DateTime.Today;
         _showMakeupTimesheet = true;
     }
 
@@ -336,6 +337,7 @@ else
         if (_makeupClassId <= 0)
             _makeupClassId = _classes[0].Id;
 
+        _makeupAttDate = DateTime.Today;
         _showMakeupAttendance = true;
         OnMakeupAttendanceFilterChanged();
     }
@@ -343,9 +345,9 @@ else
     private void SaveMakeupTimesheet()
     {
         if (_selectedTeacherId is null) return;
-        if (_makeupDate.Date >= DateTime.Today)
+        if (_makeupDate.Date > DateTime.Today)
         {
-            _message = "Chỉ được phép chấm công bù cho các ngày trước ngày hôm nay.";
+            _message = "Chỉ được phép chấm công bù cho các ngày từ hôm nay trở về trước.";
             return;
         }
 
@@ -416,9 +418,9 @@ else
             return;
         }
 
-        if (_makeupAttDate.Date >= DateTime.Today)
+        if (_makeupAttDate.Date > DateTime.Today)
         {
-            _message = "Chỉ được phép điểm danh bù cho các ngày trước ngày hôm nay.";
+            _message = "Chỉ được phép điểm danh bù cho các ngày từ hôm nay trở về trước.";
             return;
         }
 
