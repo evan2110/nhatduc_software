@@ -112,13 +112,21 @@ VALUES(@classId, @week, @day, @shift);";
     /// </summary>
     public List<(string ClassName, int DayOfWeek, int ShiftNumber)> GetTeacherScheduleForWeek(int teacherId, DateTime weekMonday)
     {
-        var weekStr = weekMonday.ToString("yyyy-MM-dd");
-        var result = new List<(string, int, int)>();
+        return GetTeacherScheduleEntriesForWeek(teacherId, weekMonday)
+            .Select(e => (e.ClassName, e.DayOfWeek, e.ShiftNumber))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Lấy lịch dạy của giáo viên kèm mã lớp.
+    /// </summary>
+    public List<TeacherScheduleEntry> GetTeacherScheduleEntriesForWeek(int teacherId, DateTime weekMonday)
+    {
+        var result = new List<TeacherScheduleEntry>();
 
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
-        // Get all classes for this teacher
         using var classCmd = connection.CreateCommand();
         classCmd.CommandText = "SELECT Id, ClassName FROM Classes WHERE TeacherId = @tid;";
         classCmd.Parameters.AddWithValue("@tid", teacherId);
@@ -135,11 +143,17 @@ VALUES(@classId, @week, @day, @shift);";
             var schedule = GetScheduleForWeek(classId, weekMonday);
             foreach (var s in schedule)
             {
-                result.Add((className, s.DayOfWeek, s.ShiftNumber));
+                result.Add(new TeacherScheduleEntry
+                {
+                    ClassId = classId,
+                    ClassName = className,
+                    DayOfWeek = s.DayOfWeek,
+                    ShiftNumber = s.ShiftNumber
+                });
             }
         }
 
-        return result.OrderBy(x => x.Item2).ThenBy(x => x.Item3).ToList();
+        return result.OrderBy(x => x.DayOfWeek).ThenBy(x => x.ShiftNumber).ThenBy(x => x.ClassName).ToList();
     }
 
     /// <summary>
@@ -194,14 +208,17 @@ VALUES(@classId, @week, @day, @shift);";
         var result = new List<TeacherDailyScheduleRow>();
         foreach (var (teacherId, teacherName) in teachers)
         {
-            var weekSchedule = GetTeacherScheduleForWeek(teacherId, monday)
-                .Where(x => x.Item2 == scheduleDay);
+            var weekSchedule = GetTeacherScheduleEntriesForWeek(teacherId, monday)
+                .Where(x => x.DayOfWeek == scheduleDay);
 
             var shiftClasses = weekSchedule
-                .GroupBy(x => x.Item3)
+                .GroupBy(x => x.ShiftNumber)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Select(x => x.Item1).Distinct().OrderBy(name => name).ToList());
+                    g => g.Select(x => new TeacherDailyClassInfo { ClassId = x.ClassId, ClassName = x.ClassName })
+                        .DistinctBy(x => x.ClassId)
+                        .OrderBy(x => x.ClassName)
+                        .ToList());
 
             result.Add(new TeacherDailyScheduleRow
             {
@@ -212,6 +229,65 @@ VALUES(@classId, @week, @day, @shift);";
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Chi tiết lịch dạy theo ngày của một giáo viên, kèm trạng thái chấm công và điểm danh.
+    /// </summary>
+    public TeacherDailyScheduleDetail GetTeacherDailyScheduleDetail(int teacherId, string teacherName, DateTime date)
+    {
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(date);
+        var scheduleDay = ToScheduleDayOfWeek(date);
+        var entries = GetTeacherScheduleEntriesForWeek(teacherId, monday)
+            .Where(x => x.DayOfWeek == scheduleDay)
+            .ToList();
+
+        var timesheetService = new TeacherTimesheetService();
+        var attendanceService = new AttendanceService();
+
+        var shiftDetails = entries
+            .GroupBy(e => e.ShiftNumber)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var shiftNumber = g.Key;
+                var timesheetStatus = timesheetService.GetTimesheetStatusForShift(teacherId, date, shiftNumber);
+                var classes = g.GroupBy(e => e.ClassId)
+                    .Select(cg =>
+                    {
+                        var classEntry = cg.First();
+                        var completion = attendanceService.GetAttendanceCompletionStatus(classEntry.ClassId, date, shiftNumber);
+                        return new TeacherDailyClassDetail
+                        {
+                            ClassId = classEntry.ClassId,
+                            ClassName = classEntry.ClassName,
+                            TotalStudents = completion.TotalStudents,
+                            RecordedStudents = completion.RecordedStudents,
+                            AttendanceComplete = completion.IsComplete
+                        };
+                    })
+                    .OrderBy(c => c.ClassName)
+                    .ToList();
+
+                return new TeacherDailyShiftDetail
+                {
+                    ShiftNumber = shiftNumber,
+                    TimesheetRecorded = timesheetStatus.HasValue,
+                    TimesheetPresent = timesheetStatus,
+                    Classes = classes
+                };
+            })
+            .ToList();
+
+        return new TeacherDailyScheduleDetail
+        {
+            TeacherId = teacherId,
+            TeacherName = teacherName,
+            WorkDate = date.Date,
+            Shifts = shiftDetails,
+            AllTimesheetsComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.TimesheetRecorded),
+            AllAttendanceComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.Classes.All(c => c.AttendanceComplete))
+        };
     }
 
     private static bool IsTeacherAssignedToClass(int classId, int teacherId)
@@ -240,16 +316,62 @@ VALUES(@classId, @week, @day, @shift);";
     };
 }
 
+public class TeacherScheduleEntry
+{
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
+    public int DayOfWeek { get; set; }
+    public int ShiftNumber { get; set; }
+}
+
 public class TeacherDailyScheduleRow
 {
     public int TeacherId { get; set; }
     public string TeacherName { get; set; } = "";
-    public Dictionary<int, List<string>> ShiftClasses { get; set; } = new();
+    public Dictionary<int, List<TeacherDailyClassInfo>> ShiftClasses { get; set; } = new();
 
     public bool HasShift(int shiftNumber) => ShiftClasses.ContainsKey(shiftNumber);
 
     public string? GetShiftTooltip(int shiftNumber) =>
         ShiftClasses.TryGetValue(shiftNumber, out var classes) && classes.Count > 0
-            ? string.Join(", ", classes)
+            ? string.Join(", ", classes.Select(c => c.ClassName))
             : null;
+}
+
+public class TeacherDailyClassInfo
+{
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
+}
+
+public class TeacherDailyScheduleDetail
+{
+    public int TeacherId { get; set; }
+    public string TeacherName { get; set; } = "";
+    public DateTime WorkDate { get; set; }
+    public List<TeacherDailyShiftDetail> Shifts { get; set; } = new();
+    public bool AllTimesheetsComplete { get; set; }
+    public bool AllAttendanceComplete { get; set; }
+
+    public int RequiredShiftCount => Shifts.Count;
+    public int RecordedShiftCount => Shifts.Count(s => s.TimesheetRecorded);
+    public int RequiredClassShiftCount => Shifts.Sum(s => s.Classes.Count);
+    public int CompletedClassShiftCount => Shifts.Sum(s => s.Classes.Count(c => c.AttendanceComplete));
+}
+
+public class TeacherDailyShiftDetail
+{
+    public int ShiftNumber { get; set; }
+    public bool TimesheetRecorded { get; set; }
+    public bool? TimesheetPresent { get; set; }
+    public List<TeacherDailyClassDetail> Classes { get; set; } = new();
+}
+
+public class TeacherDailyClassDetail
+{
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
+    public int TotalStudents { get; set; }
+    public int RecordedStudents { get; set; }
+    public bool AttendanceComplete { get; set; }
 }

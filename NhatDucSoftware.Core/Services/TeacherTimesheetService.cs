@@ -82,6 +82,35 @@ ORDER BY tt.WorkDate, tt.ShiftNumber;";
     }
 
     /// <summary>
+    /// null = chưa chấm công; true/false = có mặt / vắng.
+    /// </summary>
+    public bool? GetTimesheetStatusForShift(int teacherId, DateTime workDate, int shiftNumber)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT IsPresent
+FROM TeacherTimesheets
+WHERE TeacherId = @teacherId
+  AND WorkDate = @workDate
+  AND ShiftNumber = @shift
+LIMIT 1;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@workDate", workDate.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("@shift", shiftNumber);
+
+        var value = command.ExecuteScalar();
+        if (value is null || value == DBNull.Value)
+        {
+            return null;
+        }
+
+        return Convert.ToInt32(value) == 1;
+    }
+
+    /// <summary>
     /// Tính tổng số ca đã dạy trong tháng.
     /// </summary>
     public int GetTotalShiftsInMonth(int teacherId, int year, int month)

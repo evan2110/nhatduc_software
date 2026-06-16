@@ -42,7 +42,8 @@ else
                     <tbody>
                         @foreach (var row in _rows)
                         {
-                            <tr>
+                            <tr class="@(_selectedTeacherId == row.TeacherId ? "selected" : "")"
+                                @onclick="() => SelectTeacher(row)">
                                 <td class="schedule-teacher-col">@row.TeacherName</td>
                                 @for (int s = 1; s <= 5; s++)
                                 {
@@ -61,11 +62,97 @@ else
             </div>
         }
     </div>
+
+    @if (_detail is not null)
+    {
+        <div class="card">
+            <h3>Chi tiết — @_detail.TeacherName (@GetDayLabel())</h3>
+
+            @if (_detail.Shifts.Count == 0)
+            {
+                <p class="text-muted">Giáo viên không có ca dạy trong ngày này.</p>
+            }
+            else
+            {
+                <div class="summary-panel class-summary">
+                    <div class="summary-panel-title">Tổng hợp trong ngày</div>
+                    <div class="summary-box">
+                        <span>
+                            Chấm công:
+                            <span class="@GetStatusClass(_detail.AllTimesheetsComplete)">
+                                @if (_detail.AllTimesheetsComplete)
+                                {
+                                    @:Đủ @_detail.RecordedShiftCount/@_detail.RequiredShiftCount ca
+                                }
+                                else
+                                {
+                                    @:Thiếu @(_detail.RequiredShiftCount - _detail.RecordedShiftCount)/@_detail.RequiredShiftCount ca
+                                }
+                            </span>
+                        </span>
+                        <span>
+                            Điểm danh:
+                            <span class="@GetStatusClass(_detail.AllAttendanceComplete)">
+                                @if (_detail.AllAttendanceComplete)
+                                {
+                                    @:Đủ @_detail.CompletedClassShiftCount/@_detail.RequiredClassShiftCount lớp-ca
+                                }
+                                else
+                                {
+                                    @:Thiếu @(_detail.RequiredClassShiftCount - _detail.CompletedClassShiftCount)/@_detail.RequiredClassShiftCount lớp-ca
+                                }
+                            </span>
+                        </span>
+                    </div>
+                </div>
+
+                @foreach (var shift in _detail.Shifts)
+                {
+                    <div class="schedule-detail-shift">
+                        <div class="schedule-detail-shift-header">
+                            <strong>@TeacherTimesheet.GetShiftDescription(shift.ShiftNumber)</strong>
+                            <span class="schedule-detail-meta">
+                                Chấm công:
+                                <span class="@GetStatusClass(shift.TimesheetRecorded)">@GetTimesheetLabel(shift)</span>
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table compact">
+                                <thead>
+                                    <tr>
+                                        <th>Lớp</th>
+                                        <th>Điểm danh HS</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var cls in shift.Classes)
+                                    {
+                                        <tr>
+                                            <td>@cls.ClassName</td>
+                                            <td>@cls.RecordedStudents/@cls.TotalStudents học viên</td>
+                                            <td>
+                                                <span class="@GetStatusClass(cls.AttendanceComplete)">
+                                                    @(cls.AttendanceComplete ? "Đủ" : "Chưa đủ")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
 }
 
 @code {
     private DateTime _selectedDate = DateTime.Today;
     private List<TeacherDailyScheduleRow> _rows = new();
+    private int? _selectedTeacherId;
+    private TeacherDailyScheduleDetail? _detail;
 
     protected override void OnInitialized()
     {
@@ -76,6 +163,29 @@ else
     private void LoadSchedule()
     {
         _rows = ScheduleService.GetAllTeachersScheduleForDate(_selectedDate.Date);
+        if (_selectedTeacherId is int teacherId)
+        {
+            var row = _rows.FirstOrDefault(x => x.TeacherId == teacherId);
+            if (row is not null)
+            {
+                LoadDetail(row);
+                return;
+            }
+        }
+
+        _selectedTeacherId = null;
+        _detail = null;
+    }
+
+    private void SelectTeacher(TeacherDailyScheduleRow row)
+    {
+        _selectedTeacherId = row.TeacherId;
+        LoadDetail(row);
+    }
+
+    private void LoadDetail(TeacherDailyScheduleRow row)
+    {
+        _detail = ScheduleService.GetTeacherDailyScheduleDetail(row.TeacherId, row.TeacherName, _selectedDate.Date);
     }
 
     private string GetDayLabel()
@@ -94,4 +204,11 @@ else
 
         return $"{ClassWeeklySchedule.GetDayName(dayIndex)}, {_selectedDate:dd/MM/yyyy}";
     }
+
+    private static string GetTimesheetLabel(TeacherDailyShiftDetail shift) =>
+        shift.TimesheetRecorded
+            ? shift.TimesheetPresent == true ? "Đã chấm — Có mặt" : "Đã chấm — Vắng"
+            : "Chưa chấm";
+
+    private static string GetStatusClass(bool ok) => ok ? "status-ok" : "status-missing";
 }

@@ -67,6 +67,30 @@ WHERE ats.ClassId = @classId
         return result;
     }
 
+    public (int TotalStudents, int RecordedStudents, bool IsComplete) GetAttendanceCompletionStatus(
+        int classId, DateTime sessionDate, int shiftNumber)
+    {
+        var students = GetStudentsByClass(classId);
+        if (students.Count == 0)
+        {
+            return (0, 0, true);
+        }
+
+        var attendance = GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
+        var recorded = students.Count(s =>
+        {
+            if (!attendance.TryGetValue(s.StudentId, out var status))
+            {
+                return false;
+            }
+
+            var normalized = status.Trim().ToUpperInvariant();
+            return normalized is "C" or "V";
+        });
+
+        return (students.Count, recorded, recorded == students.Count);
+    }
+
     public void SaveAttendance(int classId, int teacherId, DateTime sessionDate, int shiftNumber, Dictionary<int, string> records)
     {
         using var connection = DbContext.CreateConnection();
