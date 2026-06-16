@@ -41,6 +41,12 @@ else
             <button class="btn btn-primary" @onclick="FinalizeMonth" disabled="@_isFinalized">Chốt số liệu</button>
         </div>
 
+        <div class="summary-box">
+            <span>Cần đóng: @MoneyHelper.FormatCurrency(_summary.TotalDue)</span>
+            <span>Đã đóng: @MoneyHelper.FormatCurrency(_summary.TotalPaid)</span>
+            <span>Còn lại: @MoneyHelper.FormatCurrency(_summary.TotalRemaining)</span>
+        </div>
+
         <div class="table-responsive">
         <table class="data-table">
             <thead>
@@ -144,6 +150,7 @@ else
     private int _detailStudentId;
     private string _detailStudentName = "";
     private List<PaymentHistoryRow> _detailHistory = new();
+    private ClassPaymentSummary _summary = new();
 
     protected override void OnInitialized()
     {
@@ -157,6 +164,7 @@ else
     {
         if (_classId <= 0) return;
         _isFinalized = PaymentService.IsFinalized(_classId, _month, _year);
+        _summary = PaymentService.GetClassPaymentSummary(_classId, _month, _year);
         var list = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
         _paymentRows = list.ToList();
         _paymentRows.Add(new PaymentClassListRow
