@@ -1,4 +1,5 @@
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
 
@@ -89,6 +90,19 @@ WHERE ats.ClassId = @classId
         });
 
         return (students.Count, recorded, recorded == students.Count);
+    }
+
+    public List<AttendanceRow> GetAttendanceRowsForClass(int classId, DateTime sessionDate, int shiftNumber)
+    {
+        var saved = GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
+        return GetStudentsByClass(classId)
+            .Select(x => new AttendanceRow
+            {
+                StudentId = x.StudentId,
+                StudentName = x.FullName,
+                Status = saved.TryGetValue(x.StudentId, out var status) ? status : ""
+            })
+            .ToList();
     }
 
     public void SaveAttendance(int classId, int teacherId, DateTime sessionDate, int shiftNumber, Dictionary<int, string> records)

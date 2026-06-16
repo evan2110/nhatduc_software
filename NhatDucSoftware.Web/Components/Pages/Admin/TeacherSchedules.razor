@@ -2,6 +2,8 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ClassScheduleService ScheduleService
+@inject AttendanceService AttendanceService
+@inject PaymentService PaymentService
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
 
@@ -14,6 +16,11 @@
 else
 {
     <h1 class="page-title">Thời khóa biểu giáo viên</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
+    }
 
     <div class="card">
         <div class="toolbar">
@@ -128,15 +135,80 @@ else
                                 <tbody>
                                     @foreach (var cls in shift.Classes)
                                     {
-                                        <tr>
+                                        var classId = cls.ClassId;
+                                        var shiftNumber = shift.ShiftNumber;
+                                        var isEditOpen = IsAttendanceEditOpen(classId, shiftNumber);
+                                        <tr class="@GetClassRowClass(cls, isEditOpen)"
+                                            @onclick="() => OpenAttendanceEdit(cls, shiftNumber)">
                                             <td>@cls.ClassName</td>
                                             <td>@cls.RecordedStudents/@cls.TotalStudents học viên</td>
                                             <td>
                                                 <span class="@GetStatusClass(cls.AttendanceComplete)">
-                                                    @(cls.AttendanceComplete ? "Đủ" : "Chưa đủ")
+                                                    @(cls.AttendanceComplete ? "Đủ" : "Chưa đủ — bấm để bổ sung")
                                                 </span>
                                             </td>
                                         </tr>
+                                        @if (isEditOpen)
+                                        {
+                                            <tr class="attendance-edit-row">
+                                                <td colspan="3">
+                                                    <div class="attendance-edit-panel">
+                                                        <div class="attendance-edit-header">
+                                                            <strong>Bổ sung điểm danh — @cls.ClassName</strong>
+                                                            <span class="text-muted">@TeacherTimesheet.GetShiftDescription(shiftNumber), @GetDayLabel()</span>
+                                                        </div>
+
+                                                        @{
+                                                            var missingStudents = _attendanceRows.Where(r => !IsValidStatus(r.Status)).ToList();
+                                                        }
+                                                        @if (missingStudents.Count > 0)
+                                                        {
+                                                            <p class="attendance-missing-note">
+                                                                Học viên thiếu điểm danh:
+                                                                <strong>@string.Join(", ", missingStudents.Select(x => x.StudentName))</strong>
+                                                            </p>
+                                                        }
+
+                                                        <div class="table-responsive">
+                                                            <table class="data-table compact">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Học viên</th>
+                                                                        <th>Điểm danh (C/V)</th>
+                                                                        <th>Ghi chú</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach (var student in _attendanceRows)
+                                                                    {
+                                                                        var missing = !IsValidStatus(student.Status);
+                                                                        <tr class="@(missing ? "attendance-missing-row" : "")">
+                                                                            <td>@student.StudentName</td>
+                                                                            <td>
+                                                                                <input class="input-attendance"
+                                                                                       @bind="student.Status"
+                                                                                       maxlength="1"
+                                                                                       placeholder="C/V" />
+                                                                            </td>
+                                                                            <td>@(missing ? "Chưa điểm danh" : "Đã có")</td>
+                                                                        </tr>
+                                                                    }
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+
+                                                        <div class="toolbar">
+                                                            <button class="btn btn-primary"
+                                                                    @onclick="() => SaveAttendanceEdit(classId, shiftNumber)"
+                                                                    disabled="@(!CanSaveAttendance)">
+                                                                Lưu điểm danh
+                                                            </button>
+                                                            <button class="btn btn-secondary" @onclick="CloseAttendanceEdit">Đóng</button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
                                     }
                                 </tbody>
                             </table>
@@ -153,6 +225,11 @@ else
     private List<TeacherDailyScheduleRow> _rows = new();
     private int? _selectedTeacherId;
     private TeacherDailyScheduleDetail? _detail;
+    private int? _editClassId;
+    private int? _editShiftNumber;
+    private List<AttendanceRow> _attendanceRows = new();
+    private string? _message;
+    private bool _isError;
 
     protected override void OnInitialized()
     {
@@ -162,6 +239,8 @@ else
 
     private void LoadSchedule()
     {
+        CloseAttendanceEdit();
+        _message = null;
         _rows = ScheduleService.GetAllTeachersScheduleForDate(_selectedDate.Date);
         if (_selectedTeacherId is int teacherId)
         {
@@ -179,6 +258,8 @@ else
 
     private void SelectTeacher(TeacherDailyScheduleRow row)
     {
+        CloseAttendanceEdit();
+        _message = null;
         _selectedTeacherId = row.TeacherId;
         LoadDetail(row);
     }
@@ -186,6 +267,80 @@ else
     private void LoadDetail(TeacherDailyScheduleRow row)
     {
         _detail = ScheduleService.GetTeacherDailyScheduleDetail(row.TeacherId, row.TeacherName, _selectedDate.Date);
+    }
+
+    private void ReloadDetail()
+    {
+        if (_selectedTeacherId is not int teacherId) return;
+        var row = _rows.FirstOrDefault(x => x.TeacherId == teacherId);
+        if (row is null) return;
+        LoadDetail(row);
+    }
+
+    private void OpenAttendanceEdit(TeacherDailyClassDetail cls, int shiftNumber)
+    {
+        if (cls.AttendanceComplete || _detail is null)
+        {
+            return;
+        }
+
+        if (PaymentService.IsFinalized(cls.ClassId, _selectedDate.Month, _selectedDate.Year))
+        {
+            _message = $"Lớp {cls.ClassName} đã được chốt số liệu tháng {_selectedDate.Month:D2}/{_selectedDate.Year}, không thể điểm danh.";
+            _isError = true;
+            return;
+        }
+
+        if (_editClassId == cls.ClassId && _editShiftNumber == shiftNumber)
+        {
+            CloseAttendanceEdit();
+            return;
+        }
+
+        _editClassId = cls.ClassId;
+        _editShiftNumber = shiftNumber;
+        _attendanceRows = AttendanceService.GetAttendanceRowsForClass(cls.ClassId, _selectedDate.Date, shiftNumber);
+        _message = null;
+    }
+
+    private void CloseAttendanceEdit()
+    {
+        _editClassId = null;
+        _editShiftNumber = null;
+        _attendanceRows = new();
+    }
+
+    private bool IsAttendanceEditOpen(int classId, int shiftNumber) =>
+        _editClassId == classId && _editShiftNumber == shiftNumber;
+
+    private bool CanSaveAttendance =>
+        _attendanceRows.Count > 0 && _attendanceRows.All(r => IsValidStatus(r.Status));
+
+    private void SaveAttendanceEdit(int classId, int shiftNumber)
+    {
+        if (_detail is null) return;
+
+        if (PaymentService.IsFinalized(classId, _selectedDate.Month, _selectedDate.Year))
+        {
+            _message = $"Lớp này đã được chốt số liệu tháng {_selectedDate.Month:D2}/{_selectedDate.Year}.";
+            _isError = true;
+            return;
+        }
+
+        var invalid = _attendanceRows.FirstOrDefault(r => !IsValidStatus(r.Status));
+        if (invalid is not null)
+        {
+            _message = $"Học viên '{invalid.StudentName}' phải nhập C hoặc V.";
+            _isError = true;
+            return;
+        }
+
+        var records = _attendanceRows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
+        AttendanceService.SaveAttendance(classId, _detail.TeacherId, _selectedDate.Date, shiftNumber, records);
+        _message = "Đã lưu điểm danh.";
+        _isError = false;
+        CloseAttendanceEdit();
+        ReloadDetail();
     }
 
     private string GetDayLabel()
@@ -211,4 +366,20 @@ else
             : "Chưa chấm";
 
     private static string GetStatusClass(bool ok) => ok ? "status-ok" : "status-missing";
+
+    private static string GetClassRowClass(TeacherDailyClassDetail cls, bool isEditOpen)
+    {
+        if (cls.AttendanceComplete)
+        {
+            return "";
+        }
+
+        return isEditOpen ? "schedule-class-missing selected" : "schedule-class-missing";
+    }
+
+    private static bool IsValidStatus(string? status)
+    {
+        var normalized = (status ?? "").Trim().ToUpperInvariant();
+        return normalized is "C" or "V";
+    }
 }
