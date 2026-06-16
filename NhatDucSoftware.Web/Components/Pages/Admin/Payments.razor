@@ -41,10 +41,13 @@ else
             <button class="btn btn-primary" @onclick="FinalizeMonth" disabled="@_isFinalized">Chốt số liệu</button>
         </div>
 
-        <div class="summary-box">
-            <span>Cần đóng: @MoneyHelper.FormatCurrency(_summary.TotalDue)</span>
-            <span>Đã đóng: @MoneyHelper.FormatCurrency(_summary.TotalPaid)</span>
-            <span>Còn lại: @MoneyHelper.FormatCurrency(_summary.TotalRemaining)</span>
+        <div class="summary-panel class-summary">
+            <div class="summary-panel-title">Tổng học phí cả lớp</div>
+            <div class="summary-box">
+                <span>Tổng cần đóng: @MoneyHelper.FormatCurrency(_summary.TotalDue)</span>
+                <span>Tổng đã đóng: @MoneyHelper.FormatCurrency(_summary.TotalPaid)</span>
+                <span>Tổng còn lại: @MoneyHelper.FormatCurrency(_summary.TotalRemaining)</span>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -79,10 +82,13 @@ else
     @if (_selectedStudentId > 0)
     {
         <div class="card">
-            <div class="summary-box">
-                <span>@_needText</span>
-                <span>Đã đóng: @MoneyHelper.FormatCurrency(_paid)</span>
-                <span>Còn lại: @MoneyHelper.FormatCurrency(_remaining)</span>
+            <div class="summary-panel student-summary">
+                <div class="summary-panel-title">Theo học viên: @_selectedStudentName</div>
+                <div class="summary-box">
+                    <span>@_needText</span>
+                    <span>Đã đóng: @MoneyHelper.FormatCurrency(_paid)</span>
+                    <span>Còn lại: @MoneyHelper.FormatCurrency(_remaining)</span>
+                </div>
             </div>
             <div class="form-grid">
                 <div class="form-group">
@@ -138,6 +144,7 @@ else
     private int _month = DateTime.Now.Month;
     private int _year = DateTime.Now.Year;
     private int _selectedStudentId;
+    private string _selectedStudentName = "";
     private decimal _paid;
     private decimal _remaining;
     private string _needText = "";
@@ -182,6 +189,7 @@ else
     {
         if (row.StudentId <= 0) return;
         _selectedStudentId = row.StudentId;
+        _selectedStudentName = row.HoVaTen;
         var total = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
         _paid = PaymentService.GetPaidAmountByStudentMonthYear(row.StudentId, _month, _year, _classId);
         _remaining = Math.Max(0, total - _paid);

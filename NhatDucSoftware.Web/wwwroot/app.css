@@ -337,6 +337,35 @@ a { color: var(--primary); }
     min-width: min(100%, 200px);
 }
 
+.summary-panel {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.summary-panel .summary-box {
+    margin-bottom: 0;
+}
+
+.summary-panel-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #0369a1;
+    margin-bottom: 0.5rem;
+}
+
+.summary-panel.student-summary {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.summary-panel.student-summary .summary-panel-title {
+    color: #475569;
+}
+
 .text-muted {
     font-size: 0.85rem;
     color: #64748b;
