@@ -170,6 +170,50 @@ VALUES(@classId, @week, @day, @shift);";
         return GetShiftsForClassOnDate(classId, date);
     }
 
+    /// <summary>
+    /// Lấy lịch dạy theo ngày của toàn bộ giáo viên (dùng cho admin xem TKB).
+    /// </summary>
+    public List<TeacherDailyScheduleRow> GetAllTeachersScheduleForDate(DateTime date)
+    {
+        var monday = ClassWeeklySchedule.GetMondayOfWeek(date);
+        var scheduleDay = ToScheduleDayOfWeek(date);
+        var teachers = new List<(int Id, string FullName)>();
+
+        using (var connection = DbContext.CreateConnection())
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT Id, FullName FROM Teachers ORDER BY FullName;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                teachers.Add((reader.GetInt32(0), reader.GetString(1)));
+            }
+        }
+
+        var result = new List<TeacherDailyScheduleRow>();
+        foreach (var (teacherId, teacherName) in teachers)
+        {
+            var weekSchedule = GetTeacherScheduleForWeek(teacherId, monday)
+                .Where(x => x.Item2 == scheduleDay);
+
+            var shiftClasses = weekSchedule
+                .GroupBy(x => x.Item3)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.Item1).Distinct().OrderBy(name => name).ToList());
+
+            result.Add(new TeacherDailyScheduleRow
+            {
+                TeacherId = teacherId,
+                TeacherName = teacherName,
+                ShiftClasses = shiftClasses
+            });
+        }
+
+        return result;
+    }
+
     private static bool IsTeacherAssignedToClass(int classId, int teacherId)
     {
         using var connection = DbContext.CreateConnection();
@@ -194,4 +238,18 @@ VALUES(@classId, @week, @day, @shift);";
         DayOfWeek.Sunday => 6,
         _ => 0
     };
+}
+
+public class TeacherDailyScheduleRow
+{
+    public int TeacherId { get; set; }
+    public string TeacherName { get; set; } = "";
+    public Dictionary<int, List<string>> ShiftClasses { get; set; } = new();
+
+    public bool HasShift(int shiftNumber) => ShiftClasses.ContainsKey(shiftNumber);
+
+    public string? GetShiftTooltip(int shiftNumber) =>
+        ShiftClasses.TryGetValue(shiftNumber, out var classes) && classes.Count > 0
+            ? string.Join(", ", classes)
+            : null;
 }

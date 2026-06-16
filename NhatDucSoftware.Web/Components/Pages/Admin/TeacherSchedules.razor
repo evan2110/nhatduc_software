@@ -1,0 +1,97 @@
+@page "/admin/teacher-schedules"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ClassScheduleService ScheduleService
+@inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
+
+<PageTitle>Thời khóa biểu giáo viên</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Thời khóa biểu giáo viên</h1>
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Ngày</label>
+            <input type="date" @bind="_selectedDate" @bind:after="LoadSchedule" />
+            <span class="text-muted">@GetDayLabel()</span>
+        </div>
+
+        @if (_rows.Count == 0)
+        {
+            <p>Chưa có giáo viên trong hệ thống.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table schedule-matrix">
+                    <thead>
+                        <tr>
+                            <th class="schedule-teacher-col">Giáo viên</th>
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <th class="schedule-shift-col">@TeacherTimesheet.GetShiftDescription(s)</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _rows)
+                        {
+                            <tr>
+                                <td class="schedule-teacher-col">@row.TeacherName</td>
+                                @for (int s = 1; s <= 5; s++)
+                                {
+                                    var shift = s;
+                                    <td class="schedule-cell">
+                                        @if (row.HasShift(shift))
+                                        {
+                                            <span class="schedule-check" title="@row.GetShiftTooltip(shift)">✓</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private DateTime _selectedDate = DateTime.Today;
+    private List<TeacherDailyScheduleRow> _rows = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        LoadSchedule();
+    }
+
+    private void LoadSchedule()
+    {
+        _rows = ScheduleService.GetAllTeachersScheduleForDate(_selectedDate.Date);
+    }
+
+    private string GetDayLabel()
+    {
+        var dayIndex = _selectedDate.DayOfWeek switch
+        {
+            DayOfWeek.Monday => 0,
+            DayOfWeek.Tuesday => 1,
+            DayOfWeek.Wednesday => 2,
+            DayOfWeek.Thursday => 3,
+            DayOfWeek.Friday => 4,
+            DayOfWeek.Saturday => 5,
+            DayOfWeek.Sunday => 6,
+            _ => 0
+        };
+
+        return $"{ClassWeeklySchedule.GetDayName(dayIndex)}, {_selectedDate:dd/MM/yyyy}";
+    }
+}

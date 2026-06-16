@@ -366,6 +366,28 @@ a { color: var(--primary); }
     color: #475569;
 }
 
+.schedule-matrix .schedule-teacher-col {
+    min-width: 160px;
+    white-space: nowrap;
+}
+
+.schedule-matrix .schedule-shift-col {
+    min-width: 120px;
+    text-align: center;
+}
+
+.schedule-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.schedule-check {
+    color: #16a34a;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .text-muted {
     font-size: 0.85rem;
     color: #64748b;
