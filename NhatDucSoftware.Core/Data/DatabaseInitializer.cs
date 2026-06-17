@@ -2,6 +2,8 @@ namespace NhatDucSoftware.Core.Data;
 
 public static class DatabaseInitializer
 {
+    private const string ShiftNumberMigrationId = "attendance_sessions_shift_v2";
+
     public static void Initialize()
     {
         using var connection = DbContext.CreateConnection();
@@ -41,7 +43,47 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
             createPayRates.ExecuteNonQuery();
         }
 
+        EnsureSchemaMigrationsTable(connection);
         MigrateAttendanceSessionsShiftNumber(connection);
+    }
+
+    private static void EnsureSchemaMigrationsTable(System.Data.Common.DbConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+CREATE TABLE IF NOT EXISTS SchemaMigrations (
+    Id TEXT PRIMARY KEY,
+    AppliedAt TEXT NOT NULL
+);";
+        command.ExecuteNonQuery();
+    }
+
+    private static bool IsMigrationApplied(System.Data.Common.DbConnection connection, string migrationId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM SchemaMigrations WHERE Id = @id;";
+        AddParameter(command, "@id", migrationId);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    private static void MarkMigrationApplied(System.Data.Common.DbConnection connection, string migrationId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO SchemaMigrations(Id, AppliedAt)
+VALUES(@id, @appliedAt)
+ON CONFLICT(Id) DO NOTHING;";
+        AddParameter(command, "@id", migrationId);
+        AddParameter(command, "@appliedAt", DateTime.UtcNow.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    private static void AddParameter(System.Data.Common.DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
     }
 
     private static void MigrateAttendanceSessionsShiftNumber(System.Data.Common.DbConnection connection)
@@ -54,6 +96,21 @@ ADD COLUMN IF NOT EXISTS ShiftNumber INTEGER NOT NULL DEFAULT 1;";
             addColumn.ExecuteNonQuery();
         }
 
+        using (var createIndex = connection.CreateCommand())
+        {
+            createIndex.CommandText = @"
+CREATE UNIQUE INDEX IF NOT EXISTS UQ_AttendanceSessions_ClassId_SessionDate_ShiftNumber
+ON AttendanceSessions(ClassId, SessionDate, ShiftNumber);";
+            createIndex.ExecuteNonQuery();
+        }
+
+        if (IsMigrationApplied(connection, ShiftNumberMigrationId))
+        {
+            return;
+        }
+
+        // One-time cleanup: remove only exact duplicates (same class, date AND shift).
+        // Never collapse multiple shifts on the same day — that was the previous bug.
         using (var dedupeRecords = connection.CreateCommand())
         {
             dedupeRecords.CommandText = @"
@@ -62,9 +119,9 @@ WHERE SessionId IN (
     SELECT s.Id
     FROM AttendanceSessions s
     WHERE s.Id NOT IN (
-        SELECT DISTINCT ON (ClassId, SessionDate) Id
+        SELECT DISTINCT ON (ClassId, SessionDate, ShiftNumber) Id
         FROM AttendanceSessions
-        ORDER BY ClassId, SessionDate, Id DESC
+        ORDER BY ClassId, SessionDate, ShiftNumber, Id DESC
     )
 );";
             dedupeRecords.ExecuteNonQuery();
@@ -75,19 +132,13 @@ WHERE SessionId IN (
             dedupeSessions.CommandText = @"
 DELETE FROM AttendanceSessions
 WHERE Id NOT IN (
-    SELECT DISTINCT ON (ClassId, SessionDate) Id
+    SELECT DISTINCT ON (ClassId, SessionDate, ShiftNumber) Id
     FROM AttendanceSessions
-    ORDER BY ClassId, SessionDate, Id DESC
+    ORDER BY ClassId, SessionDate, ShiftNumber, Id DESC
 );";
             dedupeSessions.ExecuteNonQuery();
         }
 
-        using (var createIndex = connection.CreateCommand())
-        {
-            createIndex.CommandText = @"
-CREATE UNIQUE INDEX IF NOT EXISTS UQ_AttendanceSessions_ClassId_SessionDate_ShiftNumber
-ON AttendanceSessions(ClassId, SessionDate, ShiftNumber);";
-            createIndex.ExecuteNonQuery();
-        }
+        MarkMigrationApplied(connection, ShiftNumberMigrationId);
     }
 }
