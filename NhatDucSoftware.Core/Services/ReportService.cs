@@ -6,6 +6,9 @@ namespace NhatDucSoftware.Core.Services;
 
 public class ReportService
 {
+    private readonly TeacherTimesheetService _timesheetService = new();
+    private readonly TeacherService _teacherService = new();
+
     public ReportSummary GetSummary()
     {
         var result = new ReportSummary();
@@ -103,6 +106,190 @@ ORDER BY Month;";
         }
 
         return result.OrderBy(x => x.Month).ToList();
+    }
+
+    public List<MonthlyAmountStat> GetExpenseByMonth(int year)
+    {
+        var teachers = _teacherService.GetAll();
+        var result = CreateEmptyMonthlyAmounts();
+
+        foreach (var teacher in teachers)
+        {
+            for (var month = 1; month <= 12; month++)
+            {
+                result[month - 1].Amount += _timesheetService.CalculateMonthlyPay(teacher.Id, year, month);
+            }
+        }
+
+        return result;
+    }
+
+    public List<TeacherExpenseDetailStat> GetTeacherExpenseDetail(int year, int? month = null)
+    {
+        var teachers = _teacherService.GetAll();
+        var result = new List<TeacherExpenseDetailStat>();
+
+        foreach (var teacher in teachers)
+        {
+            decimal total;
+            if (month is >= 1 and <= 12)
+            {
+                total = _timesheetService.CalculateMonthlyPay(teacher.Id, year, month.Value);
+            }
+            else
+            {
+                total = 0;
+                for (var m = 1; m <= 12; m++)
+                {
+                    total += _timesheetService.CalculateMonthlyPay(teacher.Id, year, m);
+                }
+            }
+
+            if (total > 0)
+            {
+                result.Add(new TeacherExpenseDetailStat
+                {
+                    TeacherId = teacher.Id,
+                    TeacherName = teacher.FullName,
+                    TotalAmount = total
+                });
+            }
+        }
+
+        return result.OrderByDescending(x => x.TotalAmount).ToList();
+    }
+
+    public List<MonthlyAmountStat> GetTuitionEarnedByMonth(int year)
+    {
+        var result = CreateEmptyMonthlyAmounts();
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT CAST(EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) AS INTEGER) AS Month,
+       COALESCE(SUM(co.TuitionFee), 0) AS TotalAmount
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Courses co ON co.Id = c.CourseId
+WHERE ar.Status = 'C'
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
+GROUP BY EXTRACT(MONTH FROM CAST(ats.SessionDate AS date))
+ORDER BY Month;";
+        command.Parameters.AddWithValue("@year", year);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var month = Convert.ToInt32(reader.GetValue(0));
+            result[month - 1].Amount = ReadDecimal(reader, 1);
+        }
+
+        return result;
+    }
+
+    public List<ClassTuitionDetailStat> GetClassTuitionDetail(int year, int? month = null)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT c.Id,
+       c.ClassName,
+       COALESCE(SUM(co.TuitionFee), 0) AS TotalAmount
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Courses co ON co.Id = c.CourseId
+WHERE ar.Status = 'C'
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
+  AND (@month = 0 OR EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric)
+GROUP BY c.Id, c.ClassName
+HAVING COALESCE(SUM(co.TuitionFee), 0) > 0
+ORDER BY TotalAmount DESC, c.ClassName ASC;";
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month ?? 0);
+
+        var result = new List<ClassTuitionDetailStat>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new ClassTuitionDetailStat
+            {
+                ClassId = Convert.ToInt32(reader.GetValue(0)),
+                ClassName = reader.GetString(1),
+                TotalAmount = ReadDecimal(reader, 2)
+            });
+        }
+
+        return result;
+    }
+
+    public List<MonthlyEnrollmentStat> GetEnrollmentByMonth(int year)
+    {
+        var result = new List<MonthlyEnrollmentStat>();
+        for (var month = 1; month <= 12; month++)
+        {
+            result.Add(new MonthlyEnrollmentStat
+            {
+                Month = month,
+                MonthName = GetMonthName(month),
+                StudentCount = GetStudentCountByMonthEnd(year, month),
+                ClassCount = GetActiveClassCountByMonth(year, month)
+            });
+        }
+
+        return result;
+    }
+
+    private static int GetStudentCountByMonthEnd(int year, int month)
+    {
+        var endDate = $"{year:D4}-{month:D2}-{DateTime.DaysInMonth(year, month):D2}";
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(DISTINCT s.Id)
+FROM Students s
+WHERE s.Status = 'Active'
+  AND LEFT(s.CreatedAt::text, 10) <= @endDate;";
+        command.Parameters.AddWithValue("@endDate", endDate);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    private static int GetActiveClassCountByMonth(int year, int month)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(DISTINCT ats.ClassId)
+FROM AttendanceSessions ats
+INNER JOIN Classes c ON c.Id = ats.ClassId
+WHERE c.Status = 'Active'
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
+  AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric;";
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    private static List<MonthlyAmountStat> CreateEmptyMonthlyAmounts()
+    {
+        return Enumerable.Range(1, 12)
+            .Select(month => new MonthlyAmountStat
+            {
+                Month = month,
+                MonthName = GetMonthName(month),
+                Amount = 0
+            })
+            .ToList();
     }
 
     private static decimal ReadDecimal(DbDataReader reader, int ordinal)

@@ -86,6 +86,137 @@ public class ExcelExportService
         workbook.SaveAs(filePath);
     }
 
+    public void ExportExpenseByMonthToExcel(int year, List<MonthlyAmountStat> monthly, List<TeacherExpenseDetailStat> details, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var monthlySheet = workbook.Worksheets.Add($"Chi tháng {year}");
+        WriteMonthlyAmountSheet(monthlySheet, $"Tổng chi lương giáo viên năm {year}", "Tổng chi", monthly);
+
+        var detailSheet = workbook.Worksheets.Add("Chi tiết giáo viên");
+        detailSheet.Cell(1, 1).Value = $"Chi tiết chi lương giáo viên năm {year}";
+        detailSheet.Cell(1, 1).Style.Font.Bold = true;
+        detailSheet.Range(1, 1, 1, 3).Merge();
+        detailSheet.Cell(3, 1).Value = "TT";
+        detailSheet.Cell(3, 2).Value = "Giáo viên";
+        detailSheet.Cell(3, 3).Value = "Tổng chi";
+        detailSheet.Range(3, 1, 3, 3).Style.Font.Bold = true;
+        detailSheet.Range(3, 1, 3, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 4;
+        var index = 1;
+        foreach (var item in details)
+        {
+            detailSheet.Cell(row, 1).Value = index++;
+            detailSheet.Cell(row, 2).Value = item.TeacherName;
+            detailSheet.Cell(row, 3).Value = item.TotalAmount;
+            detailSheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+            row++;
+        }
+
+        detailSheet.Column(1).Width = 8;
+        detailSheet.Column(2).Width = 30;
+        detailSheet.Column(3).Width = 18;
+        workbook.SaveAs(filePath);
+    }
+
+    public void ExportTuitionEarnedByMonthToExcel(int year, List<MonthlyAmountStat> monthly, List<ClassTuitionDetailStat> details, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var monthlySheet = workbook.Worksheets.Add($"Thu tháng {year}");
+        WriteMonthlyAmountSheet(monthlySheet, $"Tổng thu học phí điểm danh năm {year}", "Tổng thu", monthly);
+
+        var detailSheet = workbook.Worksheets.Add("Chi tiết lớp");
+        detailSheet.Cell(1, 1).Value = $"Chi tiết thu học phí theo lớp năm {year}";
+        detailSheet.Cell(1, 1).Style.Font.Bold = true;
+        detailSheet.Range(1, 1, 1, 3).Merge();
+        detailSheet.Cell(3, 1).Value = "TT";
+        detailSheet.Cell(3, 2).Value = "Lớp";
+        detailSheet.Cell(3, 3).Value = "Tổng thu";
+        detailSheet.Range(3, 1, 3, 3).Style.Font.Bold = true;
+        detailSheet.Range(3, 1, 3, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 4;
+        var index = 1;
+        foreach (var item in details)
+        {
+            detailSheet.Cell(row, 1).Value = index++;
+            detailSheet.Cell(row, 2).Value = item.ClassName;
+            detailSheet.Cell(row, 3).Value = item.TotalAmount;
+            detailSheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+            row++;
+        }
+
+        detailSheet.Column(1).Width = 8;
+        detailSheet.Column(2).Width = 30;
+        detailSheet.Column(3).Width = 18;
+        workbook.SaveAs(filePath);
+    }
+
+    public void ExportEnrollmentByMonthToExcel(int year, List<MonthlyEnrollmentStat> data, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add($"HocVienLop {year}");
+
+        worksheet.Cell(1, 1).Value = "Thống kê học viên và lớp theo tháng";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Range(1, 1, 1, 3).Merge();
+        worksheet.Cell(2, 1).Value = $"Năm: {year}";
+        worksheet.Cell(2, 1).Style.Font.Bold = true;
+
+        worksheet.Cell(4, 1).Value = "Tháng";
+        worksheet.Cell(4, 2).Value = "Tổng học viên";
+        worksheet.Cell(4, 3).Value = "Tổng lớp hoạt động";
+        worksheet.Range(4, 1, 4, 3).Style.Font.Bold = true;
+        worksheet.Range(4, 1, 4, 3).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 5;
+        foreach (var item in data.OrderBy(x => x.Month))
+        {
+            worksheet.Cell(row, 1).Value = item.MonthName;
+            worksheet.Cell(row, 2).Value = item.StudentCount;
+            worksheet.Cell(row, 3).Value = item.ClassCount;
+            row++;
+        }
+
+        worksheet.Column(1).Width = 20;
+        worksheet.Column(2).Width = 18;
+        worksheet.Column(3).Width = 22;
+        workbook.SaveAs(filePath);
+    }
+
+    private static void WriteMonthlyAmountSheet(IXLWorksheet worksheet, string title, string amountHeader, List<MonthlyAmountStat> data)
+    {
+        worksheet.Cell(1, 1).Value = title;
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Range(1, 1, 1, 2).Merge();
+
+        worksheet.Cell(3, 1).Value = "Tháng";
+        worksheet.Cell(3, 2).Value = amountHeader;
+        worksheet.Range(3, 1, 3, 2).Style.Font.Bold = true;
+        worksheet.Range(3, 1, 3, 2).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 4;
+        decimal total = 0;
+        foreach (var item in data.OrderBy(x => x.Month))
+        {
+            worksheet.Cell(row, 1).Value = item.MonthName;
+            worksheet.Cell(row, 2).Value = item.Amount;
+            worksheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0";
+            total += item.Amount;
+            row++;
+        }
+
+        worksheet.Cell(row, 1).Value = "Tổng cộng";
+        worksheet.Cell(row, 1).Style.Font.Bold = true;
+        worksheet.Cell(row, 2).Value = total;
+        worksheet.Cell(row, 2).Style.Font.Bold = true;
+        worksheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0";
+        worksheet.Range(row, 1, row, 2).Style.Fill.BackgroundColor = XLColor.LightYellow;
+
+        worksheet.Column(1).Width = 20;
+        worksheet.Column(2).Width = 20;
+    }
+
     public void ExportStudentEvaluationsByMonthToExcel(string studentName, int year, int month, List<StudentEvaluationRow> data, string filePath)
     {
         using var workbook = new XLWorkbook();

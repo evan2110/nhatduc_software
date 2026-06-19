@@ -552,6 +552,105 @@ a { color: var(--primary); }
     color: #64748b;
 }
 
+.report-section {
+    margin-top: 1rem;
+}
+
+.report-section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.report-section-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.report-note {
+    margin: 0.75rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.chart-bar-revenue {
+    background: #4285f4;
+}
+
+.chart-bar-expense {
+    background: #ea4335;
+}
+
+.chart-bar-income {
+    background: #34a853;
+}
+
+.chart-bar-students {
+    background: #4285f4;
+}
+
+.chart-bar-classes {
+    background: #fbbc04;
+}
+
+.chart-bar-clickable {
+    cursor: pointer;
+}
+
+.chart-bar-clickable:hover .chart-bar {
+    opacity: 0.85;
+}
+
+.chart-bars-dual {
+    height: 220px;
+}
+
+.chart-dual-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 100%;
+    width: 70%;
+    max-width: 48px;
+    justify-content: center;
+}
+
+.chart-dual-bars .chart-bar {
+    flex: 1;
+    min-width: 10px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.chart-legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
 /* ── Modals ── */
 .modal-backdrop {
     position: fixed;

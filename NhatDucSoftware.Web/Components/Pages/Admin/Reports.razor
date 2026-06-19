@@ -3,6 +3,8 @@
 @inject UserSession Session
 @inject ReportService ReportService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Báo cáo</PageTitle>
 
@@ -30,76 +32,169 @@ else
     <div class="card">
         <div class="toolbar">
             <label>Chọn năm</label>
-            <select @bind="_selectedYear" @bind:after="LoadMonthly">
+            <select @bind="_selectedYear" @bind:after="LoadAllReports">
                 @foreach (var y in _years)
                 {
                     <option value="@y">@y</option>
                 }
             </select>
-            <a class="btn btn-success" href="@($"/api/export/revenue-month/{_selectedYear}")" target="_blank">Xuất Excel (tháng)</a>
-            <a class="btn btn-success" href="/api/export/revenue-year" target="_blank">Xuất Excel (năm)</a>
         </div>
+    </div>
 
-        <h3>Doanh thu theo năm</h3>
-        <div class="table-responsive">
-        <table class="data-table compact">
-            <thead><tr><th>Năm</th><th>Doanh thu</th></tr></thead>
-            <tbody>
-                @foreach (var y in _revenueByYear)
-                {
-                    <tr>
-                        <td>@y.Year</td>
-                        <td>@MoneyHelper.FormatCurrency(y.TotalRevenue)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        </div>
-
-        <h3>Biểu đồ doanh thu theo tháng năm @_selectedYear</h3>
-        @if (_revenueByMonth.Count == 0)
-        {
-            <p>Chưa có dữ liệu doanh thu</p>
-        }
-        else
-        {
-            var maxRev = _revenueByMonth.Max(x => x.TotalRevenue);
-            if (maxRev <= 0) maxRev = 1;
-            <div class="chart-bars">
-                @foreach (var item in _revenueByMonth.OrderBy(x => x.Month))
-                {
-                    var height = (double)(item.TotalRevenue / maxRev) * 180;
-                    <div class="chart-bar-group">
-                        <div class="chart-bar" style="height:@(height)px" title="@MoneyHelper.FormatCurrency(item.TotalRevenue)"></div>
-                        <span class="chart-label">T@(item.Month)</span>
-                    </div>
-                }
+    <div class="card report-section">
+        <div class="report-section-header">
+            <h3>Doanh thu đã thu theo tháng năm @_selectedYear</h3>
+            <div class="report-actions">
+                <a class="btn btn-success btn-sm" href="@($"/api/export/revenue-month/{_selectedYear}")" target="_blank">Xuất Excel</a>
             </div>
-            <div class="table-responsive">
+        </div>
+        @RenderAmountChart(_revenueByMonth.Select(x => new MonthlyAmountStat { Month = x.Month, MonthName = x.MonthName, Amount = x.TotalRevenue }).ToList(), "chart-bar-revenue")
+        @RenderAmountTable(_revenueByMonth.Select(x => new MonthlyAmountStat { Month = x.Month, MonthName = x.MonthName, Amount = x.TotalRevenue }).ToList(), "Doanh thu")
+    </div>
+
+    <div class="card report-section">
+        <div class="report-section-header">
+            <h3>Tổng chi — Lương giáo viên năm @_selectedYear</h3>
+            <div class="report-actions">
+                <button class="btn btn-secondary btn-sm" @onclick="() => ShowExpenseDetail(null)">Chi tiết giáo viên</button>
+                <a class="btn btn-success btn-sm" href="@($"/api/export/expense-month/{_selectedYear}")" target="_blank">Xuất Excel</a>
+            </div>
+        </div>
+        @RenderAmountChart(_expenseByMonth, "chart-bar-expense", ShowExpenseDetail)
+        @RenderAmountTable(_expenseByMonth, "Tổng chi", ShowExpenseDetail)
+    </div>
+
+    <div class="card report-section">
+        <div class="report-section-header">
+            <h3>Tổng thu — Học phí từ điểm danh năm @_selectedYear</h3>
+            <div class="report-actions">
+                <button class="btn btn-secondary btn-sm" @onclick="() => ShowTuitionDetail(null)">Chi tiết lớp</button>
+                <a class="btn btn-success btn-sm" href="@($"/api/export/tuition-earned/{_selectedYear}")" target="_blank">Xuất Excel</a>
+            </div>
+        </div>
+        @RenderAmountChart(_tuitionByMonth, "chart-bar-income", ShowTuitionDetail)
+        @RenderAmountTable(_tuitionByMonth, "Tổng thu", ShowTuitionDetail)
+    </div>
+
+    <div class="card report-section">
+        <div class="report-section-header">
+            <h3>Học viên &amp; lớp hoạt động theo tháng năm @_selectedYear</h3>
+            <div class="report-actions">
+                <a class="btn btn-success btn-sm" href="@($"/api/export/enrollment-month/{_selectedYear}")" target="_blank">Xuất Excel</a>
+            </div>
+        </div>
+        @RenderEnrollmentChart()
+        <div class="table-responsive">
             <table class="data-table compact">
-                <thead><tr><th>Tháng</th><th>Doanh thu</th></tr></thead>
+                <thead><tr><th>Tháng</th><th>Tổng học viên</th><th>Lớp hoạt động</th></tr></thead>
                 <tbody>
-                    @foreach (var m in _revenueByMonth.OrderBy(x => x.Month))
+                    @foreach (var m in _enrollmentByMonth.OrderBy(x => x.Month))
                     {
                         <tr>
                             <td>@m.MonthName</td>
-                            <td>@MoneyHelper.FormatCurrency(m.TotalRevenue)</td>
+                            <td>@m.StudentCount</td>
+                            <td>@m.ClassCount</td>
                         </tr>
                     }
                 </tbody>
             </table>
-            </div>
-        }
+        </div>
+        <p class="report-note">Tổng học viên: số học viên active đã đăng ký đến cuối tháng. Lớp hoạt động: số lớp có buổi học trong tháng.</p>
     </div>
+
+    <div class="card report-section">
+        <h3>Doanh thu theo năm</h3>
+        <div class="report-actions" style="margin-bottom: 0.75rem;">
+            <a class="btn btn-success btn-sm" href="/api/export/revenue-year" target="_blank">Xuất Excel (năm)</a>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead><tr><th>Năm</th><th>Doanh thu</th></tr></thead>
+                <tbody>
+                    @foreach (var y in _revenueByYear)
+                    {
+                        <tr>
+                            <td>@y.Year</td>
+                            <td>@MoneyHelper.FormatCurrency(y.TotalRevenue)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_showDetailModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseDetailModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>@_detailTitle</h3>
+                <div class="table-responsive">
+                    <table class="data-table compact">
+                        <thead>
+                            <tr>
+                                <th>TT</th>
+                                <th>@(_detailType == DetailType.Expense ? "Giáo viên" : "Lớp")</th>
+                                <th>Số tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_detailType == DetailType.Expense)
+                            {
+                                var idx = 1;
+                                @foreach (var row in _teacherDetails)
+                                {
+                                    <tr>
+                                        <td>@idx</td>
+                                        <td>@row.TeacherName</td>
+                                        <td>@MoneyHelper.FormatCurrency(row.TotalAmount)</td>
+                                    </tr>
+                                    idx++;
+                                }
+                            }
+                            else
+                            {
+                                var idx = 1;
+                                @foreach (var row in _classDetails)
+                                {
+                                    <tr>
+                                        <td>@idx</td>
+                                        <td>@row.ClassName</td>
+                                        <td>@MoneyHelper.FormatCurrency(row.TotalAmount)</td>
+                                    </tr>
+                                    idx++;
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if ((_detailType == DetailType.Expense && _teacherDetails.Count == 0)
+                    || (_detailType == DetailType.Tuition && _classDetails.Count == 0))
+                {
+                    <p>Chưa có dữ liệu.</p>
+                }
+                <button class="btn btn-secondary" @onclick="CloseDetailModal">Đóng</button>
+            </div>
+        </div>
+    }
 }
 
 @code {
+    private enum DetailType { Expense, Tuition }
+
     private ReportSummary _summary = new();
     private List<RevenueByYearStat> _revenueByYear = new();
     private List<RevenueByMonthStat> _revenueByMonth = new();
+    private List<MonthlyAmountStat> _expenseByMonth = new();
+    private List<MonthlyAmountStat> _tuitionByMonth = new();
+    private List<MonthlyEnrollmentStat> _enrollmentByMonth = new();
+    private List<TeacherExpenseDetailStat> _teacherDetails = new();
+    private List<ClassTuitionDetailStat> _classDetails = new();
     private List<int> _years = new();
     private int _selectedYear = DateTime.Now.Year;
     private string? _message;
+    private bool _showDetailModal;
+    private DetailType _detailType;
+    private string _detailTitle = "";
 
     protected override void OnInitialized()
     {
@@ -110,7 +205,7 @@ else
             _summary = ReportService.GetSummary();
             _revenueByYear = ReportService.GetRevenueByYear();
             BindYears();
-            LoadMonthly();
+            LoadAllReports();
         }
         catch (Exception ex)
         {
@@ -120,31 +215,221 @@ else
 
     private void BindYears()
     {
-        if (_revenueByYear.Count == 0)
-        {
-            _years = new List<int> { DateTime.Now.Year };
-        }
-        else
-        {
-            var minYear = _revenueByYear.Min(x => x.Year);
-            var maxYear = Math.Max(_revenueByYear.Max(x => x.Year), DateTime.Now.Year);
-            _years = Enumerable.Range(minYear, maxYear - minYear + 1).OrderByDescending(x => x).ToList();
-        }
-
+        var minYear = _revenueByYear.Count > 0 ? _revenueByYear.Min(x => x.Year) : DateTime.Now.Year;
+        var maxYear = Math.Max(_revenueByYear.Count > 0 ? _revenueByYear.Max(x => x.Year) : DateTime.Now.Year, DateTime.Now.Year);
+        _years = Enumerable.Range(minYear, maxYear - minYear + 1).OrderByDescending(x => x).ToList();
         if (!_years.Contains(_selectedYear)) _selectedYear = _years.First();
     }
 
-    private void LoadMonthly()
+    private void LoadAllReports()
     {
         try
         {
             _revenueByMonth = ReportService.GetRevenueByMonth(_selectedYear);
+            _expenseByMonth = ReportService.GetExpenseByMonth(_selectedYear);
+            _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(_selectedYear);
+            _enrollmentByMonth = ReportService.GetEnrollmentByMonth(_selectedYear);
             _message = null;
         }
         catch (Exception ex)
         {
             _revenueByMonth = new();
-            _message = $"Không thể tải doanh thu theo tháng: {ex.Message}";
+            _expenseByMonth = new();
+            _tuitionByMonth = new();
+            _enrollmentByMonth = new();
+            _message = $"Không thể tải báo cáo: {ex.Message}";
         }
     }
+
+    private void ShowExpenseDetail(int? month)
+    {
+        try
+        {
+            _detailType = DetailType.Expense;
+            _teacherDetails = ReportService.GetTeacherExpenseDetail(_selectedYear, month);
+            _detailTitle = month is >= 1 and <= 12
+                ? $"Chi tiết chi lương — Tháng {month}/{_selectedYear}"
+                : $"Chi tiết chi lương giáo viên năm {_selectedYear}";
+            _showDetailModal = true;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+    }
+
+    private void ShowTuitionDetail(int? month)
+    {
+        try
+        {
+            _detailType = DetailType.Tuition;
+            _classDetails = ReportService.GetClassTuitionDetail(_selectedYear, month);
+            _detailTitle = month is >= 1 and <= 12
+                ? $"Chi tiết thu học phí — Tháng {month}/{_selectedYear}"
+                : $"Chi tiết thu học phí theo lớp năm {_selectedYear}";
+            _showDetailModal = true;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+    }
+
+    private void CloseDetailModal() => _showDetailModal = false;
+
+    private RenderFragment RenderAmountChart(List<MonthlyAmountStat> data, string barClass, Action<int?>? onMonthClick = null) => __builder =>
+    {
+        if (data.Count == 0)
+        {
+            __builder.OpenElement(0, "p");
+            __builder.AddContent(1, "Chưa có dữ liệu");
+            __builder.CloseElement();
+            return;
+        }
+
+        var maxVal = data.Max(x => x.Amount);
+        if (maxVal <= 0) maxVal = 1;
+
+        __builder.OpenElement(2, "div");
+        __builder.AddAttribute(3, "class", "chart-bars");
+
+        foreach (var item in data.OrderBy(x => x.Month))
+        {
+            var height = (double)(item.Amount / maxVal) * 180;
+            var month = item.Month;
+
+            __builder.OpenElement(4, "div");
+            __builder.AddAttribute(5, "class", "chart-bar-group" + (onMonthClick is not null ? " chart-bar-clickable" : ""));
+
+            if (onMonthClick is not null)
+            {
+                __builder.AddAttribute(6, "role", "button");
+                __builder.AddAttribute(7, "tabindex", "0");
+                __builder.AddAttribute(8, "onclick", EventCallback.Factory.Create(this, () => onMonthClick(month)));
+            }
+
+            __builder.OpenElement(9, "div");
+            __builder.AddAttribute(10, "class", $"chart-bar {barClass}");
+            __builder.AddAttribute(11, "style", $"height:{height}px");
+            __builder.AddAttribute(12, "title", MoneyHelper.FormatCurrency(item.Amount));
+            __builder.CloseElement();
+
+            __builder.OpenElement(13, "span");
+            __builder.AddAttribute(14, "class", "chart-label");
+            __builder.AddContent(15, $"T{item.Month}");
+            __builder.CloseElement();
+
+            __builder.CloseElement();
+        }
+
+        __builder.CloseElement();
+    };
+
+    private RenderFragment RenderAmountTable(List<MonthlyAmountStat> data, string amountHeader, Action<int?>? onMonthClick = null) => __builder =>
+    {
+        __builder.OpenElement(0, "div");
+        __builder.AddAttribute(1, "class", "table-responsive");
+
+        __builder.OpenElement(2, "table");
+        __builder.AddAttribute(3, "class", "data-table compact");
+
+        __builder.OpenElement(4, "thead");
+        __builder.OpenElement(5, "tr");
+        __builder.OpenElement(6, "th"); __builder.AddContent(7, "Tháng"); __builder.CloseElement();
+        __builder.OpenElement(8, "th"); __builder.AddContent(9, amountHeader); __builder.CloseElement();
+        if (onMonthClick is not null)
+        {
+            __builder.OpenElement(10, "th"); __builder.AddContent(11, ""); __builder.CloseElement();
+        }
+        __builder.CloseElement();
+        __builder.CloseElement();
+
+        __builder.OpenElement(12, "tbody");
+        foreach (var m in data.OrderBy(x => x.Month))
+        {
+            __builder.OpenElement(13, "tr");
+            __builder.OpenElement(14, "td"); __builder.AddContent(15, m.MonthName); __builder.CloseElement();
+            __builder.OpenElement(16, "td"); __builder.AddContent(17, MoneyHelper.FormatCurrency(m.Amount)); __builder.CloseElement();
+            if (onMonthClick is not null)
+            {
+                __builder.OpenElement(18, "td");
+                __builder.OpenElement(19, "button");
+                __builder.AddAttribute(20, "class", "btn btn-secondary btn-sm");
+                __builder.AddAttribute(21, "onclick", EventCallback.Factory.Create(this, () => onMonthClick(m.Month)));
+                __builder.AddContent(22, "Chi tiết");
+                __builder.CloseElement();
+                __builder.CloseElement();
+            }
+            __builder.CloseElement();
+        }
+        __builder.CloseElement();
+
+        __builder.CloseElement();
+        __builder.CloseElement();
+    };
+
+    private RenderFragment RenderEnrollmentChart() => __builder =>
+    {
+        if (_enrollmentByMonth.Count == 0)
+        {
+            __builder.OpenElement(0, "p");
+            __builder.AddContent(1, "Chưa có dữ liệu");
+            __builder.CloseElement();
+            return;
+        }
+
+        var maxStudents = _enrollmentByMonth.Max(x => x.StudentCount);
+        var maxClasses = _enrollmentByMonth.Max(x => x.ClassCount);
+        if (maxStudents <= 0) maxStudents = 1;
+        if (maxClasses <= 0) maxClasses = 1;
+
+        __builder.OpenElement(2, "div");
+        __builder.AddAttribute(3, "class", "chart-legend");
+        __builder.OpenElement(4, "span");
+        __builder.AddAttribute(5, "class", "chart-legend-item");
+        __builder.OpenElement(6, "span"); __builder.AddAttribute(7, "class", "chart-legend-dot chart-bar-students"); __builder.CloseElement();
+        __builder.AddContent(8, " Học viên");
+        __builder.CloseElement();
+        __builder.OpenElement(9, "span");
+        __builder.AddAttribute(10, "class", "chart-legend-item");
+        __builder.OpenElement(11, "span"); __builder.AddAttribute(12, "class", "chart-legend-dot chart-bar-classes"); __builder.CloseElement();
+        __builder.AddContent(13, " Lớp hoạt động");
+        __builder.CloseElement();
+        __builder.CloseElement();
+
+        __builder.OpenElement(14, "div");
+        __builder.AddAttribute(15, "class", "chart-bars chart-bars-dual");
+
+        foreach (var item in _enrollmentByMonth.OrderBy(x => x.Month))
+        {
+            var studentHeight = (double)item.StudentCount / maxStudents * 160;
+            var classHeight = (double)item.ClassCount / maxClasses * 160;
+
+            __builder.OpenElement(16, "div");
+            __builder.AddAttribute(17, "class", "chart-bar-group");
+
+            __builder.OpenElement(18, "div");
+            __builder.AddAttribute(19, "class", "chart-dual-bars");
+            __builder.OpenElement(20, "div");
+            __builder.AddAttribute(21, "class", "chart-bar chart-bar-students");
+            __builder.AddAttribute(22, "style", $"height:{studentHeight}px");
+            __builder.AddAttribute(23, "title", $"{item.StudentCount} học viên");
+            __builder.CloseElement();
+            __builder.OpenElement(24, "div");
+            __builder.AddAttribute(25, "class", "chart-bar chart-bar-classes");
+            __builder.AddAttribute(26, "style", $"height:{classHeight}px");
+            __builder.AddAttribute(27, "title", $"{item.ClassCount} lớp");
+            __builder.CloseElement();
+            __builder.CloseElement();
+
+            __builder.OpenElement(28, "span");
+            __builder.AddAttribute(29, "class", "chart-label");
+            __builder.AddContent(30, $"T{item.Month}");
+            __builder.CloseElement();
+
+            __builder.CloseElement();
+        }
+
+        __builder.CloseElement();
+    };
 }

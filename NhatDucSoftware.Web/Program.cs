@@ -158,6 +158,38 @@ app.MapGet("/api/export/revenue-year", (ExcelExportService excel, ReportService 
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "BaoCaoDoanhthuNam.xlsx");
 });
 
+app.MapGet("/api/export/expense-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
+{
+    var monthly = reports.GetExpenseByMonth(year);
+    var details = reports.GetTeacherExpenseDetail(year);
+    var path = Path.Combine(Path.GetTempPath(), $"expense_{Guid.NewGuid():N}.xlsx");
+    excel.ExportExpenseByMonthToExcel(year, monthly, details, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoChi_{year}.xlsx");
+});
+
+app.MapGet("/api/export/tuition-earned/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
+{
+    var monthly = reports.GetTuitionEarnedByMonth(year);
+    var details = reports.GetClassTuitionDetail(year);
+    var path = Path.Combine(Path.GetTempPath(), $"tuition_earned_{Guid.NewGuid():N}.xlsx");
+    excel.ExportTuitionEarnedByMonthToExcel(year, monthly, details, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoThu_{year}.xlsx");
+});
+
+app.MapGet("/api/export/enrollment-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
+{
+    var data = reports.GetEnrollmentByMonth(year);
+    var path = Path.Combine(Path.GetTempPath(), $"enrollment_{Guid.NewGuid():N}.xlsx");
+    excel.ExportEnrollmentByMonthToExcel(year, data, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoHocVienLop_{year}.xlsx");
+});
+
 app.MapGet("/api/export/evaluations/{studentId:int}/{year:int}/{month:int}", (int studentId, int year, int month, ExcelExportService excel, EvaluationService evaluations, StudentService students) =>
 {
     var student = students.GetAll().FirstOrDefault(s => s.Id == studentId);
