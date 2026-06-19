@@ -5,6 +5,19 @@ namespace NhatDucSoftware.Core.Services;
 
 public class PaymentService
 {
+    public const string BalancePaymentNote = "Thanh toán từ số dư";
+
+    public decimal GetStudentBalance(int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(Balance, 0) FROM Students WHERE Id = @studentId;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        return Convert.ToDecimal(command.ExecuteScalar());
+    }
+
     public decimal GetTotalTuitionByStudent(int studentId)
     {
         using var connection = DbContext.CreateConnection();
@@ -163,6 +176,76 @@ SELECT Id, Amount, PaymentDate FROM Payments WHERE Id = @paymentId;";
         }
 
         transaction.Commit();
+    }
+
+    public decimal PayFromBalance(int studentId, int classId, int month, int year, int createdBy)
+    {
+        if (IsFinalized(classId, month, year))
+        {
+            throw new InvalidOperationException("Tháng này đã được chốt số liệu, không thể thanh toán.");
+        }
+
+        var balance = GetStudentBalance(studentId);
+        if (balance <= 0)
+        {
+            throw new InvalidOperationException("Học viên không có số dư để thanh toán.");
+        }
+
+        var total = GetTotalTuitionByStudentInClassMonthYear(studentId, classId, month, year);
+        var paid = GetPaidAmountByStudentMonthYear(studentId, month, year, classId);
+        var remaining = total - paid;
+        if (remaining <= 0)
+        {
+            throw new InvalidOperationException("Học viên không còn học phí cần đóng trong tháng này.");
+        }
+
+        var amount = Math.Min(balance, remaining);
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var balanceCmd = connection.CreateCommand())
+        {
+            balanceCmd.Transaction = transaction;
+            balanceCmd.CommandText = @"UPDATE Students
+SET Balance = Balance - @amount
+WHERE Id = @studentId AND Balance >= @amount;";
+            balanceCmd.Parameters.AddWithValue("@amount", amount);
+            balanceCmd.Parameters.AddWithValue("@studentId", studentId);
+            if (balanceCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không thể trừ số dư. Vui lòng kiểm tra lại.");
+            }
+        }
+
+        long paymentId;
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
+VALUES(@studentId, @classId, @amount, @date, @note, @createdBy)
+RETURNING Id;";
+            command.Parameters.AddWithValue("@studentId", studentId);
+            command.Parameters.AddWithValue("@classId", classId);
+            command.Parameters.AddWithValue("@amount", amount);
+            command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
+            command.Parameters.AddWithValue("@note", BalancePaymentNote);
+            command.Parameters.AddWithValue("@createdBy", createdBy);
+            paymentId = Convert.ToInt64(command.ExecuteScalar());
+        }
+
+        using (var ledgerCmd = connection.CreateCommand())
+        {
+            ledgerCmd.Transaction = transaction;
+            ledgerCmd.CommandText = @"INSERT INTO RevenueLedger(SourcePaymentId, Amount, PaymentDate)
+SELECT Id, Amount, PaymentDate FROM Payments WHERE Id = @paymentId;";
+            ledgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            ledgerCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return amount;
     }
 
     /// <summary>
@@ -657,6 +740,23 @@ WHERE SourcePaymentId = @paymentId;";
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
+
+        decimal paymentAmount = 0;
+        string paymentNote = "";
+        using (var readCmd = connection.CreateCommand())
+        {
+            readCmd.CommandText = @"SELECT Amount, COALESCE(Note, '') FROM Payments WHERE Id = @paymentId AND StudentId = @studentId;";
+            readCmd.Parameters.AddWithValue("@paymentId", paymentId);
+            readCmd.Parameters.AddWithValue("@studentId", studentId);
+            using var reader = readCmd.ExecuteReader();
+            if (!reader.Read())
+            {
+                throw new InvalidOperationException("Không tìm thấy lịch sử thu để xóa.");
+            }
+            paymentAmount = Convert.ToDecimal(reader.GetValue(0));
+            paymentNote = reader.GetString(1);
+        }
+
         using var transaction = connection.BeginTransaction();
 
         using (var deleteLedgerCmd = connection.CreateCommand())
@@ -678,6 +778,16 @@ WHERE SourcePaymentId = @paymentId;";
             {
                 throw new InvalidOperationException("Không tìm thấy lịch sử thu để xóa.");
             }
+        }
+
+        if (paymentNote == BalancePaymentNote)
+        {
+            using var restoreCmd = connection.CreateCommand();
+            restoreCmd.Transaction = transaction;
+            restoreCmd.CommandText = @"UPDATE Students SET Balance = Balance + @amount WHERE Id = @studentId;";
+            restoreCmd.Parameters.AddWithValue("@amount", paymentAmount);
+            restoreCmd.Parameters.AddWithValue("@studentId", studentId);
+            restoreCmd.ExecuteNonQuery();
         }
 
         transaction.Commit();

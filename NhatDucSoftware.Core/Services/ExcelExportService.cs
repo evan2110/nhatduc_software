@@ -137,7 +137,7 @@ public class ExcelExportService
         worksheet.Cell(1, 1).Value = "Danh sách học viên";
         worksheet.Cell(1, 1).Style.Font.Bold = true;
         worksheet.Cell(1, 1).Style.Font.FontSize = 14;
-        worksheet.Range(1, 1, 1, 8).Merge();
+        worksheet.Range(1, 1, 1, 9).Merge();
 
         worksheet.Cell(3, 1).Value = "Mã học viên";
         worksheet.Cell(3, 2).Value = "Họ và tên";
@@ -147,8 +147,9 @@ public class ExcelExportService
         worksheet.Cell(3, 6).Value = "Năm sinh";
         worksheet.Cell(3, 7).Value = "Địa chỉ";
         worksheet.Cell(3, 8).Value = "Trạng thái";
-        worksheet.Range(3, 1, 3, 8).Style.Font.Bold = true;
-        worksheet.Range(3, 1, 3, 8).Style.Fill.BackgroundColor = XLColor.LightGray;
+        worksheet.Cell(3, 9).Value = "Số dư";
+        worksheet.Range(3, 1, 3, 9).Style.Font.Bold = true;
+        worksheet.Range(3, 1, 3, 9).Style.Fill.BackgroundColor = XLColor.LightGray;
 
         var row = 4;
         foreach (var item in data)
@@ -161,6 +162,7 @@ public class ExcelExportService
             worksheet.Cell(row, 6).Value = item.BirthYear?.ToString() ?? string.Empty;
             worksheet.Cell(row, 7).Value = item.Address ?? string.Empty;
             worksheet.Cell(row, 8).Value = item.Status;
+            worksheet.Cell(row, 9).Value = item.Balance;
             row++;
         }
 

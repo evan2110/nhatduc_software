@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
 
         EnsureSchemaMigrationsTable(connection);
         MigrateAttendanceSessionsShiftNumber(connection);
+        MigrateStudentBalanceColumn(connection);
+    }
+
+    private static void MigrateStudentBalanceColumn(System.Data.Common.DbConnection connection)
+    {
+        using var addColumn = connection.CreateCommand();
+        addColumn.CommandText = @"
+ALTER TABLE Students
+ADD COLUMN IF NOT EXISTS Balance NUMERIC(18,2) NOT NULL DEFAULT 0;";
+        addColumn.ExecuteNonQuery();
     }
 
     private static void EnsureSchemaMigrationsTable(System.Data.Common.DbConnection connection)

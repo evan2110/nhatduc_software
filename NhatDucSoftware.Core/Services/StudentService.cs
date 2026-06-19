@@ -24,7 +24,8 @@ SELECT s.Id,
        s.Email,
        s.BirthYear,
        s.Address,
-       s.Status
+       s.Status,
+       COALESCE(s.Balance, 0)
 FROM Students s
 ORDER BY s.Id ASC;";
         using var reader = command.ExecuteReader();
@@ -39,7 +40,8 @@ ORDER BY s.Id ASC;";
                 Email = reader.IsDBNull(4) ? null : reader.GetString(4),
                 BirthYear = reader.IsDBNull(5) ? null : reader.GetInt32(5),
                 Address = reader.IsDBNull(6) ? null : reader.GetString(6),
-                Status = reader.GetString(7)
+                Status = reader.GetString(7),
+                Balance = Convert.ToDecimal(reader.GetValue(8))
             });
         }
 
@@ -68,8 +70,8 @@ ORDER BY s.Id ASC;";
         var nextId = GetNextAvailableId(connection);
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"INSERT INTO Students(Id, FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt)
-VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt);";
+        command.CommandText = @"INSERT INTO Students(Id, FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt, Balance)
+VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt, @balance);";
         command.Parameters.AddWithValue("@id", nextId);
         command.Parameters.AddWithValue("@name", student.FullName);
         command.Parameters.AddWithValue("@phone", student.Phone);
@@ -78,6 +80,7 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt)
         command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", student.Status);
         command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
+        command.Parameters.AddWithValue("@balance", student.Balance);
         command.ExecuteNonQuery();
     }
 
@@ -88,7 +91,7 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt)
 
         using var command = connection.CreateCommand();
         command.CommandText = @"UPDATE Students
-SET FullName = @name, Phone = @phone, Email = @mail, BirthYear = @birthYear, Address = @address, Status = @status
+SET FullName = @name, Phone = @phone, Email = @mail, BirthYear = @birthYear, Address = @address, Status = @status, Balance = @balance
 WHERE Id = @id;";
         command.Parameters.AddWithValue("@id", student.Id);
         command.Parameters.AddWithValue("@name", student.FullName);
@@ -97,6 +100,7 @@ WHERE Id = @id;";
         command.Parameters.AddWithValue("@birthYear", (object?)student.BirthYear ?? DBNull.Value);
         command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", student.Status);
+        command.Parameters.AddWithValue("@balance", student.Balance);
         command.ExecuteNonQuery();
     }
 

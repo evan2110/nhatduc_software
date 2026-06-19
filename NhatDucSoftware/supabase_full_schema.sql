@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS "Students" (
     "Address" TEXT NULL,
     "Language" TEXT NOT NULL,
     "Status" TEXT NOT NULL DEFAULT 'Active',
-    "CreatedAt" TEXT NOT NULL
+    "CreatedAt" TEXT NOT NULL,
+    "Balance" NUMERIC(18,2) NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS "Courses" (

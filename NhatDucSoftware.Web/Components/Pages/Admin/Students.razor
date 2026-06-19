@@ -4,6 +4,7 @@
 @inject StudentService StudentService
 @inject EvaluationService EvaluationService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Học viên</PageTitle>
 
@@ -48,6 +49,10 @@ else
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Số dư</label>
+                <input @bind="_form.BalanceText" placeholder="0" />
             </div>
         </div>
         <div class="toolbar">
@@ -97,13 +102,14 @@ else
                     <th>Email</th>
                     <th>Năm sinh</th>
                     <th>Trạng thái</th>
+                    <th>Số dư</th>
                 </tr>
             </thead>
             <tbody>
                 @if (PagedStudents.Count == 0)
                 {
                     <tr class="empty-row">
-                        <td colspan="7">Không tìm thấy học viên phù hợp.</td>
+                        <td colspan="8">Không tìm thấy học viên phù hợp.</td>
                     </tr>
                 }
                 else
@@ -118,6 +124,7 @@ else
                             <td>@s.Email</td>
                             <td>@s.BirthYear</td>
                             <td>@s.Status</td>
+                            <td>@MoneyHelper.FormatCurrency(s.Balance)</td>
                         </tr>
                     }
                 }
@@ -273,14 +280,32 @@ else
             Email = s.Email ?? "",
             BirthYear = s.BirthYear,
             Address = s.Address ?? "",
-            Status = s.Status
+            Status = s.Status,
+            BalanceText = s.Balance.ToString("0")
         };
+    }
+
+    private bool TryParseBalance(out decimal balance)
+    {
+        if (string.IsNullOrWhiteSpace(_form.BalanceText))
+        {
+            balance = 0;
+            return true;
+        }
+
+        return MoneyHelper.TryParseMoney(_form.BalanceText, out balance) && balance >= 0;
     }
 
     private void AddStudent()
     {
         try
         {
+            if (!TryParseBalance(out var balance))
+            {
+                _message = "Số dư phải là số không âm.";
+                return;
+            }
+
             StudentService.Add(new Student
             {
                 FullName = _form.FullName.Trim(),
@@ -288,7 +313,8 @@ else
                 Email = string.IsNullOrWhiteSpace(_form.Email) ? null : _form.Email.Trim(),
                 BirthYear = _form.BirthYear,
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
-                Status = _form.Status
+                Status = _form.Status,
+                Balance = balance
             });
             _message = "Đã thêm học viên.";
             LoadStudents();
@@ -302,6 +328,12 @@ else
         if (_selectedId is null) return;
         try
         {
+            if (!TryParseBalance(out var balance))
+            {
+                _message = "Số dư phải là số không âm.";
+                return;
+            }
+
             StudentService.Update(new Student
             {
                 Id = _selectedId.Value,
@@ -310,7 +342,8 @@ else
                 Email = string.IsNullOrWhiteSpace(_form.Email) ? null : _form.Email.Trim(),
                 BirthYear = _form.BirthYear,
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
-                Status = _form.Status
+                Status = _form.Status,
+                Balance = balance
             });
             _message = "Đã cập nhật học viên.";
             LoadStudents();
@@ -423,5 +456,6 @@ else
         public int? BirthYear { get; set; }
         public string Address { get; set; } = "";
         public string Status { get; set; } = "Active";
+        public string BalanceText { get; set; } = "0";
     }
 }

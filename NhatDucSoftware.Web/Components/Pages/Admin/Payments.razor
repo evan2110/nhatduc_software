@@ -70,6 +70,7 @@ else
                             @if (row.StudentId > 0)
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
+                                <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@_isFinalized">Thanh toán</button>
                             }
                         </td>
                     </tr>
@@ -88,6 +89,7 @@ else
                     <span>@_needText</span>
                     <span>Đã đóng: @MoneyHelper.FormatCurrency(_paid)</span>
                     <span>Còn lại: @MoneyHelper.FormatCurrency(_remaining)</span>
+                    <span>Số dư: @MoneyHelper.FormatCurrency(_balance)</span>
                 </div>
             </div>
             <div class="form-grid">
@@ -101,6 +103,7 @@ else
                 </div>
             </div>
             <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(_remaining <= 0 || _isFinalized)">Thu học phí</button>
+            <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(_remaining <= 0 || _balance <= 0 || _isFinalized)">Thanh toán từ số dư</button>
         </div>
     }
 
@@ -147,6 +150,7 @@ else
     private string _selectedStudentName = "";
     private decimal _paid;
     private decimal _remaining;
+    private decimal _balance;
     private string _needText = "";
     private string _amountText = "";
     private string _note = "";
@@ -193,6 +197,7 @@ else
         var total = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
         _paid = PaymentService.GetPaidAmountByStudentMonthYear(row.StudentId, _month, _year, _classId);
         _remaining = Math.Max(0, total - _paid);
+        _balance = PaymentService.GetStudentBalance(row.StudentId);
         var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
         _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
         if (carryOver > 0) _needText += $" (nợ từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
@@ -230,6 +235,47 @@ else
             _isError = false;
             _amountText = "";
             _note = "";
+            LoadGrid();
+        }
+        catch (Exception ex) { _message = ex.Message; _isError = true; }
+    }
+
+    private void PayFromBalance(PaymentClassListRow row)
+    {
+        SelectPaymentRow(row);
+        PayFromBalanceSelected();
+    }
+
+    private void PayFromBalanceSelected()
+    {
+        if (_selectedStudentId <= 0) return;
+
+        if (_month != DateTime.Now.Month || _year != DateTime.Now.Year)
+        {
+            _message = "Chỉ được phép thanh toán học phí của tháng hiện tại.";
+            _isError = true;
+            return;
+        }
+
+        if (_balance <= 0)
+        {
+            _message = "Học viên không có số dư để thanh toán.";
+            _isError = true;
+            return;
+        }
+
+        if (_remaining <= 0)
+        {
+            _message = "Học viên không còn học phí cần đóng.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            var amount = PaymentService.PayFromBalance(_selectedStudentId, _classId, _month, _year, Session.CurrentUser!.Id);
+            _message = $"Đã thanh toán {MoneyHelper.FormatCurrency(amount)} từ số dư.";
+            _isError = false;
             LoadGrid();
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }

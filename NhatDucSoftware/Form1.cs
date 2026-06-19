@@ -34,6 +34,8 @@ namespace NhatDucSoftware
         private List<RevenueByMonthStat> _revenueByMonth = new();
         private bool _isBindingPaymentStudents;
         private bool _isBindingPaymentMonthYear;
+        private TextBox txtStudentBalance;
+        private Button btnPayFromBalance;
 
         public bool RequestLogout { get; private set; }
 
@@ -75,6 +77,7 @@ namespace NhatDucSoftware
             dgvCourses.CellFormatting += (_, e) => FormatMoneyCell(dgvCourses, e, nameof(Course.TuitionFee));
             dgvRevenueByYear.CellFormatting += (_, e) => FormatMoneyCell(dgvRevenueByYear, e, nameof(RevenueByYearStat.TotalRevenue), nameof(RevenueByMonthStat.TotalRevenue));
             dgvAttendanceDetail.CellFormatting += (_, e) => FormatMoneyCell(dgvAttendanceDetail, e, "SoTien");
+            dgvStudents.CellFormatting += (_, e) => FormatMoneyCell(dgvStudents, e, nameof(Student.Balance));
         }
 
         private static void WireMoneyInput(TextBox textBox)
@@ -113,6 +116,41 @@ namespace NhatDucSoftware
                 e.Value = FormatCurrency(parsedValue);
                 e.FormattingApplied = true;
             }
+        }
+
+        private void InitializeStudentBalanceInput()
+        {
+            var lblStudentBalance = new Label
+            {
+                Text = "Số dư",
+                Location = new Point(830, 228),
+                Size = new Size(120, 15),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+
+            txtStudentBalance = new TextBox
+            {
+                Location = new Point(830, 246),
+                Size = new Size(150, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+
+            tabAdminStudents.Controls.Add(lblStudentBalance);
+            tabAdminStudents.Controls.Add(txtStudentBalance);
+            WireMoneyInput(txtStudentBalance);
+        }
+
+        private void InitializePayFromBalanceButton()
+        {
+            btnPayFromBalance = new Button
+            {
+                Text = "Thanh toán từ số dư",
+                Location = new Point(20, 273),
+                Size = new Size(390, 30),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
+            };
+            btnPayFromBalance.Click += btnPayFromBalance_Click;
+            tabAdminPayments.Controls.Add(btnPayFromBalance);
         }
 
         private void AddCopyrightLabel()
@@ -162,6 +200,9 @@ namespace NhatDucSoftware
             cmbStudentPayment.Visible = false;
             btnEditPaymentHistory.Visible = false;
             btnDeletePaymentHistory.Visible = false;
+
+            InitializeStudentBalanceInput();
+            InitializePayFromBalanceButton();
 
             LoadCoursesToCombos();
             LoadStudents();
@@ -827,7 +868,8 @@ namespace NhatDucSoftware
                 [nameof(Student.Email)] = "Email",
                 [nameof(Student.BirthYear)] = "Năm sinh",
                 [nameof(Student.Address)] = "Địa chỉ",
-                [nameof(Student.Status)] = "Trạng thái"
+                [nameof(Student.Status)] = "Trạng thái",
+                [nameof(Student.Balance)] = "Số dư"
             });
 
             if (dgvStudents.Columns.Contains(nameof(Student.ClassName)))
@@ -1266,6 +1308,12 @@ namespace NhatDucSoftware
                 s.BirthYear = int.TryParse(txtStudentBirthYear.Text.Trim(), out var birthYear) ? birthYear : null;
                 s.Address = txtStudentAddress.Text.Trim();
                 s.Status = cmbStudentStatus.Text;
+                if (!TryParseMoney(txtStudentBalance.Text, out var balance) || balance < 0)
+                {
+                    MessageBox.Show("Số dư phải là số không âm.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                s.Balance = balance;
                 _studentService.Update(s);
                 LoadStudents();
             }
@@ -1312,6 +1360,7 @@ namespace NhatDucSoftware
             txtStudentBirthYear.Text = s.BirthYear?.ToString() ?? string.Empty;
             txtStudentAddress.Text = s.Address ?? string.Empty;
             cmbStudentStatus.Text = s.Status;
+            txtStudentBalance.Text = FormatMoneyInput(s.Balance);
         }
 
         private void btnViewEvaluations_Click(object sender, EventArgs e)
@@ -2007,7 +2056,20 @@ namespace NhatDucSoftware
                 {
                     Name = "btnViewPaymentDetail",
                     HeaderText = "",
-                    Text = "Xem chi tiết",
+                    Text = "Chi tiết",
+                    UseColumnTextForButtonValue = true,
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells
+                };
+                dgvAttendanceDetail.Columns.Add(btn);
+            }
+
+            if (dgvAttendanceDetail.Columns["btnPayFromBalance"] is null)
+            {
+                var btn = new DataGridViewButtonColumn
+                {
+                    Name = "btnPayFromBalance",
+                    HeaderText = "",
+                    Text = "Thanh toán",
                     UseColumnTextForButtonValue = true,
                     AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells
                 };
@@ -2021,6 +2083,10 @@ namespace NhatDucSoftware
                 lblPaymentPaid.Text = "Đã đóng: 0đ";
                 lblPaymentRemain.Text = "Còn lại: 0đ";
                 btnCollectPayment.Enabled = false;
+                if (btnPayFromBalance is not null)
+                {
+                    btnPayFromBalance.Enabled = false;
+                }
                 return;
             }
 
@@ -2071,8 +2137,51 @@ namespace NhatDucSoftware
 
             lblPaymentNeed.Text = needText;
             lblPaymentPaid.Text = $"Đã đóng: {FormatCurrency(paid)}";
-            lblPaymentRemain.Text = $"Còn lại: {FormatCurrency(remaining)}";
+            lblPaymentRemain.Text = $"Còn lại: {FormatCurrency(remaining)} | Số dư: {FormatCurrency(_paymentService.GetStudentBalance(row.StudentId))}";
             btnCollectPayment.Enabled = remaining > 0;
+            if (btnPayFromBalance is not null)
+            {
+                btnPayFromBalance.Enabled = remaining > 0 && _paymentService.GetStudentBalance(row.StudentId) > 0;
+            }
+        }
+
+        private void btnPayFromBalance_Click(object sender, EventArgs e)
+        {
+            if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
+            {
+                return;
+            }
+
+            if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
+            {
+                return;
+            }
+
+            var now = DateTime.Now;
+            if (month != now.Month || year != now.Year)
+            {
+                MessageBox.Show("Chỉ được phép thanh toán học phí của tháng hiện tại.", "Không được phép", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentClassListRow selectedRow || selectedRow.StudentId <= 0)
+            {
+                MessageBox.Show("Vui lòng chọn học viên trên danh sách thu phí.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
+                var amount = _paymentService.PayFromBalance(selectedRow.StudentId, classId, month, year, _currentUser.Id);
+                MessageBox.Show($"Đã thanh toán {FormatCurrency(amount)} từ số dư.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadPaymentSummaryGrid();
+                LoadReports();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void btnCollectPayment_Click(object sender, EventArgs e)
@@ -2332,6 +2441,10 @@ namespace NhatDucSoftware
             var isFinalized = classId > 0 && _paymentService.IsFinalized(classId, month, year);
             txtPaymentAmount.Enabled = !isFinalized;
             btnCollectPayment.Enabled = !isFinalized && btnCollectPayment.Enabled;
+            if (btnPayFromBalance is not null)
+            {
+                btnPayFromBalance.Enabled = !isFinalized && btnPayFromBalance.Enabled;
+            }
             btnEditPaymentHistory.Enabled = !isFinalized;
             btnDeletePaymentHistory.Enabled = !isFinalized;
             btnFinalizePayment.Enabled = !isFinalized;
@@ -2350,17 +2463,29 @@ namespace NhatDucSoftware
             }
 
             var column = dgvAttendanceDetail.Columns[e.ColumnIndex];
-            if (column.Name != "btnViewPaymentDetail")
+            if (column.Name == "btnViewPaymentDetail")
+            {
+                if (dgvAttendanceDetail.Rows[e.RowIndex].DataBoundItem is not PaymentClassListRow row || row.StudentId <= 0)
+                {
+                    return;
+                }
+
+                ShowPaymentHistoryDetailDialog(row);
+                return;
+            }
+
+            if (column.Name != "btnPayFromBalance")
             {
                 return;
             }
 
-            if (dgvAttendanceDetail.Rows[e.RowIndex].DataBoundItem is not PaymentClassListRow row || row.StudentId <= 0)
+            if (dgvAttendanceDetail.Rows[e.RowIndex].DataBoundItem is not PaymentClassListRow payRow || payRow.StudentId <= 0)
             {
                 return;
             }
 
-            ShowPaymentHistoryDetailDialog(row);
+            dgvAttendanceDetail.Rows[e.RowIndex].Selected = true;
+            btnPayFromBalance_Click(sender, e);
         }
 
         private void ShowPaymentHistoryDetailDialog(PaymentClassListRow row)
@@ -2444,6 +2569,10 @@ namespace NhatDucSoftware
             if (dgvAttendanceDetail.CurrentRow?.DataBoundItem is not PaymentClassListRow row || row.StudentId <= 0)
             {
                 btnCollectPayment.Enabled = false;
+                if (btnPayFromBalance is not null)
+                {
+                    btnPayFromBalance.Enabled = false;
+                }
                 return;
             }
 

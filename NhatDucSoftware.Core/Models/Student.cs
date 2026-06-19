@@ -10,4 +10,5 @@ public class Student
     public int? BirthYear { get; set; }
     public string? Address { get; set; }
     public string Status { get; set; } = "Active";
+    public decimal Balance { get; set; }
 }
