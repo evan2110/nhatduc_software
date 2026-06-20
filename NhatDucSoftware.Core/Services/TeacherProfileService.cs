@@ -75,25 +75,11 @@ WHERE Id = @id;";
 
     public List<string> GetAllSubjects(int teacherId)
     {
-        var subjects = new List<string>();
-
-        foreach (var cls in _classService.GetClassesByTeacher(teacherId))
-        {
-            if (!string.IsNullOrWhiteSpace(cls.CourseCode))
-            {
-                subjects.Add(cls.CourseCode.Trim());
-            }
-
-            if (!string.IsNullOrWhiteSpace(cls.ClassName))
-            {
-                subjects.Add(cls.ClassName.Trim());
-            }
-        }
-
-        return subjects
-            .Where(s => !string.IsNullOrWhiteSpace(s))
+        return _classService.GetClassesByTeacher(teacherId)
+            .Select(cls => cls.ClassName.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
