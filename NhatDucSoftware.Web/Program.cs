@@ -26,7 +26,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        options.MaximumReceiveMessageSize = 52 * 1024 * 1024;
+    });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -54,6 +58,8 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
+builder.Services.AddScoped<TeacherProfileService>();
+builder.Services.AddScoped<GoogleDriveService>();
 
 var app = builder.Build();
 

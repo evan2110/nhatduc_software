@@ -1,0 +1,317 @@
+@page "/teacher/profile"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject TeacherProfileService ProfileService
+@inject GoogleDriveService DriveService
+@inject NavigationManager Nav
+
+<PageTitle>Hồ sơ GV</PageTitle>
+
+@if (!Session.IsTeacher)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Hồ sơ GV</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
+    }
+
+    <div class="card">
+        <h3>Thông tin cá nhân</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input @bind="_fullName" />
+            </div>
+            <div class="form-group">
+                <label>Ngày sinh</label>
+                <input type="date" @bind="_dateOfBirth" />
+            </div>
+            <div class="form-group span-2">
+                <label>Nơi ở</label>
+                <input @bind="_address" />
+            </div>
+            <div class="form-group span-2">
+                <label>Trình độ</label>
+                <input @bind="_qualification" placeholder="VD: Cử nhân Sư phạm Toán" />
+            </div>
+            <div class="form-group">
+                <label>SĐT</label>
+                <input @bind="_phone" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input @bind="_email" type="email" />
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="SaveProfile">Lưu hồ sơ</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Các môn đang dạy</h3>
+        <p class="text-muted">Danh sách môn từ lớp được phân công và môn bạn tự thêm. Dùng để upload tài liệu giảng dạy.</p>
+
+        <div class="toolbar">
+            <input @bind="_newSubject" placeholder="Thêm môn (VD: Toán 10)" @onkeydown="OnSubjectKeyDown" />
+            <button class="btn btn-secondary" @onclick="AddSubject">Thêm môn</button>
+        </div>
+
+        @if (_subjects.Count == 0)
+        {
+            <p class="text-muted">Chưa có môn nào. Thêm môn hoặc chờ admin phân công lớp.</p>
+        }
+        else
+        {
+            <div class="subject-tags">
+                @foreach (var subject in _subjects)
+                {
+                    <span class="subject-tag">
+                        @subject
+                        <button type="button" class="subject-tag-remove" @onclick="() => RemoveSubject(subject)" title="Xóa">×</button>
+                    </span>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h3>Tài liệu giảng dạy</h3>
+        @if (!DriveService.IsConfigured)
+        {
+            <div class="alert alert-info">
+                Google Drive chưa được cấu hình trên server. @DriveService.ConfigurationHint
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">Tài liệu sẽ được upload vào thư mục <strong>Tài Liệu Giảng Dạy</strong> trên Google Drive, trong folder tương ứng với từng môn.</p>
+        }
+
+        @if (_subjects.Count == 0)
+        {
+            <p class="text-muted">Thêm môn học trước khi upload tài liệu.</p>
+        }
+        else
+        {
+            @foreach (var subject in _subjects)
+            {
+                var subjectMaterials = _materials.Where(m => string.Equals(m.SubjectName, subject, StringComparison.OrdinalIgnoreCase)).ToList();
+                <div class="subject-upload-block">
+                    <div class="subject-upload-header">
+                        <strong>@subject</strong>
+                        @if (DriveService.IsConfigured)
+                        {
+                            <label class="btn btn-secondary btn-sm upload-label">
+                                @if (_uploadingSubject == subject)
+                                {
+                                    <span>Đang upload...</span>
+                                }
+                                else
+                                {
+                                    <span>Chọn tài liệu</span>
+                                }
+                                <InputFile OnChange="e => HandleUpload(subject, e)" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt" disabled="@(_uploadingSubject is not null)" />
+                            </label>
+                        }
+                    </div>
+                    @if (subjectMaterials.Count > 0)
+                    {
+                        <ul class="material-list">
+                            @foreach (var mat in subjectMaterials)
+                            {
+                                <li>
+                                    @if (!string.IsNullOrEmpty(mat.DriveWebViewLink))
+                                    {
+                                        <a href="@mat.DriveWebViewLink" target="_blank" rel="noopener">@mat.FileName</a>
+                                    }
+                                    else
+                                    {
+                                        <span>@mat.FileName</span>
+                                    }
+                                    <span class="text-muted"> — @mat.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted material-empty">Chưa có tài liệu.</p>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    private string _fullName = "";
+    private DateTime? _dateOfBirth;
+    private string _address = "";
+    private string _qualification = "";
+    private string _phone = "";
+    private string _email = "";
+    private List<string> _subjects = [];
+    private List<string> _customSubjects = [];
+    private List<TeacherMaterial> _materials = [];
+    private string _newSubject = "";
+    private string? _message;
+    private bool _isError;
+    private string? _uploadingSubject;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
+        LoadProfile();
+    }
+
+    private void LoadProfile()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        var profile = ProfileService.GetProfile(teacherId);
+        if (profile is null) return;
+
+        _fullName = profile.FullName;
+        _dateOfBirth = profile.DateOfBirth;
+        _address = profile.Address ?? "";
+        _qualification = profile.Qualification ?? "";
+        _phone = profile.Phone ?? "";
+        _email = profile.Email ?? "";
+        _customSubjects = TeacherProfileService.ParseSubjects(profile.TeachingSubjects);
+        _subjects = ProfileService.GetAllSubjects(teacherId);
+        _materials = ProfileService.GetMaterials(teacherId);
+    }
+
+    private void SaveProfile()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        try
+        {
+            var teacher = new Teacher
+            {
+                Id = teacherId,
+                FullName = _fullName,
+                DateOfBirth = _dateOfBirth,
+                Address = string.IsNullOrWhiteSpace(_address) ? null : _address.Trim(),
+                Qualification = string.IsNullOrWhiteSpace(_qualification) ? null : _qualification.Trim(),
+                Phone = string.IsNullOrWhiteSpace(_phone) ? null : _phone.Trim(),
+                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+                TeachingSubjects = TeacherProfileService.SerializeSubjects(_customSubjects)
+            };
+
+            ProfileService.UpdateProfile(teacher);
+            _subjects = ProfileService.GetAllSubjects(teacherId);
+            _message = "Đã lưu hồ sơ thành công!";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private void AddSubject()
+    {
+        var subject = _newSubject.Trim();
+        if (string.IsNullOrWhiteSpace(subject)) return;
+
+        if (!_customSubjects.Any(s => string.Equals(s, subject, StringComparison.OrdinalIgnoreCase)))
+        {
+            _customSubjects.Add(subject);
+        }
+
+        _newSubject = "";
+        PersistSubjects();
+    }
+
+    private void RemoveSubject(string subject)
+    {
+        _customSubjects.RemoveAll(s => string.Equals(s, subject, StringComparison.OrdinalIgnoreCase));
+        PersistSubjects();
+    }
+
+    private void PersistSubjects()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
+        var profile = ProfileService.GetProfile(teacherId);
+        if (profile is null) return;
+
+        profile.TeachingSubjects = TeacherProfileService.SerializeSubjects(_customSubjects);
+        ProfileService.UpdateProfile(profile);
+        _subjects = ProfileService.GetAllSubjects(teacherId);
+    }
+
+    private void OnSubjectKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AddSubject();
+        }
+    }
+
+    private async Task HandleUpload(string subject, InputFileChangeEventArgs e)
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+        if (e.FileCount == 0) return;
+
+        var file = e.File;
+        const long maxSize = 50 * 1024 * 1024;
+        if (file.Size > maxSize)
+        {
+            _message = "File quá lớn. Giới hạn 50MB.";
+            _isError = true;
+            return;
+        }
+
+        _uploadingSubject = subject;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxSize);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+                ? "application/octet-stream"
+                : file.ContentType;
+
+            var result = await DriveService.UploadToSubjectFolderAsync(
+                subject, memory, file.Name, contentType);
+
+            ProfileService.SaveMaterial(new TeacherMaterial
+            {
+                TeacherId = teacherId,
+                SubjectName = subject,
+                FileName = file.Name,
+                DriveFileId = result.FileId,
+                DriveWebViewLink = result.WebViewLink,
+                UploadedAt = DateTime.UtcNow
+            });
+
+            _materials = ProfileService.GetMaterials(teacherId);
+            _message = $"Đã upload \"{file.Name}\" vào folder \"{subject}\" trên Google Drive.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+        finally
+        {
+            _uploadingSubject = null;
+        }
+    }
+}

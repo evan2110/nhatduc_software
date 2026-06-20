@@ -46,6 +46,57 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
         EnsureSchemaMigrationsTable(connection);
         MigrateAttendanceSessionsShiftNumber(connection);
         MigrateStudentBalanceColumn(connection);
+        MigrateTeacherProfileColumns(connection);
+    }
+
+    private static void MigrateTeacherProfileColumns(System.Data.Common.DbConnection connection)
+    {
+        using (var addDob = connection.CreateCommand())
+        {
+            addDob.CommandText = @"
+ALTER TABLE Teachers
+ADD COLUMN IF NOT EXISTS DateOfBirth TEXT;";
+            addDob.ExecuteNonQuery();
+        }
+
+        using (var addAddress = connection.CreateCommand())
+        {
+            addAddress.CommandText = @"
+ALTER TABLE Teachers
+ADD COLUMN IF NOT EXISTS Address TEXT;";
+            addAddress.ExecuteNonQuery();
+        }
+
+        using (var addQualification = connection.CreateCommand())
+        {
+            addQualification.CommandText = @"
+ALTER TABLE Teachers
+ADD COLUMN IF NOT EXISTS Qualification TEXT;";
+            addQualification.ExecuteNonQuery();
+        }
+
+        using (var addSubjects = connection.CreateCommand())
+        {
+            addSubjects.CommandText = @"
+ALTER TABLE Teachers
+ADD COLUMN IF NOT EXISTS TeachingSubjects TEXT;";
+            addSubjects.ExecuteNonQuery();
+        }
+
+        using (var createMaterials = connection.CreateCommand())
+        {
+            createMaterials.CommandText = @"
+CREATE TABLE IF NOT EXISTS TeacherMaterials (
+    Id BIGSERIAL PRIMARY KEY,
+    TeacherId BIGINT NOT NULL,
+    SubjectName TEXT NOT NULL,
+    FileName TEXT NOT NULL,
+    DriveFileId TEXT NOT NULL,
+    DriveWebViewLink TEXT,
+    UploadedAt TEXT NOT NULL
+);";
+            createMaterials.ExecuteNonQuery();
+        }
     }
 
     private static void MigrateStudentBalanceColumn(System.Data.Common.DbConnection connection)

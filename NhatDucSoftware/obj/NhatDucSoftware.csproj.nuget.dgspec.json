@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {}
+    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {}
   },
   "projects": {
-    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
+    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
+        "projectUniqueName": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
         "projectName": "NhatDucSoftware.Core",
-        "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
+        "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
         "packagesPath": "C:\\Users\\duc21\\.nuget\\packages\\",
-        "outputPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\obj\\",
+        "outputPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -54,6 +54,14 @@
               "target": "Package",
               "version": "[0.105.0, )"
             },
+            "Google.Apis.Auth": {
+              "target": "Package",
+              "version": "[1.75.0, )"
+            },
+            "Google.Apis.Drive.v3": {
+              "target": "Package",
+              "version": "[1.74.0.4135, )"
+            },
             "Npgsql": {
               "target": "Package",
               "version": "[8.0.4, )"
@@ -79,14 +87,14 @@
         }
       }
     },
-    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {
+    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {
       "version": "1.1.2",
       "restore": {
-        "projectUniqueName": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
+        "projectUniqueName": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
         "projectName": "NhatDucSoftware",
-        "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
+        "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
         "packagesPath": "C:\\Users\\duc21\\.nuget\\packages\\",
-        "outputPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\obj\\",
+        "outputPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -107,8 +115,8 @@
           "net8.0-windows7.0": {
             "targetAlias": "net8.0-windows",
             "projectReferences": {
-              "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
-                "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj"
+              "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
+                "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj"
               }
             }
           }
