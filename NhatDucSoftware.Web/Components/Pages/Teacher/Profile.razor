@@ -29,7 +29,7 @@ else
             </div>
             <div class="form-group">
                 <label>Ngày sinh</label>
-                <input type="date" @bind="_dateOfBirth" />
+                <InputDate @bind-Value="_dateOfBirth" class="input-date" />
             </div>
             <div class="form-group span-2">
                 <label>Nơi ở</label>
@@ -58,7 +58,7 @@ else
         <p class="text-muted">Danh sách môn từ lớp được phân công và môn bạn tự thêm. Dùng để upload tài liệu giảng dạy.</p>
 
         <div class="toolbar">
-            <input @bind="_newSubject" placeholder="Thêm môn (VD: Toán 10)" @onkeydown="OnSubjectKeyDown" />
+            <input @bind="_newSubject" @bind:event="oninput" placeholder="Thêm môn (VD: Toán 10)" @onkeydown="OnSubjectKeyDown" />
             <button class="btn btn-secondary" @onclick="AddSubject">Thêm môn</button>
         </div>
 
@@ -167,7 +167,16 @@ else
     protected override void OnInitialized()
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
-        LoadProfile();
+
+        try
+        {
+            LoadProfile();
+        }
+        catch (Exception ex)
+        {
+            _message = $"Không thể tải hồ sơ: {ex.Message}";
+            _isError = true;
+        }
     }
 
     private void LoadProfile()
@@ -175,7 +184,12 @@ else
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
 
         var profile = ProfileService.GetProfile(teacherId);
-        if (profile is null) return;
+        if (profile is null)
+        {
+            _message = "Không tìm thấy thông tin giáo viên.";
+            _isError = true;
+            return;
+        }
 
         _fullName = profile.FullName;
         _dateOfBirth = profile.DateOfBirth;
