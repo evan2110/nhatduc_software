@@ -17,6 +17,7 @@ public class GoogleDriveUploadResult
 
 public class GoogleDriveService
 {
+    // Cùng scope với ToolAIPost (token.json hiện tại).
     private static readonly string[] Scopes = [DriveService.Scope.DriveFile];
 
     private readonly GoogleDriveSettings _settings;
@@ -34,8 +35,7 @@ public class GoogleDriveService
             && !string.IsNullOrWhiteSpace(_settings.RefreshToken));
 
     public string ConfigurationHint =>
-        "Cấu hình GoogleDrive trong appsettings hoặc biến môi trường "
-        + "GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN.";
+        "Cấu hình GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
 
     public async Task<GoogleDriveUploadResult> UploadToSubjectFolderAsync(
         string subjectName,
@@ -51,27 +51,40 @@ public class GoogleDriveService
 
         if (string.IsNullOrWhiteSpace(subjectName))
         {
-            throw new InvalidOperationException("Tên môn học không được để trống.");
+            throw new InvalidOperationException("Tên môn/lớp không được để trống.");
         }
 
-        var drive = GetDriveService();
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new InvalidOperationException("Tên file không hợp lệ.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.RootFolderId))
+        {
+            throw new InvalidOperationException("Chưa cấu hình GOOGLE_DRIVE_ROOT_FOLDER_ID.");
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+
         var folderId = await GetOrCreateSubjectFolderAsync(drive, subjectName.Trim(), cancellationToken);
+        var uploadName = folderId == _settings.RootFolderId
+            ? $"[{subjectName.Trim()}] {fileName.Trim()}"
+            : fileName.Trim();
 
         var fileMetadata = new GoogleFile
         {
-            Name = fileName,
+            Name = uploadName,
             Parents = [folderId]
         };
 
         var request = drive.Files.Create(fileMetadata, fileStream, contentType);
         request.Fields = "id, webViewLink";
-        request.SupportsAllDrives = true;
 
         var uploadResult = await request.UploadAsync(cancellationToken);
         if (uploadResult.Status != UploadStatus.Completed)
         {
-            throw new InvalidOperationException(
-                uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.");
+            var detail = uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.";
+            throw new InvalidOperationException(detail);
         }
 
         var uploaded = request.ResponseBody
@@ -84,16 +97,23 @@ public class GoogleDriveService
         };
     }
 
-    private DriveService GetDriveService()
+    private async Task<DriveService> GetDriveServiceAsync(CancellationToken cancellationToken)
     {
         if (_driveService is not null)
         {
             return _driveService;
         }
 
+        var credential = CreateCredential();
+        if (credential is UserCredential userCredential
+            && string.IsNullOrEmpty(userCredential.Token.AccessToken))
+        {
+            await userCredential.RefreshTokenAsync(cancellationToken);
+        }
+
         _driveService = new DriveService(new BaseClientService.Initializer
         {
-            HttpClientInitializer = CreateCredential(),
+            HttpClientInitializer = credential,
             ApplicationName = "NhatDucSoftware"
         });
         return _driveService;
@@ -134,34 +154,48 @@ public class GoogleDriveService
         string subjectName,
         CancellationToken cancellationToken)
     {
-        var escapedName = subjectName.Replace("'", "\\'");
-        var query =
-            $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
-
-        var listRequest = drive.Files.List();
-        listRequest.Q = query;
-        listRequest.Fields = "files(id, name)";
-        listRequest.SupportsAllDrives = true;
-        listRequest.IncludeItemsFromAllDrives = true;
-        listRequest.PageSize = 1;
-
-        var existing = await listRequest.ExecuteAsync(cancellationToken);
-        if (existing.Files is { Count: > 0 })
+        try
         {
-            return existing.Files[0].Id;
+            var escapedName = EscapeDriveQueryValue(subjectName);
+            var query =
+                $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
+
+            var listRequest = drive.Files.List();
+            listRequest.Q = query;
+            listRequest.Fields = "files(id, name)";
+            listRequest.PageSize = 1;
+            listRequest.Spaces = "drive";
+
+            var existing = await listRequest.ExecuteAsync(cancellationToken);
+            if (existing.Files is { Count: > 0 } && !string.IsNullOrEmpty(existing.Files[0].Id))
+            {
+                return existing.Files[0].Id;
+            }
+
+            var folderMetadata = new GoogleFile
+            {
+                Name = subjectName,
+                MimeType = "application/vnd.google-apps.folder",
+                Parents = [_settings.RootFolderId]
+            };
+
+            var createRequest = drive.Files.Create(folderMetadata);
+            createRequest.Fields = "id";
+            var folder = await createRequest.ExecuteAsync(cancellationToken);
+
+            if (!string.IsNullOrEmpty(folder.Id))
+            {
+                return folder.Id;
+            }
+        }
+        catch (Google.GoogleApiException)
+        {
+            // drive.file có thể không tạo/list subfolder — upload thẳng vào folder gốc.
         }
 
-        var folderMetadata = new GoogleFile
-        {
-            Name = subjectName,
-            MimeType = "application/vnd.google-apps.folder",
-            Parents = [_settings.RootFolderId]
-        };
-
-        var createRequest = drive.Files.Create(folderMetadata);
-        createRequest.Fields = "id";
-        createRequest.SupportsAllDrives = true;
-        var folder = await createRequest.ExecuteAsync(cancellationToken);
-        return folder.Id;
+        return _settings.RootFolderId;
     }
+
+    private static string EscapeDriveQueryValue(string value) =>
+        value.Replace("\\", "\\\\").Replace("'", "\\'");
 }
