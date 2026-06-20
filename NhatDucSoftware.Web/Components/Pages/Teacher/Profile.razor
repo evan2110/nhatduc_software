@@ -54,33 +54,6 @@ else
     </div>
 
     <div class="card">
-        <h3>Các môn đang dạy</h3>
-        <p class="text-muted">Danh sách môn từ lớp được phân công và môn bạn tự thêm. Dùng để upload tài liệu giảng dạy.</p>
-
-        <div class="toolbar">
-            <input @bind="_newSubject" @bind:event="oninput" placeholder="Thêm môn (VD: Toán 10)" @onkeydown="OnSubjectKeyDown" />
-            <button class="btn btn-secondary" @onclick="AddSubject">Thêm môn</button>
-        </div>
-
-        @if (_subjects.Count == 0)
-        {
-            <p class="text-muted">Chưa có môn nào. Thêm môn hoặc chờ admin phân công lớp.</p>
-        }
-        else
-        {
-            <div class="subject-tags">
-                @foreach (var subject in _subjects)
-                {
-                    <span class="subject-tag">
-                        @subject
-                        <button type="button" class="subject-tag-remove" @onclick="() => RemoveSubject(subject)" title="Xóa">×</button>
-                    </span>
-                }
-            </div>
-        }
-    </div>
-
-    <div class="card">
         <h3>Tài liệu giảng dạy</h3>
         @if (!DriveService.IsConfigured)
         {
@@ -90,12 +63,12 @@ else
         }
         else
         {
-            <p class="text-muted">Tài liệu sẽ được upload vào thư mục <strong>Tài Liệu Giảng Dạy</strong> trên Google Drive, trong folder tương ứng với từng môn.</p>
+            <p class="text-muted">Tài liệu sẽ được upload vào thư mục <strong>Tài Liệu Giảng Dạy</strong> trên Google Drive, trong folder tương ứng với từng lớp/môn được phân công.</p>
         }
 
         @if (_subjects.Count == 0)
         {
-            <p class="text-muted">Thêm môn học trước khi upload tài liệu.</p>
+            <p class="text-muted">Chưa có lớp được phân công. Liên hệ admin để được gán lớp trước khi upload tài liệu.</p>
         }
         else
         {
@@ -157,9 +130,7 @@ else
     private string _phone = "";
     private string _email = "";
     private List<string> _subjects = [];
-    private List<string> _customSubjects = [];
     private List<TeacherMaterial> _materials = [];
-    private string _newSubject = "";
     private string? _message;
     private bool _isError;
     private string? _uploadingSubject;
@@ -197,7 +168,6 @@ else
         _qualification = profile.Qualification ?? "";
         _phone = profile.Phone ?? "";
         _email = profile.Email ?? "";
-        _customSubjects = TeacherProfileService.ParseSubjects(profile.TeachingSubjects);
         _subjects = ProfileService.GetAllSubjects(teacherId);
         _materials = ProfileService.GetMaterials(teacherId);
     }
@@ -216,12 +186,10 @@ else
                 Address = string.IsNullOrWhiteSpace(_address) ? null : _address.Trim(),
                 Qualification = string.IsNullOrWhiteSpace(_qualification) ? null : _qualification.Trim(),
                 Phone = string.IsNullOrWhiteSpace(_phone) ? null : _phone.Trim(),
-                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
-                TeachingSubjects = TeacherProfileService.SerializeSubjects(_customSubjects)
+                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim()
             };
 
             ProfileService.UpdateProfile(teacher);
-            _subjects = ProfileService.GetAllSubjects(teacherId);
             _message = "Đã lưu hồ sơ thành công!";
             _isError = false;
         }
@@ -229,46 +197,6 @@ else
         {
             _message = ex.Message;
             _isError = true;
-        }
-    }
-
-    private void AddSubject()
-    {
-        var subject = _newSubject.Trim();
-        if (string.IsNullOrWhiteSpace(subject)) return;
-
-        if (!_customSubjects.Any(s => string.Equals(s, subject, StringComparison.OrdinalIgnoreCase)))
-        {
-            _customSubjects.Add(subject);
-        }
-
-        _newSubject = "";
-        PersistSubjects();
-    }
-
-    private void RemoveSubject(string subject)
-    {
-        _customSubjects.RemoveAll(s => string.Equals(s, subject, StringComparison.OrdinalIgnoreCase));
-        PersistSubjects();
-    }
-
-    private void PersistSubjects()
-    {
-        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
-
-        var profile = ProfileService.GetProfile(teacherId);
-        if (profile is null) return;
-
-        profile.TeachingSubjects = TeacherProfileService.SerializeSubjects(_customSubjects);
-        ProfileService.UpdateProfile(profile);
-        _subjects = ProfileService.GetAllSubjects(teacherId);
-    }
-
-    private void OnSubjectKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            AddSubject();
         }
     }
 

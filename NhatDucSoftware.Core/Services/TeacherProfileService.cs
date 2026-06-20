@@ -75,7 +75,7 @@ WHERE Id = @id;";
 
     public List<string> GetAllSubjects(int teacherId)
     {
-        var subjects = ParseSubjects(GetProfile(teacherId)?.TeachingSubjects);
+        var subjects = new List<string>();
 
         foreach (var cls in _classService.GetClassesByTeacher(teacherId))
         {
@@ -137,14 +137,28 @@ WHERE Id = @id;";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+
+        if (string.IsNullOrWhiteSpace(subjectName))
+        {
+            command.CommandText = @"
 SELECT Id, TeacherId, SubjectName, FileName, DriveFileId, DriveWebViewLink, UploadedAt
 FROM TeacherMaterials
 WHERE TeacherId = @teacherId
-  AND (@subject IS NULL OR SubjectName = @subject)
 ORDER BY UploadedAt DESC;";
-        command.Parameters.AddWithValue("@teacherId", teacherId);
-        command.Parameters.AddWithValue("@subject", (object?)subjectName ?? DBNull.Value);
+        }
+        else
+        {
+            command.CommandText = @"
+SELECT Id, TeacherId, SubjectName, FileName, DriveFileId, DriveWebViewLink, UploadedAt
+FROM TeacherMaterials
+WHERE TeacherId = @teacherId AND SubjectName = @subject
+ORDER BY UploadedAt DESC;";
+            command.Parameters.Add(new NpgsqlParameter("@subject", NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = subjectName
+            });
+        }
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
