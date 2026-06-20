@@ -31,6 +31,7 @@ publish/
 
 # Env secrets
 .env
+NhatDucSoftware.Web/appsettings.Secrets.json
 
 # OS generated files
 .DS_Store

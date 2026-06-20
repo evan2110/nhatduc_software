@@ -19,33 +19,23 @@ public class GoogleDriveService
 {
     private static readonly string[] Scopes = [DriveService.Scope.DriveFile];
 
-    private readonly string _rootFolderId;
-    private readonly string? _serviceAccountJson;
-    private readonly string? _clientId;
-    private readonly string? _clientSecret;
-    private readonly string? _refreshToken;
+    private readonly GoogleDriveSettings _settings;
     private DriveService? _driveService;
 
-    public GoogleDriveService()
+    public GoogleDriveService(GoogleDriveSettings settings)
     {
-        _rootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ROOT_FOLDER_ID")
-            ?? "1q1sl-pKk1d3sixMkpXbSWmiFDXb55u-n";
-        _serviceAccountJson = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON");
-        _clientId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_ID");
-        _clientSecret = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_SECRET");
-        _refreshToken = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_REFRESH_TOKEN");
+        _settings = settings;
     }
 
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_serviceAccountJson)
-        || (!string.IsNullOrWhiteSpace(_clientId)
-            && !string.IsNullOrWhiteSpace(_clientSecret)
-            && !string.IsNullOrWhiteSpace(_refreshToken));
+        !string.IsNullOrWhiteSpace(_settings.ServiceAccountJson)
+        || (!string.IsNullOrWhiteSpace(_settings.ClientId)
+            && !string.IsNullOrWhiteSpace(_settings.ClientSecret)
+            && !string.IsNullOrWhiteSpace(_settings.RefreshToken));
 
     public string ConfigurationHint =>
-        "Cấu hình biến môi trường GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON (service account) "
-        + "hoặc GOOGLE_DRIVE_CLIENT_ID + GOOGLE_DRIVE_CLIENT_SECRET + GOOGLE_DRIVE_REFRESH_TOKEN (OAuth Gmail). "
-        + "Thư mục gốc phải được chia sẻ với tài khoản Google Drive tương ứng.";
+        "Cấu hình GoogleDrive trong appsettings hoặc biến môi trường "
+        + "GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN.";
 
     public async Task<GoogleDriveUploadResult> UploadToSubjectFolderAsync(
         string subjectName,
@@ -111,14 +101,14 @@ public class GoogleDriveService
 
     private IConfigurableHttpClientInitializer CreateCredential()
     {
-        if (!string.IsNullOrWhiteSpace(_serviceAccountJson))
+        if (!string.IsNullOrWhiteSpace(_settings.ServiceAccountJson))
         {
-            return GoogleCredential.FromJson(_serviceAccountJson).CreateScoped(Scopes);
+            return GoogleCredential.FromJson(_settings.ServiceAccountJson).CreateScoped(Scopes);
         }
 
-        if (string.IsNullOrWhiteSpace(_clientId)
-            || string.IsNullOrWhiteSpace(_clientSecret)
-            || string.IsNullOrWhiteSpace(_refreshToken))
+        if (string.IsNullOrWhiteSpace(_settings.ClientId)
+            || string.IsNullOrWhiteSpace(_settings.ClientSecret)
+            || string.IsNullOrWhiteSpace(_settings.RefreshToken))
         {
             throw new InvalidOperationException($"Google Drive chưa được cấu hình. {ConfigurationHint}");
         }
@@ -127,13 +117,16 @@ public class GoogleDriveService
         {
             ClientSecrets = new ClientSecrets
             {
-                ClientId = _clientId,
-                ClientSecret = _clientSecret
+                ClientId = _settings.ClientId,
+                ClientSecret = _settings.ClientSecret
             },
             Scopes = Scopes
         });
 
-        return new UserCredential(flow, "nhatduc-drive", new TokenResponse { RefreshToken = _refreshToken });
+        return new UserCredential(flow, "nhatduc-drive", new TokenResponse
+        {
+            RefreshToken = _settings.RefreshToken
+        });
     }
 
     private async Task<string> GetOrCreateSubjectFolderAsync(
@@ -143,7 +136,7 @@ public class GoogleDriveService
     {
         var escapedName = subjectName.Replace("'", "\\'");
         var query =
-            $"mimeType='application/vnd.google-apps.folder' and '{_rootFolderId}' in parents and name='{escapedName}' and trashed=false";
+            $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
 
         var listRequest = drive.Files.List();
         listRequest.Q = query;
@@ -162,7 +155,7 @@ public class GoogleDriveService
         {
             Name = subjectName,
             MimeType = "application/vnd.google-apps.folder",
-            Parents = [_rootFolderId]
+            Parents = [_settings.RootFolderId]
         };
 
         var createRequest = drive.Files.Create(folderMetadata);

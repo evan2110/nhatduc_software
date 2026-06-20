@@ -9,6 +9,8 @@ using NhatDucSoftware.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
+
 var connectionString = builder.Configuration.GetConnectionString("Default");
 var dbPassword = builder.Configuration["Database:Password"]
     ?? Environment.GetEnvironmentVariable("SUPABASE_DB_PASSWORD");
@@ -59,7 +61,25 @@ builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<TeacherProfileService>();
-builder.Services.AddScoped<GoogleDriveService>();
+builder.Services.AddScoped<GoogleDriveService>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var settings = new GoogleDriveSettings
+    {
+        RootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ROOT_FOLDER_ID")
+            ?? config["GoogleDrive:RootFolderId"]
+            ?? "1q1sl-pKk1d3sixMkpXbSWmiFDXb55u-n",
+        ServiceAccountJson = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON")
+            ?? config["GoogleDrive:ServiceAccountJson"],
+        ClientId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_ID")
+            ?? config["GoogleDrive:ClientId"],
+        ClientSecret = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_SECRET")
+            ?? config["GoogleDrive:ClientSecret"],
+        RefreshToken = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_REFRESH_TOKEN")
+            ?? config["GoogleDrive:RefreshToken"]
+    };
+    return new GoogleDriveService(settings);
+});
 
 var app = builder.Build();
 
