@@ -17,8 +17,9 @@ public class GoogleDriveUploadResult
 
 public class GoogleDriveService
 {
-    // Cùng scope với ToolAIPost (token.json hiện tại).
-    private static readonly string[] Scopes = [DriveService.Scope.DriveFile];
+    // drive.file KHÔNG truy cập được folder tạo thủ công trên Drive UI.
+    // Cần scope drive để upload vào folder "Tài Liệu Giảng Dạy" có sẵn.
+    private static readonly string[] Scopes = [DriveService.Scope.Drive];
 
     private readonly GoogleDriveSettings _settings;
     private DriveService? _driveService;
@@ -35,7 +36,8 @@ public class GoogleDriveService
             && !string.IsNullOrWhiteSpace(_settings.RefreshToken));
 
     public string ConfigurationHint =>
-        "Cấu hình GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
+        "Chạy scripts/generate-google-drive-token.py để tạo refresh token mới (scope drive), "
+        + "rồi cập nhật GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
 
     public async Task<GoogleDriveUploadResult> UploadToSubjectFolderAsync(
         string subjectName,
@@ -65,15 +67,11 @@ public class GoogleDriveService
         }
 
         var drive = await GetDriveServiceAsync(cancellationToken);
-
         var folderId = await GetOrCreateSubjectFolderAsync(drive, subjectName.Trim(), cancellationToken);
-        var uploadName = folderId == _settings.RootFolderId
-            ? $"[{subjectName.Trim()}] {fileName.Trim()}"
-            : fileName.Trim();
 
         var fileMetadata = new GoogleFile
         {
-            Name = uploadName,
+            Name = fileName.Trim(),
             Parents = [folderId]
         };
 
@@ -84,7 +82,7 @@ public class GoogleDriveService
         if (uploadResult.Status != UploadStatus.Completed)
         {
             var detail = uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.";
-            throw new InvalidOperationException(detail);
+            throw new InvalidOperationException(TranslateDriveError(detail));
         }
 
         var uploaded = request.ResponseBody
@@ -105,8 +103,7 @@ public class GoogleDriveService
         }
 
         var credential = CreateCredential();
-        if (credential is UserCredential userCredential
-            && string.IsNullOrEmpty(userCredential.Token.AccessToken))
+        if (credential is UserCredential userCredential)
         {
             await userCredential.RefreshTokenAsync(cancellationToken);
         }
@@ -154,12 +151,12 @@ public class GoogleDriveService
         string subjectName,
         CancellationToken cancellationToken)
     {
+        var escapedName = EscapeDriveQueryValue(subjectName);
+        var query =
+            $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
+
         try
         {
-            var escapedName = EscapeDriveQueryValue(subjectName);
-            var query =
-                $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
-
             var listRequest = drive.Files.List();
             listRequest.Q = query;
             listRequest.Fields = "files(id, name)";
@@ -188,12 +185,32 @@ public class GoogleDriveService
                 return folder.Id;
             }
         }
-        catch (Google.GoogleApiException)
+        catch (Google.GoogleApiException ex)
         {
-            // drive.file có thể không tạo/list subfolder — upload thẳng vào folder gốc.
+            throw new InvalidOperationException(TranslateDriveError(ex.Message));
         }
 
-        return _settings.RootFolderId;
+        throw new InvalidOperationException($"Không thể tạo folder môn học \"{subjectName}\" trên Google Drive.");
+    }
+
+    private static string TranslateDriveError(string message)
+    {
+        if (message.Contains("File not found", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("notFound", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Không truy cập được folder Google Drive. "
+                + "Refresh token hiện tại có thể chỉ có quyền drive.file — "
+                + "hãy chạy scripts/generate-google-drive-token.py để tạo token mới với quyền drive đầy đủ, "
+                + "rồi cập nhật biến môi trường trên Render.";
+        }
+
+        if (message.Contains("invalid_scope", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Refresh token không khớp quyền drive. "
+                + "Chạy scripts/generate-google-drive-token.py và cập nhật GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
+        }
+
+        return message;
     }
 
     private static string EscapeDriveQueryValue(string value) =>

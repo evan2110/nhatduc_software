@@ -32,6 +32,7 @@ publish/
 # Env secrets
 .env
 NhatDucSoftware.Web/appsettings.Secrets.json
+scripts/google-drive-token.json
 
 # OS generated files
 .DS_Store
