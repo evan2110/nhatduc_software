@@ -95,6 +95,71 @@ public class GoogleDriveService
         };
     }
 
+    public async Task<GoogleDriveUploadResult> UploadToTeacherProfileFolderAsync(
+        string teacherFolderName,
+        string categoryFolderName,
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            throw new InvalidOperationException($"Google Drive chưa được cấu hình. {ConfigurationHint}");
+        }
+
+        if (string.IsNullOrWhiteSpace(teacherFolderName))
+        {
+            throw new InvalidOperationException("Tên giáo viên không được để trống.");
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryFolderName))
+        {
+            throw new InvalidOperationException("Loại tài liệu hồ sơ không được để trống.");
+        }
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new InvalidOperationException("Tên file không hợp lệ.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.TeacherProfileRootFolderId))
+        {
+            throw new InvalidOperationException("Chưa cấu hình GOOGLE_DRIVE_TEACHER_PROFILE_ROOT_FOLDER_ID.");
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+        var teacherFolderId = await GetOrCreateChildFolderAsync(
+            drive, _settings.TeacherProfileRootFolderId, teacherFolderName.Trim(), cancellationToken);
+        var categoryFolderId = await GetOrCreateChildFolderAsync(
+            drive, teacherFolderId, categoryFolderName.Trim(), cancellationToken);
+
+        var fileMetadata = new GoogleFile
+        {
+            Name = fileName.Trim(),
+            Parents = [categoryFolderId]
+        };
+
+        var request = drive.Files.Create(fileMetadata, fileStream, contentType);
+        request.Fields = "id, webViewLink";
+
+        var uploadResult = await request.UploadAsync(cancellationToken);
+        if (uploadResult.Status != UploadStatus.Completed)
+        {
+            var detail = uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.";
+            throw new InvalidOperationException(TranslateDriveError(detail));
+        }
+
+        var uploaded = request.ResponseBody
+            ?? throw new InvalidOperationException("Google Drive không trả về thông tin file.");
+
+        return new GoogleDriveUploadResult
+        {
+            FileId = uploaded.Id,
+            WebViewLink = uploaded.WebViewLink
+        };
+    }
+
     private async Task<DriveService> GetDriveServiceAsync(CancellationToken cancellationToken)
     {
         if (_driveService is not null)
@@ -151,9 +216,18 @@ public class GoogleDriveService
         string subjectName,
         CancellationToken cancellationToken)
     {
-        var escapedName = EscapeDriveQueryValue(subjectName);
+        return await GetOrCreateChildFolderAsync(drive, _settings.RootFolderId, subjectName, cancellationToken);
+    }
+
+    private async Task<string> GetOrCreateChildFolderAsync(
+        DriveService drive,
+        string parentFolderId,
+        string folderName,
+        CancellationToken cancellationToken)
+    {
+        var escapedName = EscapeDriveQueryValue(folderName);
         var query =
-            $"mimeType='application/vnd.google-apps.folder' and '{_settings.RootFolderId}' in parents and name='{escapedName}' and trashed=false";
+            $"mimeType='application/vnd.google-apps.folder' and '{parentFolderId}' in parents and name='{escapedName}' and trashed=false";
 
         try
         {
@@ -171,9 +245,9 @@ public class GoogleDriveService
 
             var folderMetadata = new GoogleFile
             {
-                Name = subjectName,
+                Name = folderName,
                 MimeType = "application/vnd.google-apps.folder",
-                Parents = [_settings.RootFolderId]
+                Parents = [parentFolderId]
             };
 
             var createRequest = drive.Files.Create(folderMetadata);
@@ -190,7 +264,7 @@ public class GoogleDriveService
             throw new InvalidOperationException(TranslateDriveError(ex.Message));
         }
 
-        throw new InvalidOperationException($"Không thể tạo folder môn học \"{subjectName}\" trên Google Drive.");
+        throw new InvalidOperationException($"Không thể tạo folder \"{folderName}\" trên Google Drive.");
     }
 
     private static string TranslateDriveError(string message)

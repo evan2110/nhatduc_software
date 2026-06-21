@@ -54,6 +54,72 @@ else
     </div>
 
     <div class="card">
+        <h3>Hồ sơ &amp; kế hoạch giảng dạy</h3>
+        @if (!DriveService.IsConfigured)
+        {
+            <div class="alert alert-info">
+                Google Drive chưa được cấu hình trên server. @DriveService.ConfigurationHint
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">
+                Tài liệu được lưu trên Google Drive theo cấu trúc:
+                <strong>Hồ sơ GV</strong> / <strong>@_fullName</strong> / [loại tài liệu].
+                Hệ thống tự tạo folder giáo viên và 3 folder con nếu chưa có.
+            </p>
+        }
+
+        @foreach (var category in TeacherProfileService.ProfileDocumentCategories)
+        {
+            var categoryDocs = _profileDocuments.Where(m =>
+                string.Equals(TeacherProfileService.GetProfileCategoryDisplayName(m.SubjectName), category, StringComparison.Ordinal)).ToList();
+            <div class="subject-upload-block">
+                <div class="subject-upload-header">
+                    <strong>@category</strong>
+                    @if (DriveService.IsConfigured)
+                    {
+                        <label class="btn btn-secondary btn-sm upload-label">
+                            @if (_uploadingProfileCategory == category)
+                            {
+                                <span>Đang upload...</span>
+                            }
+                            else
+                            {
+                                <span>Chọn tài liệu</span>
+                            }
+                            <InputFile OnChange="e => HandleProfileUpload(category, e)" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.txt" disabled="@(_uploadingProfileCategory is not null)" />
+                        </label>
+                    }
+                </div>
+                @if (categoryDocs.Count > 0)
+                {
+                    <ul class="material-list">
+                        @foreach (var mat in categoryDocs)
+                        {
+                            <li>
+                                @if (!string.IsNullOrEmpty(mat.DriveWebViewLink))
+                                {
+                                    <a href="@mat.DriveWebViewLink" target="_blank" rel="noopener">@mat.FileName</a>
+                                }
+                                else
+                                {
+                                    <span>@mat.FileName</span>
+                                }
+                                <span class="text-muted"> — @mat.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted material-empty">Chưa có tài liệu.</p>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="card">
         <h3>Tài liệu giảng dạy</h3>
         @if (!DriveService.IsConfigured)
         {
@@ -131,9 +197,11 @@ else
     private string _email = "";
     private List<string> _subjects = [];
     private List<TeacherMaterial> _materials = [];
+    private List<TeacherMaterial> _profileDocuments = [];
     private string? _message;
     private bool _isError;
     private string? _uploadingSubject;
+    private string? _uploadingProfileCategory;
 
     protected override void OnInitialized()
     {
@@ -169,7 +237,10 @@ else
         _phone = profile.Phone ?? "";
         _email = profile.Email ?? "";
         _subjects = ProfileService.GetAllSubjects(teacherId);
-        _materials = ProfileService.GetMaterials(teacherId);
+        _materials = ProfileService.GetMaterials(teacherId)
+            .Where(m => !m.SubjectName.StartsWith(TeacherProfileService.ProfileMaterialPrefix, StringComparison.Ordinal))
+            .ToList();
+        _profileDocuments = ProfileService.GetProfileDocuments(teacherId);
     }
 
     private void SaveProfile()
@@ -242,7 +313,9 @@ else
                 UploadedAt = DateTime.UtcNow
             });
 
-            _materials = ProfileService.GetMaterials(teacherId);
+            _materials = ProfileService.GetMaterials(teacherId)
+                .Where(m => !m.SubjectName.StartsWith(TeacherProfileService.ProfileMaterialPrefix, StringComparison.Ordinal))
+                .ToList();
             _message = $"Đã upload \"{file.Name}\" vào folder \"{subject}\" trên Google Drive.";
             _isError = false;
         }
@@ -254,6 +327,69 @@ else
         finally
         {
             _uploadingSubject = null;
+        }
+    }
+
+    private async Task HandleProfileUpload(string category, InputFileChangeEventArgs e)
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+        if (e.FileCount == 0) return;
+
+        if (string.IsNullOrWhiteSpace(_fullName))
+        {
+            _message = "Vui lòng nhập họ tên trước khi upload hồ sơ.";
+            _isError = true;
+            return;
+        }
+
+        var file = e.File;
+        const long maxSize = 50 * 1024 * 1024;
+        if (file.Size > maxSize)
+        {
+            _message = "File quá lớn. Giới hạn 50MB.";
+            _isError = true;
+            return;
+        }
+
+        _uploadingProfileCategory = category;
+        _message = null;
+        _isError = false;
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxSize);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+                ? "application/octet-stream"
+                : file.ContentType;
+
+            var result = await DriveService.UploadToTeacherProfileFolderAsync(
+                _fullName.Trim(), category, memory, file.Name, contentType);
+
+            ProfileService.SaveProfileDocument(new TeacherMaterial
+            {
+                TeacherId = teacherId,
+                FileName = file.Name,
+                DriveFileId = result.FileId,
+                DriveWebViewLink = result.WebViewLink,
+                UploadedAt = DateTime.UtcNow
+            }, category);
+
+            _profileDocuments = ProfileService.GetProfileDocuments(teacherId);
+            _message = $"Đã upload \"{file.Name}\" vào Hồ sơ GV / {_fullName.Trim()} / {category}.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+        finally
+        {
+            _uploadingProfileCategory = null;
         }
     }
 }

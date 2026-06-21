@@ -7,6 +7,15 @@ namespace NhatDucSoftware.Core.Services;
 
 public class TeacherProfileService
 {
+    public const string ProfileMaterialPrefix = "__profile__:";
+
+    public static readonly string[] ProfileDocumentCategories =
+    [
+        "Chương trình dạy học",
+        "phiếu báo giảng",
+        "kế hoạch giảng dạy"
+    ];
+
     private readonly ClassService _classService;
 
     public TeacherProfileService(ClassService classService)
@@ -153,6 +162,34 @@ ORDER BY UploadedAt DESC;";
         }
 
         return result;
+    }
+
+    public List<TeacherMaterial> GetProfileDocuments(int teacherId, string? category = null)
+    {
+        var all = GetMaterials(teacherId)
+            .Where(m => m.SubjectName.StartsWith(ProfileMaterialPrefix, StringComparison.Ordinal))
+            .ToList();
+
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return all;
+        }
+
+        var key = ProfileMaterialPrefix + category;
+        return all.Where(m => string.Equals(m.SubjectName, key, StringComparison.Ordinal)).ToList();
+    }
+
+    public void SaveProfileDocument(TeacherMaterial material, string category)
+    {
+        material.SubjectName = ProfileMaterialPrefix + category;
+        SaveMaterial(material);
+    }
+
+    public static string GetProfileCategoryDisplayName(string storedSubjectName)
+    {
+        return storedSubjectName.StartsWith(ProfileMaterialPrefix, StringComparison.Ordinal)
+            ? storedSubjectName[ProfileMaterialPrefix.Length..]
+            : storedSubjectName;
     }
 
     public void SaveMaterial(TeacherMaterial material)
