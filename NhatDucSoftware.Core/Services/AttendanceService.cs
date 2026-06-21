@@ -160,4 +160,52 @@ ON CONFLICT(SessionId, StudentId) DO UPDATE SET Status = EXCLUDED.Status;";
 
         transaction.Commit();
     }
+
+    public List<CenterAttendanceExportRow> GetAttendanceByDateRange(DateTime fromDate, DateTime toDate)
+    {
+        var from = fromDate.Date.ToString("yyyy-MM-dd");
+        var to = toDate.Date.ToString("yyyy-MM-dd");
+        var result = new List<CenterAttendanceExportRow>();
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT ats.SessionDate,
+       c.ClassName,
+       ats.ShiftNumber,
+       s.FullName,
+       ar.Status,
+       COALESCE(t.FullName, '')
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Students s ON s.Id = ar.StudentId
+LEFT JOIN Teachers t ON t.Id = c.TeacherId
+WHERE ats.SessionDate >= @fromDate
+  AND ats.SessionDate <= @toDate
+ORDER BY ats.SessionDate, c.ClassName, ats.ShiftNumber, s.FullName;";
+        command.Parameters.AddWithValue("@fromDate", from);
+        command.Parameters.AddWithValue("@toDate", to);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var status = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            result.Add(new CenterAttendanceExportRow
+            {
+                SessionDate = DateTime.Parse(reader.GetString(0)),
+                ClassName = reader.GetString(1),
+                ShiftNumber = reader.GetInt32(2),
+                StudentName = reader.GetString(3),
+                Status = status.Equals("C", StringComparison.OrdinalIgnoreCase) ? "Có mặt"
+                    : status.Equals("V", StringComparison.OrdinalIgnoreCase) ? "Vắng"
+                    : status,
+                TeacherName = reader.GetString(5)
+            });
+        }
+
+        return result;
+    }
 }

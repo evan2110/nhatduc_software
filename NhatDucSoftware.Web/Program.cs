@@ -228,4 +228,31 @@ app.MapGet("/api/export/evaluations/{studentId:int}/{year:int}/{month:int}", (in
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"DiemNhanXet_{name.Replace(" ", "")}_{month:D2}_{year}.xlsx");
 });
 
+app.MapGet("/api/export/center-activity", (string from, string to, ExcelExportService excel, AttendanceService attendance, TeacherTimesheetService timesheets) =>
+{
+    if (!DateTime.TryParse(from, out var fromDate) || !DateTime.TryParse(to, out var toDate))
+    {
+        return Results.BadRequest("Ngày không hợp lệ. Dùng định dạng yyyy-MM-dd.");
+    }
+
+    fromDate = fromDate.Date;
+    toDate = toDate.Date;
+    if (fromDate > toDate)
+    {
+        return Results.BadRequest("Từ ngày phải nhỏ hơn hoặc bằng đến ngày.");
+    }
+
+    var attendanceRows = attendance.GetAttendanceByDateRange(fromDate, toDate);
+    var timesheetRows = timesheets.GetTimesheetsByDateRange(fromDate, toDate);
+    var path = Path.Combine(Path.GetTempPath(), $"center_activity_{Guid.NewGuid():N}.xlsx");
+    excel.ExportCenterActivityByDateRange(fromDate, toDate, attendanceRows, timesheetRows, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+
+    var fileName = fromDate == toDate
+        ? $"DiemDanh_ChamCong_{fromDate:yyyyMMdd}.xlsx"
+        : $"DiemDanh_ChamCong_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.xlsx";
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+});
+
 app.Run();

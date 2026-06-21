@@ -41,6 +41,21 @@ else
             <button class="btn btn-secondary" @onclick="OpenMakeupAttendance">Điểm danh bù HS</button>
         </div>
 
+        <div class="toolbar export-toolbar">
+            <label>Từ ngày</label>
+            <input type="date" value="@ExportFromDateString" @onchange="OnExportFromDateChanged" />
+            <label>Đến ngày</label>
+            <input type="date" value="@ExportToDateString" @onchange="OnExportToDateChanged" />
+            @if (CanExportActivity)
+            {
+                <a class="btn btn-success" href="@GetActivityExportUrl()" target="_blank">Xuất Excel điểm danh & chấm công</a>
+            }
+            else
+            {
+                <button class="btn btn-success" disabled title="Chọn từ ngày và đến ngày hợp lệ">Xuất Excel điểm danh & chấm công</button>
+            }
+        </div>
+
         <div class="split-grid">
             <div class="table-responsive">
             <table class="data-table compact">
@@ -306,6 +321,9 @@ else
     private int _detailCurrentPage = 1;
     private int _detailPageSize = 15;
 
+    private DateTime? _exportFromDate;
+    private DateTime? _exportToDate;
+
     private string? DetailFilterDateString =>
         _detailFilterDate?.ToString("yyyy-MM-dd");
 
@@ -319,7 +337,31 @@ else
         _classes = ClassService.GetAll();
         if (_classes.Count > 0) _makeupClassId = _classes[0].Id;
         if (_teachers.Count > 0) _paySettingsTeacherId = _teachers[0].Id;
+        _exportFromDate = new DateTime(_year, _month, 1);
+        _exportToDate = new DateTime(_year, _month, DateTime.DaysInMonth(_year, _month));
         LoadPayroll();
+    }
+
+    private string? ExportFromDateString => _exportFromDate?.ToString("yyyy-MM-dd");
+    private string? ExportToDateString => _exportToDate?.ToString("yyyy-MM-dd");
+    private bool CanExportActivity => _exportFromDate is not null && _exportToDate is not null && _exportFromDate <= _exportToDate;
+
+    private void OnExportFromDateChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _exportFromDate = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
+    }
+
+    private void OnExportToDateChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _exportToDate = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
+    }
+
+    private string GetActivityExportUrl()
+    {
+        if (!CanExportActivity) return "#";
+        return $"/api/export/center-activity?from={_exportFromDate:yyyy-MM-dd}&to={_exportToDate:yyyy-MM-dd}";
     }
 
     private void LoadPayroll()

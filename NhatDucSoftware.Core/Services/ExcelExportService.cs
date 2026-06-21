@@ -353,4 +353,92 @@ public class ExcelExportService
 
         workbook.SaveAs(filePath);
     }
+
+    public void ExportCenterActivityByDateRange(
+        DateTime fromDate,
+        DateTime toDate,
+        List<CenterAttendanceExportRow> attendance,
+        List<CenterTimesheetExportRow> timesheets,
+        string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var fromText = fromDate.ToString("dd/MM/yyyy");
+        var toText = toDate.ToString("dd/MM/yyyy");
+        var rangeText = fromDate.Date == toDate.Date ? fromText : $"{fromText} - {toText}";
+
+        var attendanceSheet = workbook.Worksheets.Add("Diem danh HS");
+        attendanceSheet.Cell(1, 1).Value = "Điểm danh học viên";
+        attendanceSheet.Cell(1, 1).Style.Font.Bold = true;
+        attendanceSheet.Cell(1, 1).Style.Font.FontSize = 14;
+        attendanceSheet.Range(1, 1, 1, 6).Merge();
+        attendanceSheet.Cell(2, 1).Value = $"Khoảng ngày: {rangeText}";
+        attendanceSheet.Cell(2, 1).Style.Font.Bold = true;
+
+        attendanceSheet.Cell(4, 1).Value = "Ngày";
+        attendanceSheet.Cell(4, 2).Value = "Lớp";
+        attendanceSheet.Cell(4, 3).Value = "Ca";
+        attendanceSheet.Cell(4, 4).Value = "Học viên";
+        attendanceSheet.Cell(4, 5).Value = "Trạng thái";
+        attendanceSheet.Cell(4, 6).Value = "Giáo viên";
+        attendanceSheet.Range(4, 1, 4, 6).Style.Font.Bold = true;
+        attendanceSheet.Range(4, 1, 4, 6).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 5;
+        foreach (var item in attendance)
+        {
+            attendanceSheet.Cell(row, 1).Value = item.SessionDate.ToString("dd/MM/yyyy");
+            attendanceSheet.Cell(row, 2).Value = item.ClassName;
+            attendanceSheet.Cell(row, 3).Value = item.ShiftNumber;
+            attendanceSheet.Cell(row, 4).Value = item.StudentName;
+            attendanceSheet.Cell(row, 5).Value = item.Status;
+            attendanceSheet.Cell(row, 6).Value = item.TeacherName;
+            row++;
+        }
+
+        attendanceSheet.Column(1).Width = 14;
+        attendanceSheet.Column(2).Width = 22;
+        attendanceSheet.Column(3).Width = 8;
+        attendanceSheet.Column(4).Width = 28;
+        attendanceSheet.Column(5).Width = 14;
+        attendanceSheet.Column(6).Width = 24;
+
+        var timesheetSheet = workbook.Worksheets.Add("Cham cong GV");
+        timesheetSheet.Cell(1, 1).Value = "Chấm công giáo viên";
+        timesheetSheet.Cell(1, 1).Style.Font.Bold = true;
+        timesheetSheet.Cell(1, 1).Style.Font.FontSize = 14;
+        timesheetSheet.Range(1, 1, 1, 6).Merge();
+        timesheetSheet.Cell(2, 1).Value = $"Khoảng ngày: {rangeText}";
+        timesheetSheet.Cell(2, 1).Style.Font.Bold = true;
+
+        timesheetSheet.Cell(4, 1).Value = "Ngày";
+        timesheetSheet.Cell(4, 2).Value = "Giáo viên";
+        timesheetSheet.Cell(4, 3).Value = "Ca";
+        timesheetSheet.Cell(4, 4).Value = "Trạng thái";
+        timesheetSheet.Cell(4, 5).Value = "Lương ca";
+        timesheetSheet.Cell(4, 6).Value = "Ghi chú";
+        timesheetSheet.Range(4, 1, 4, 6).Style.Font.Bold = true;
+        timesheetSheet.Range(4, 1, 4, 6).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        row = 5;
+        foreach (var item in timesheets)
+        {
+            timesheetSheet.Cell(row, 1).Value = item.WorkDate.ToString("dd/MM/yyyy");
+            timesheetSheet.Cell(row, 2).Value = item.TeacherName;
+            timesheetSheet.Cell(row, 3).Value = item.ShiftNumber;
+            timesheetSheet.Cell(row, 4).Value = item.IsPresent ? "Có mặt" : "Vắng";
+            timesheetSheet.Cell(row, 5).Value = item.ShiftPay;
+            timesheetSheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0";
+            timesheetSheet.Cell(row, 6).Value = item.Note ?? "";
+            row++;
+        }
+
+        timesheetSheet.Column(1).Width = 14;
+        timesheetSheet.Column(2).Width = 24;
+        timesheetSheet.Column(3).Width = 8;
+        timesheetSheet.Column(4).Width = 14;
+        timesheetSheet.Column(5).Width = 14;
+        timesheetSheet.Column(6).Width = 28;
+
+        workbook.SaveAs(filePath);
+    }
 }

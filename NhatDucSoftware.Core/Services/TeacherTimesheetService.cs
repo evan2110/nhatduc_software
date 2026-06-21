@@ -81,6 +81,51 @@ ORDER BY tt.WorkDate, tt.ShiftNumber;";
         return result;
     }
 
+    public List<CenterTimesheetExportRow> GetTimesheetsByDateRange(DateTime fromDate, DateTime toDate)
+    {
+        var from = fromDate.Date.ToString("yyyy-MM-dd");
+        var to = toDate.Date.ToString("yyyy-MM-dd");
+        var result = new List<CenterTimesheetExportRow>();
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT tt.TeacherId,
+       tt.WorkDate,
+       t.FullName,
+       tt.ShiftNumber,
+       tt.IsPresent,
+       tt.Note
+FROM TeacherTimesheets tt
+INNER JOIN Teachers t ON t.Id = tt.TeacherId
+WHERE tt.WorkDate >= @fromDate
+  AND tt.WorkDate <= @toDate
+ORDER BY tt.WorkDate, t.FullName, tt.ShiftNumber;";
+        command.Parameters.AddWithValue("@fromDate", from);
+        command.Parameters.AddWithValue("@toDate", to);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var teacherId = reader.GetInt32(0);
+            var workDate = DateTime.Parse(reader.GetString(1));
+            var isPresent = reader.GetInt32(4) == 1;
+            result.Add(new CenterTimesheetExportRow
+            {
+                WorkDate = workDate,
+                TeacherName = reader.GetString(2),
+                ShiftNumber = reader.GetInt32(3),
+                IsPresent = isPresent,
+                Note = reader.IsDBNull(5) ? null : reader.GetString(5),
+                ShiftPay = isPresent ? GetShiftPay(teacherId, workDate, reader.GetInt32(3)) : 0
+            });
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// null = chưa chấm công; true/false = có mặt / vắng.
     /// </summary>
