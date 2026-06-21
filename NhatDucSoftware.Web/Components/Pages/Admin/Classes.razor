@@ -7,6 +7,7 @@
 @inject StudentService StudentService
 @inject ClassScheduleService ScheduleService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Lớp học</PageTitle>
 
@@ -75,25 +76,70 @@ else
     <div class="card split-grid">
         <div>
             <h3>Danh sách lớp</h3>
+            <div class="list-toolbar">
+                <div class="search-box">
+                    <input type="search"
+                           placeholder="Tìm theo tên lớp hoặc giáo viên..."
+                           value="@_classSearchText"
+                           @oninput="OnClassSearchChanged" />
+                </div>
+                <div class="list-meta">
+                    <span>@FilteredClassCount lớp</span>
+                    <label>
+                        Hiển thị
+                        <select @bind="_pageSize" @bind:after="OnPageSizeChanged">
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                        / trang
+                    </label>
+                </div>
+            </div>
             <div class="table-responsive">
             <table class="data-table compact">
                 <thead>
                     <tr><th>Tên lớp</th><th>Khóa</th><th>GV</th><th>HS</th><th>TT</th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in _classes)
+                    @if (PagedClasses.Count == 0)
                     {
-                        <tr class="@(_selectedClassId == c.Id ? "selected" : "")" @onclick="() => SelectClass(c)">
-                            <td>@c.ClassName</td>
-                            <td>@c.CourseCode</td>
-                            <td>@c.TeacherName</td>
-                            <td>@c.CurrentSize</td>
-                            <td>@GetClassStatusLabel(c)</td>
+                        <tr class="empty-row">
+                            <td colspan="5">Không tìm thấy lớp phù hợp.</td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var c in PagedClasses)
+                        {
+                            <tr class="@(_selectedClassId == c.Id ? "selected" : "")" @onclick="() => SelectClass(c)">
+                                <td>@c.ClassName</td>
+                                <td>@c.CourseCode</td>
+                                <td>@c.TeacherName</td>
+                                <td>@c.CurrentSize</td>
+                                <td>@GetClassStatusLabel(c)</td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
             </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="pagination-bar">
+                    <button class="btn btn-secondary" @onclick="() => GoToPage(1)" disabled="@(_currentPage <= 1)">«</button>
+                    <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage - 1)" disabled="@(_currentPage <= 1)">‹</button>
+                    @foreach (var p in VisiblePages)
+                    {
+                        <button class="btn btn-secondary @(p == _currentPage ? "active" : "")" @onclick="() => GoToPage(p)">@p</button>
+                    }
+                    <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage + 1)" disabled="@(_currentPage >= TotalPages)">›</button>
+                    <button class="btn btn-secondary" @onclick="() => GoToPage(TotalPages)" disabled="@(_currentPage >= TotalPages)">»</button>
+                    <span class="pagination-info">Trang @_currentPage / @TotalPages</span>
+                </div>
+            }
         </div>
         <div>
             <h3>Học viên trong lớp</h3>
@@ -236,6 +282,9 @@ else
     private DateTime _inactiveFromWeek = DateTime.Today;
     private int _addStudentId;
     private string _studentSearchText = "";
+    private string _classSearchText = "";
+    private int _currentPage = 1;
+    private int _pageSize = 15;
     private string? _message;
 
     private bool _showTransferModal;
@@ -257,7 +306,62 @@ else
         LoadClasses();
     }
 
-    private void LoadClasses() => _classes = ClassService.GetAll();
+    private void LoadClasses()
+    {
+        _classes = ClassService.GetAll();
+        _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+    }
+
+    private IEnumerable<ClassInfo> FilteredClasses =>
+        string.IsNullOrWhiteSpace(_classSearchText)
+            ? _classes
+            : _classes.Where(MatchesClassSearch);
+
+    private int FilteredClassCount => FilteredClasses.Count();
+
+    private int TotalPages => PaginationHelper.GetTotalPages(FilteredClassCount, _pageSize);
+
+    private List<ClassInfo> PagedClasses =>
+        PaginationHelper.GetPage(FilteredClasses.ToList(), _currentPage, _pageSize);
+
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var pages = new List<int>();
+            var start = Math.Max(1, _currentPage - 2);
+            var end = Math.Min(TotalPages, _currentPage + 2);
+            for (var p = start; p <= end; p++)
+            {
+                pages.Add(p);
+            }
+
+            return pages;
+        }
+    }
+
+    private bool MatchesClassSearch(ClassInfo c)
+    {
+        var q = _classSearchText.Trim();
+        return c.ClassName.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.TeacherName.Contains(q, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnClassSearchChanged(ChangeEventArgs e)
+    {
+        _classSearchText = e.Value?.ToString() ?? "";
+        _currentPage = 1;
+    }
+
+    private void OnPageSizeChanged()
+    {
+        _currentPage = 1;
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = Math.Clamp(page, 1, TotalPages);
+    }
 
     private HashSet<int> ClassStudentIds => _classStudents.Select(s => s.StudentId).ToHashSet();
 

@@ -9,6 +9,7 @@
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Ngày công</PageTitle>
 
@@ -58,23 +59,102 @@ else
             </div>
             <div>
                 <h3>Chi tiết ca</h3>
-                <div class="table-responsive">
-                <table class="data-table compact">
-                    <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Lương ca</th><th>Ghi chú</th></tr></thead>
-                    <tbody>
-                        @foreach (var r in _detailRecords)
-                        {
-                            <tr>
-                                <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
-                                <td>@r.ShiftNumber</td>
-                                <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
-                                <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
-                                <td>@r.Note</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-                </div>
+                @if (_selectedTeacherId is null)
+                {
+                    <p class="text-muted">Chọn giáo viên để xem chi tiết ca.</p>
+                }
+                else
+                {
+                    <div class="list-toolbar detail-filter-toolbar">
+                        <div class="search-box">
+                            <input type="search"
+                                   placeholder="Tìm theo ngày..."
+                                   value="@_detailDateSearch"
+                                   @oninput="OnDetailDateSearchChanged" />
+                        </div>
+                        <div class="detail-filter-row">
+                            <label>
+                                Ca
+                                <select @bind="_detailShiftFilter" @bind:after="ResetDetailPage">
+                                    <option value="0">Tất cả</option>
+                                    @for (int s = 1; s <= 5; s++)
+                                    {
+                                        <option value="@s">@TeacherTimesheet.GetShiftDescription(s)</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>
+                                Trạng thái
+                                <select @bind="_detailStatusFilter" @bind:after="ResetDetailPage">
+                                    <option value="">Tất cả</option>
+                                    <option value="present">Có mặt</option>
+                                    <option value="absent">Vắng</option>
+                                </select>
+                            </label>
+                            <label>
+                                Lương
+                                <input type="search"
+                                       placeholder="Lọc lương ca..."
+                                       value="@_detailPayFilter"
+                                       @oninput="OnDetailPayFilterChanged" />
+                            </label>
+                        </div>
+                        <div class="list-meta">
+                            <span>@FilteredDetailCount ca</span>
+                            <label>
+                                Hiển thị
+                                <select @bind="_detailPageSize" @bind:after="ResetDetailPage">
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                </select>
+                                / trang
+                            </label>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                    <table class="data-table compact">
+                        <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Lương ca</th><th>Ghi chú</th></tr></thead>
+                        <tbody>
+                            @if (PagedDetailRecords.Count == 0)
+                            {
+                                <tr class="empty-row">
+                                    <td colspan="5">Không tìm thấy ca phù hợp.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var r in PagedDetailRecords)
+                                {
+                                    <tr>
+                                        <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
+                                        <td>@r.ShiftNumber</td>
+                                        <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
+                                        <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
+                                        <td>@r.Note</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+
+                    @if (DetailTotalPages > 1)
+                    {
+                        <div class="pagination-bar">
+                            <button class="btn btn-secondary" @onclick="() => GoToDetailPage(1)" disabled="@(_detailCurrentPage <= 1)">«</button>
+                            <button class="btn btn-secondary" @onclick="() => GoToDetailPage(_detailCurrentPage - 1)" disabled="@(_detailCurrentPage <= 1)">‹</button>
+                            @foreach (var p in DetailVisiblePages)
+                            {
+                                <button class="btn btn-secondary @(p == _detailCurrentPage ? "active" : "")" @onclick="() => GoToDetailPage(p)">@p</button>
+                            }
+                            <button class="btn btn-secondary" @onclick="() => GoToDetailPage(_detailCurrentPage + 1)" disabled="@(_detailCurrentPage >= DetailTotalPages)">›</button>
+                            <button class="btn btn-secondary" @onclick="() => GoToDetailPage(DetailTotalPages)" disabled="@(_detailCurrentPage >= DetailTotalPages)">»</button>
+                            <span class="pagination-info">Trang @_detailCurrentPage / @DetailTotalPages</span>
+                        </div>
+                    }
+                }
             </div>
         </div>
     </div>
@@ -240,6 +320,13 @@ else
     private string? _makeupAttMessage;
     private bool _makeupAttIsError;
 
+    private string _detailDateSearch = "";
+    private int _detailShiftFilter;
+    private string _detailStatusFilter = "";
+    private string _detailPayFilter = "";
+    private int _detailCurrentPage = 1;
+    private int _detailPageSize = 15;
+
     private List<ClassInfo> VisibleMakeupClasses =>
         _classes.Where(c => ClassVisibility.IsVisibleForDate(c, _makeupAttDate)).ToList();
 
@@ -271,6 +358,7 @@ else
     private void SelectTeacher(PayrollRow row)
     {
         _selectedTeacherId = row.TeacherId;
+        ResetDetailFilters();
         _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month)
             .Select(r => new TimesheetDetailRow
             {
@@ -283,6 +371,114 @@ else
                     : 0
             })
             .ToList();
+    }
+
+    private IEnumerable<TimesheetDetailRow> FilteredDetailRecords
+    {
+        get
+        {
+            IEnumerable<TimesheetDetailRow> rows = _detailRecords;
+
+            if (!string.IsNullOrWhiteSpace(_detailDateSearch))
+            {
+                var dateQ = _detailDateSearch.Trim();
+                rows = rows.Where(r =>
+                    r.WorkDate.ToString("yyyy-MM-dd").Contains(dateQ, StringComparison.OrdinalIgnoreCase)
+                    || r.WorkDate.ToString("dd/MM/yyyy").Contains(dateQ, StringComparison.OrdinalIgnoreCase)
+                    || r.WorkDate.Day.ToString().Contains(dateQ, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (_detailShiftFilter > 0)
+            {
+                rows = rows.Where(r => r.ShiftNumber == _detailShiftFilter);
+            }
+
+            rows = _detailStatusFilter switch
+            {
+                "present" => rows.Where(r => r.IsPresent),
+                "absent" => rows.Where(r => !r.IsPresent),
+                _ => rows
+            };
+
+            if (!string.IsNullOrWhiteSpace(_detailPayFilter))
+            {
+                var payQ = _detailPayFilter.Trim();
+                rows = rows.Where(r => MatchesDetailPayFilter(r, payQ));
+            }
+
+            return rows;
+        }
+    }
+
+    private int FilteredDetailCount => FilteredDetailRecords.Count();
+
+    private int DetailTotalPages => PaginationHelper.GetTotalPages(FilteredDetailCount, _detailPageSize);
+
+    private List<TimesheetDetailRow> PagedDetailRecords =>
+        PaginationHelper.GetPage(FilteredDetailRecords.ToList(), _detailCurrentPage, _detailPageSize);
+
+    private IEnumerable<int> DetailVisiblePages
+    {
+        get
+        {
+            var pages = new List<int>();
+            var start = Math.Max(1, _detailCurrentPage - 2);
+            var end = Math.Min(DetailTotalPages, _detailCurrentPage + 2);
+            for (var p = start; p <= end; p++)
+            {
+                pages.Add(p);
+            }
+
+            return pages;
+        }
+    }
+
+    private static bool MatchesDetailPayFilter(TimesheetDetailRow row, string payQ)
+    {
+        if (!row.IsPresent)
+        {
+            return payQ == "-" || payQ == "0";
+        }
+
+        if (MoneyHelper.TryParseMoney(payQ, out var amount))
+        {
+            return row.ShiftPay == amount;
+        }
+
+        var normalized = payQ.Replace(" ", "", StringComparison.Ordinal);
+        return MoneyHelper.FormatCurrency(row.ShiftPay).Contains(payQ, StringComparison.OrdinalIgnoreCase)
+            || row.ShiftPay.ToString("0").Contains(normalized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ResetDetailFilters()
+    {
+        _detailDateSearch = "";
+        _detailShiftFilter = 0;
+        _detailStatusFilter = "";
+        _detailPayFilter = "";
+        _detailCurrentPage = 1;
+    }
+
+    private void ResetDetailPage()
+    {
+        _detailCurrentPage = 1;
+    }
+
+    private void OnDetailDateSearchChanged(ChangeEventArgs e)
+    {
+        _detailDateSearch = e.Value?.ToString() ?? "";
+        ResetDetailPage();
+    }
+
+    private void OnDetailPayFilterChanged(ChangeEventArgs e)
+    {
+        _detailPayFilter = e.Value?.ToString() ?? "";
+        ResetDetailPage();
+    }
+
+    private void GoToDetailPage(int page)
+    {
+        _detailCurrentPage = Math.Clamp(page, 1, DetailTotalPages);
     }
 
     private void OpenPaySettings()
