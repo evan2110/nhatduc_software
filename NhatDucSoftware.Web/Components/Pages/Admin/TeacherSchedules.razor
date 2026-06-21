@@ -144,7 +144,7 @@ else
                                             <td>@cls.RecordedStudents/@cls.TotalStudents học viên</td>
                                             <td>
                                                 <span class="@GetStatusClass(cls.AttendanceComplete)">
-                                                    @(cls.AttendanceComplete ? "Đủ" : "Chưa đủ — bấm để bổ sung")
+                                                    @(cls.AttendanceComplete ? "Đủ — bấm để xem" : "Chưa đủ — bấm để bổ sung")
                                                 </span>
                                             </td>
                                         </tr>
@@ -154,19 +154,20 @@ else
                                                 <td colspan="3">
                                                     <div class="attendance-edit-panel">
                                                         <div class="attendance-edit-header">
-                                                            <strong>Bổ sung điểm danh — @cls.ClassName</strong>
+                                                            <strong>@(cls.AttendanceComplete ? "Xem điểm danh" : "Bổ sung điểm danh") — @cls.ClassName</strong>
                                                             <span class="text-muted">@TeacherTimesheet.GetShiftDescription(shiftNumber), @GetDayLabel()</span>
                                                         </div>
 
-                                                        @{
-                                                            var missingStudents = _attendanceRows.Where(r => !IsValidStatus(r.Status)).ToList();
-                                                        }
-                                                        @if (missingStudents.Count > 0)
+                                                        @if (!cls.AttendanceComplete)
                                                         {
-                                                            <p class="attendance-missing-note">
-                                                                Học viên thiếu điểm danh:
-                                                                <strong>@string.Join(", ", missingStudents.Select(x => x.StudentName))</strong>
-                                                            </p>
+                                                            var missingStudents = _attendanceRows.Where(r => !IsValidStatus(r.Status)).ToList();
+                                                            @if (missingStudents.Count > 0)
+                                                            {
+                                                                <p class="attendance-missing-note">
+                                                                    Học viên thiếu điểm danh:
+                                                                    <strong>@string.Join(", ", missingStudents.Select(x => x.StudentName))</strong>
+                                                                </p>
+                                                            }
                                                         }
 
                                                         <div class="table-responsive">
@@ -175,22 +176,35 @@ else
                                                                     <tr>
                                                                         <th>Học viên</th>
                                                                         <th>Điểm danh (C/V)</th>
-                                                                        <th>Ghi chú</th>
+                                                                        @if (!cls.AttendanceComplete)
+                                                                        {
+                                                                            <th>Ghi chú</th>
+                                                                        }
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
                                                                     @foreach (var student in _attendanceRows)
                                                                     {
                                                                         var missing = !IsValidStatus(student.Status);
-                                                                        <tr class="@(missing ? "attendance-missing-row" : "")">
+                                                                        <tr class="@(missing && !cls.AttendanceComplete ? "attendance-missing-row" : "")">
                                                                             <td>@student.StudentName</td>
                                                                             <td>
-                                                                                <input class="input-attendance"
-                                                                                       @bind="student.Status"
-                                                                                       maxlength="1"
-                                                                                       placeholder="C/V" />
+                                                                                @if (cls.AttendanceComplete)
+                                                                                {
+                                                                                    <span class="@GetAttendanceStatusClass(student.Status)">@FormatAttendanceStatus(student.Status)</span>
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    <input class="input-attendance"
+                                                                                           @bind="student.Status"
+                                                                                           maxlength="1"
+                                                                                           placeholder="C/V" />
+                                                                                }
                                                                             </td>
-                                                                            <td>@(missing ? "Chưa điểm danh" : "Đã có")</td>
+                                                                            @if (!cls.AttendanceComplete)
+                                                                            {
+                                                                                <td>@(missing ? "Chưa điểm danh" : "Đã có")</td>
+                                                                            }
                                                                         </tr>
                                                                     }
                                                                 </tbody>
@@ -198,11 +212,14 @@ else
                                                         </div>
 
                                                         <div class="toolbar">
-                                                            <button class="btn btn-primary"
-                                                                    @onclick="() => SaveAttendanceEdit(classId, shiftNumber)"
-                                                                    disabled="@(!CanSaveAttendance)">
-                                                                Lưu điểm danh
-                                                            </button>
+                                                            @if (!cls.AttendanceComplete)
+                                                            {
+                                                                <button class="btn btn-primary"
+                                                                        @onclick="() => SaveAttendanceEdit(classId, shiftNumber)"
+                                                                        disabled="@(!CanSaveAttendance)">
+                                                                    Lưu điểm danh
+                                                                </button>
+                                                            }
                                                             <button class="btn btn-secondary" @onclick="CloseAttendanceEdit">Đóng</button>
                                                         </div>
                                                     </div>
@@ -279,12 +296,13 @@ else
 
     private void OpenAttendanceEdit(TeacherDailyClassDetail cls, int shiftNumber)
     {
-        if (cls.AttendanceComplete || _detail is null)
+        if (_detail is null)
         {
             return;
         }
 
-        if (PaymentService.IsFinalized(cls.ClassId, _selectedDate.Month, _selectedDate.Year))
+        if (!cls.AttendanceComplete &&
+            PaymentService.IsFinalized(cls.ClassId, _selectedDate.Month, _selectedDate.Year))
         {
             _message = $"Lớp {cls.ClassName} đã được chốt số liệu tháng {_selectedDate.Month:D2}/{_selectedDate.Year}, không thể điểm danh.";
             _isError = true;
@@ -369,13 +387,28 @@ else
 
     private static string GetClassRowClass(TeacherDailyClassDetail cls, bool isEditOpen)
     {
-        if (cls.AttendanceComplete)
-        {
-            return "";
-        }
-
-        return isEditOpen ? "schedule-class-missing selected" : "schedule-class-missing";
+        var baseClass = cls.AttendanceComplete ? "schedule-class-complete" : "schedule-class-missing";
+        return isEditOpen ? $"{baseClass} selected" : baseClass;
     }
+
+    private static string FormatAttendanceStatus(string? status)
+    {
+        var normalized = (status ?? "").Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "C" => "C — Có mặt",
+            "V" => "V — Vắng",
+            _ => "—"
+        };
+    }
+
+    private static string GetAttendanceStatusClass(string? status) =>
+        (status ?? "").Trim().ToUpperInvariant() switch
+        {
+            "C" => "status-ok",
+            "V" => "status-missing",
+            _ => ""
+        };
 
     private static bool IsValidStatus(string? status)
     {

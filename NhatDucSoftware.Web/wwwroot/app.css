@@ -420,12 +420,17 @@ a { color: var(--primary); }
     font-weight: 600;
 }
 
-.schedule-class-missing {
+.schedule-class-missing,
+.schedule-class-complete {
     cursor: pointer;
 }
 
 .schedule-class-missing:hover {
     background: #fef2f2;
+}
+
+.schedule-class-complete:hover {
+    background: #f0fdf4;
 }
 
 .attendance-edit-row td {
