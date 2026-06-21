@@ -66,18 +66,20 @@ else
                 else
                 {
                     <div class="list-toolbar detail-filter-toolbar">
-                        <div class="detail-filter-row">
-                            <label>
-                                Ngày
-                                <input type="date"
-                                       value="@DetailFilterDateString"
-                                       @onchange="OnDetailFilterDateChanged" />
-                            </label>
-                            <button class="btn btn-secondary"
-                                    @onclick="ClearDetailDateFilter"
-                                    disabled="@(_detailFilterDate is null)">
-                                Xóa lọc ngày
-                            </button>
+                        <div class="detail-filter-row detail-date-filter">
+                            <div class="detail-date-filter-group">
+                                <span class="detail-date-filter-label">Ngày</span>
+                                <div class="detail-date-filter-actions">
+                                    <input type="date"
+                                           value="@DetailFilterDateString"
+                                           @onchange="OnDetailFilterDateChanged" />
+                                    <button class="btn btn-secondary"
+                                            @onclick="ClearDetailDateFilter"
+                                            disabled="@(_detailFilterDate is null)">
+                                        Xóa lọc ngày
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="list-meta">
                             <span>@FilteredDetailCount ca</span>
