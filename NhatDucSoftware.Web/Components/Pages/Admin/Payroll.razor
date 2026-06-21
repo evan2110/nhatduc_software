@@ -132,6 +132,10 @@ else
         <div class="modal-backdrop" @onclick="() => _showMakeupTimesheet = false">
             <div class="modal-content" @onclick:stopPropagation="true">
                 <h3>Chấm công bù - @_makeupTeacherName</h3>
+                @if (!string.IsNullOrEmpty(_makeupMessage))
+                {
+                    <div class="alert @(_makeupIsError ? "alert-danger" : "alert-success")">@_makeupMessage</div>
+                }
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Ngày</label>
@@ -162,6 +166,10 @@ else
         <div class="modal-backdrop" @onclick="() => _showMakeupAttendance = false">
             <div class="modal-content modal-lg" @onclick:stopPropagation="true">
                 <h3>Điểm danh bù học sinh (Admin)</h3>
+                @if (!string.IsNullOrEmpty(_makeupAttMessage))
+                {
+                    <div class="alert @(_makeupAttIsError ? "alert-danger" : "alert-success")">@_makeupAttMessage</div>
+                }
                 <div class="toolbar">
                     <label>Lớp</label>
                     <select @bind="_makeupClassId" @bind:after="OnMakeupAttendanceFilterChanged">
@@ -220,12 +228,16 @@ else
     private int _makeupShift = 1;
     private bool _makeupPresent = true;
     private string _makeupNote = "";
+    private string? _makeupMessage;
+    private bool _makeupIsError;
 
     private bool _showMakeupAttendance;
     private int _makeupClassId;
     private DateTime _makeupAttDate = DateTime.Today;
     private int _makeupAttShift;
     private List<int> _makeupAttShifts = new();
+    private string? _makeupAttMessage;
+    private bool _makeupAttIsError;
 
     protected override void OnInitialized()
     {
@@ -323,6 +335,8 @@ else
         if (_selectedTeacherId is null) return;
         _makeupTeacherName = _payrollRows.First(r => r.TeacherId == _selectedTeacherId).Name;
         _makeupDate = DateTime.Today;
+        _makeupMessage = null;
+        _makeupIsError = false;
         _showMakeupTimesheet = true;
     }
 
@@ -338,6 +352,8 @@ else
             _makeupClassId = _classes[0].Id;
 
         _makeupAttDate = DateTime.Today;
+        _makeupAttMessage = null;
+        _makeupAttIsError = false;
         _showMakeupAttendance = true;
         OnMakeupAttendanceFilterChanged();
     }
@@ -347,14 +363,16 @@ else
         if (_selectedTeacherId is null) return;
         if (_makeupDate.Date > DateTime.Today)
         {
-            _message = "Chỉ được phép chấm công bù cho các ngày từ hôm nay trở về trước.";
+            _makeupMessage = "Chỉ được phép chấm công bù cho các ngày từ hôm nay trở về trước.";
+            _makeupIsError = true;
             return;
         }
 
         TimesheetService.SaveTimesheet(_selectedTeacherId.Value, _makeupDate.Date, _makeupShift, _makeupPresent,
             string.IsNullOrWhiteSpace(_makeupNote) ? null : _makeupNote.Trim());
         _message = "Đã lưu chấm công bù.";
-        _showMakeupTimesheet = false;
+        _makeupMessage = "Đã lưu chấm công bù.";
+        _makeupIsError = false;
         LoadPayroll();
         if (_selectedTeacherId is not null)
         {
@@ -414,38 +432,45 @@ else
         var teacherId = ClassService.GetTeacherIdByClass(_makeupClassId);
         if (teacherId is null)
         {
-            _message = "Lớp chưa có giáo viên phụ trách, không thể lưu điểm danh bù.";
+            _makeupAttMessage = "Lớp chưa có giáo viên phụ trách, không thể lưu điểm danh bù.";
+            _makeupAttIsError = true;
             return;
         }
 
         if (_makeupAttDate.Date > DateTime.Today)
         {
-            _message = "Chỉ được phép điểm danh bù cho các ngày từ hôm nay trở về trước.";
+            _makeupAttMessage = "Chỉ được phép điểm danh bù cho các ngày từ hôm nay trở về trước.";
+            _makeupAttIsError = true;
             return;
         }
 
         if (_makeupAttShift <= 0)
         {
-            _message = "Vui lòng chọn ca học.";
+            _makeupAttMessage = "Vui lòng chọn ca học.";
+            _makeupAttIsError = true;
             return;
         }
 
         if (!_makeupAttShifts.Contains(_makeupAttShift))
         {
-            _message = "Lớp không có ca học này trong ngày đã chọn.";
+            _makeupAttMessage = "Lớp không có ca học này trong ngày đã chọn.";
+            _makeupAttIsError = true;
             return;
         }
 
         if (PaymentService.IsFinalized(_makeupClassId, _makeupAttDate.Month, _makeupAttDate.Year))
         {
-            _message = $"Lớp này đã được chốt số liệu cho tháng {_makeupAttDate.Month:D2}/{_makeupAttDate.Year}.";
+            _makeupAttMessage = $"Lớp này đã được chốt số liệu cho tháng {_makeupAttDate.Month:D2}/{_makeupAttDate.Year}.";
+            _makeupAttIsError = true;
             return;
         }
 
         var records = _makeupAttendanceRows.ToDictionary(x => x.StudentId, x => x.Status.Trim().ToUpperInvariant());
         AttendanceService.SaveAttendance(_makeupClassId, teacherId.Value, _makeupAttDate, _makeupAttShift, records);
         _message = $"Đã lưu điểm danh bù ca {_makeupAttShift}.";
-        _showMakeupAttendance = false;
+        _makeupAttMessage = $"Đã lưu điểm danh bù ca {_makeupAttShift}.";
+        _makeupAttIsError = false;
+        LoadMakeupStudents();
     }
 
     private class PayrollRow
