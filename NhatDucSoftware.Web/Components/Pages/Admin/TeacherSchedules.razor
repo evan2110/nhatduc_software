@@ -3,6 +3,7 @@
 @inject UserSession Session
 @inject ClassScheduleService ScheduleService
 @inject AttendanceService AttendanceService
+@inject TeacherTimesheetService TimesheetService
 @inject PaymentService PaymentService
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
@@ -115,14 +116,70 @@ else
 
                 @foreach (var shift in _detail.Shifts)
                 {
+                    var shiftNumber = shift.ShiftNumber;
+                    var isTimesheetEditOpen = IsTimesheetEditOpen(shiftNumber);
                     <div class="schedule-detail-shift">
                         <div class="schedule-detail-shift-header">
-                            <strong>@TeacherTimesheet.GetShiftDescription(shift.ShiftNumber)</strong>
-                            <span class="schedule-detail-meta">
+                            <strong>@TeacherTimesheet.GetShiftDescription(shiftNumber)</strong>
+                            <span class="schedule-detail-meta @GetTimesheetHeaderClass(shift, isTimesheetEditOpen)"
+                                  @onclick="() => OpenTimesheetEdit(shift)">
                                 Chấm công:
                                 <span class="@GetStatusClass(shift.TimesheetRecorded)">@GetTimesheetLabel(shift)</span>
                             </span>
                         </div>
+
+                        @if (isTimesheetEditOpen)
+                        {
+                            <div class="timesheet-edit-panel">
+                                <div class="attendance-edit-header">
+                                    <strong>@(shift.TimesheetRecorded ? "Xem chấm công" : "Bổ sung chấm công") — @_detail.TeacherName</strong>
+                                    <span class="text-muted">@TeacherTimesheet.GetShiftDescription(shiftNumber), @GetDayLabel()</span>
+                                </div>
+
+                                <div class="form-grid timesheet-edit-form">
+                                    <div class="form-group">
+                                        <label>Trạng thái</label>
+                                        @if (shift.TimesheetRecorded)
+                                        {
+                                            <span class="@GetStatusClass(_timesheetPresent)">
+                                                @(_timesheetPresent ? "Có mặt" : "Vắng")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <label class="checkbox-inline">
+                                                <input type="checkbox" @bind="_timesheetPresent" />
+                                                Có mặt
+                                            </label>
+                                            <span class="text-muted">(bỏ chọn = vắng)</span>
+                                        }
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Ghi chú</label>
+                                        @if (shift.TimesheetRecorded)
+                                        {
+                                            <span>@(string.IsNullOrWhiteSpace(_timesheetNote) ? "—" : _timesheetNote)</span>
+                                        }
+                                        else
+                                        {
+                                            <input @bind="_timesheetNote" placeholder="Ghi chú (tuỳ chọn)" />
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="toolbar">
+                                    @if (!shift.TimesheetRecorded)
+                                    {
+                                        <button class="btn btn-primary"
+                                                @onclick="() => SaveTimesheetEdit(shiftNumber)">
+                                            Lưu chấm công
+                                        </button>
+                                    }
+                                    <button class="btn btn-secondary" @onclick="CloseTimesheetEdit">Đóng</button>
+                                </div>
+                            </div>
+                        }
+
                         <div class="table-responsive">
                             <table class="data-table compact">
                                 <thead>
@@ -136,7 +193,6 @@ else
                                     @foreach (var cls in shift.Classes)
                                     {
                                         var classId = cls.ClassId;
-                                        var shiftNumber = shift.ShiftNumber;
                                         var isEditOpen = IsAttendanceEditOpen(classId, shiftNumber);
                                         <tr class="@GetClassRowClass(cls, isEditOpen)"
                                             @onclick="() => OpenAttendanceEdit(cls, shiftNumber)">
@@ -244,6 +300,9 @@ else
     private TeacherDailyScheduleDetail? _detail;
     private int? _editClassId;
     private int? _editShiftNumber;
+    private int? _editTimesheetShiftNumber;
+    private bool _timesheetPresent = true;
+    private string _timesheetNote = "";
     private List<AttendanceRow> _attendanceRows = new();
     private string? _message;
     private bool _isError;
@@ -256,7 +315,7 @@ else
 
     private void LoadSchedule()
     {
-        CloseAttendanceEdit();
+        CloseAllEdits();
         _message = null;
         _rows = ScheduleService.GetAllTeachersScheduleForDate(_selectedDate.Date);
         if (_selectedTeacherId is int teacherId)
@@ -275,7 +334,7 @@ else
 
     private void SelectTeacher(TeacherDailyScheduleRow row)
     {
-        CloseAttendanceEdit();
+        CloseAllEdits();
         _message = null;
         _selectedTeacherId = row.TeacherId;
         LoadDetail(row);
@@ -315,6 +374,7 @@ else
             return;
         }
 
+        CloseTimesheetEdit();
         _editClassId = cls.ClassId;
         _editShiftNumber = shiftNumber;
         _attendanceRows = AttendanceService.GetAttendanceRowsForClass(cls.ClassId, _selectedDate.Date, shiftNumber);
@@ -326,6 +386,81 @@ else
         _editClassId = null;
         _editShiftNumber = null;
         _attendanceRows = new();
+    }
+
+    private void OpenTimesheetEdit(TeacherDailyShiftDetail shift)
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        if (_editTimesheetShiftNumber == shift.ShiftNumber)
+        {
+            CloseTimesheetEdit();
+            return;
+        }
+
+        CloseAttendanceEdit();
+        _editTimesheetShiftNumber = shift.ShiftNumber;
+
+        if (shift.TimesheetRecorded)
+        {
+            _timesheetPresent = shift.TimesheetPresent == true;
+            var records = TimesheetService.GetTimesheetByMonth(_detail.TeacherId, _selectedDate.Year, _selectedDate.Month);
+            _timesheetNote = records
+                .FirstOrDefault(r => r.WorkDate.Date == _selectedDate.Date && r.ShiftNumber == shift.ShiftNumber)?
+                .Note ?? "";
+        }
+        else
+        {
+            _timesheetPresent = true;
+            _timesheetNote = "";
+        }
+
+        _message = null;
+    }
+
+    private void CloseTimesheetEdit()
+    {
+        _editTimesheetShiftNumber = null;
+        _timesheetPresent = true;
+        _timesheetNote = "";
+    }
+
+    private void CloseAllEdits()
+    {
+        CloseAttendanceEdit();
+        CloseTimesheetEdit();
+    }
+
+    private bool IsTimesheetEditOpen(int shiftNumber) =>
+        _editTimesheetShiftNumber == shiftNumber;
+
+    private void SaveTimesheetEdit(int shiftNumber)
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        if (_selectedDate.Date > DateTime.Today)
+        {
+            _message = "Chỉ được chấm công bù cho các ngày từ hôm nay trở về trước.";
+            _isError = true;
+            return;
+        }
+
+        TimesheetService.SaveTimesheet(
+            _detail.TeacherId,
+            _selectedDate.Date,
+            shiftNumber,
+            _timesheetPresent,
+            string.IsNullOrWhiteSpace(_timesheetNote) ? null : _timesheetNote.Trim());
+        _message = "Đã lưu chấm công.";
+        _isError = false;
+        CloseTimesheetEdit();
+        ReloadDetail();
     }
 
     private bool IsAttendanceEditOpen(int classId, int shiftNumber) =>
@@ -380,8 +515,14 @@ else
 
     private static string GetTimesheetLabel(TeacherDailyShiftDetail shift) =>
         shift.TimesheetRecorded
-            ? shift.TimesheetPresent == true ? "Đã chấm — Có mặt" : "Đã chấm — Vắng"
-            : "Chưa chấm";
+            ? shift.TimesheetPresent == true ? "Đã chấm — Có mặt — bấm để xem" : "Đã chấm — Vắng — bấm để xem"
+            : "Chưa chấm — bấm để bổ sung";
+
+    private static string GetTimesheetHeaderClass(TeacherDailyShiftDetail shift, bool isEditOpen)
+    {
+        var baseClass = shift.TimesheetRecorded ? "schedule-timesheet-complete" : "schedule-timesheet-missing";
+        return isEditOpen ? $"{baseClass} selected" : baseClass;
+    }
 
     private static string GetStatusClass(bool ok) => ok ? "status-ok" : "status-missing";
 

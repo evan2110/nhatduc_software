@@ -433,6 +433,40 @@ a { color: var(--primary); }
     background: #f0fdf4;
 }
 
+.schedule-timesheet-missing,
+.schedule-timesheet-complete {
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0.1rem 0.35rem;
+}
+
+.schedule-timesheet-missing:hover {
+    background: #fef2f2;
+}
+
+.schedule-timesheet-complete:hover {
+    background: #f0fdf4;
+}
+
+.timesheet-edit-panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin: 0 0 0.75rem;
+    background: #f8fafc;
+}
+
+.timesheet-edit-form {
+    margin-bottom: 0.75rem;
+}
+
+.checkbox-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: normal;
+}
+
 .attendance-edit-row td {
     background: #f8fafc;
     padding: 0.75rem 1rem 1rem;
