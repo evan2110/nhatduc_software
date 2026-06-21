@@ -54,7 +54,7 @@ else
     </div>
 
     <div class="card">
-        <h3>Hồ sơ &amp; kế hoạch giảng dạy</h3>
+        <h3>Hồ sơ &amp; Kế hoạch giảng dạy</h3>
         @if (!DriveService.IsConfigured)
         {
             <div class="alert alert-info">
@@ -64,9 +64,8 @@ else
         else
         {
             <p class="text-muted">
-                Tài liệu được lưu trên Google Drive theo cấu trúc:
-                <strong>Hồ sơ GV</strong> / <strong>@_fullName</strong> / [loại tài liệu].
-                Hệ thống tự tạo folder giáo viên và 3 folder con nếu chưa có.
+                Tài liệu được lưu theo cấu trúc:
+                <strong>Hồ sơ GV</strong> / <strong>@_fullName</strong>.
             </p>
         }
 
@@ -129,7 +128,7 @@ else
         }
         else
         {
-            <p class="text-muted">Tài liệu sẽ được upload vào thư mục <strong>Tài Liệu Giảng Dạy</strong> trên Google Drive, trong folder tương ứng với từng lớp/môn được phân công.</p>
+            <p class="text-muted">Tài liệu sẽ được upload vào thư mục <strong>Tài Liệu Giảng Dạy</strong>, trong folder tương ứng với từng lớp/môn được phân công.</p>
         }
 
         @if (_subjects.Count == 0)

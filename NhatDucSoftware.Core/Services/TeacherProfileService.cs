@@ -12,8 +12,8 @@ public class TeacherProfileService
     public static readonly string[] ProfileDocumentCategories =
     [
         "Chương trình dạy học",
-        "phiếu báo giảng",
-        "kế hoạch giảng dạy"
+        "Phiếu báo giảng",
+        "Kế hoạch giảng dạy"
     ];
 
     private readonly ClassService _classService;
