@@ -81,13 +81,28 @@ else
     protected override void OnInitialized()
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
-        if (Session.CurrentUser?.TeacherId is int teacherId)
-            _classes = ClassService.GetClassesByTeacher(teacherId);
+        LoadClasses();
         if (_classes.Count > 0) { _classId = _classes[0].Id; OnFilterChanged(); }
+    }
+
+    private void LoadClasses()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId)
+        {
+            _classes = new();
+            return;
+        }
+
+        _classes = ClassService.GetClassesByTeacher(teacherId, _sessionDate);
+        if (_classes.Count > 0 && !_classes.Any(c => c.Id == _classId))
+        {
+            _classId = _classes[0].Id;
+        }
     }
 
     private void OnFilterChanged()
     {
+        LoadClasses();
         LoadShifts();
         LoadStudents();
     }

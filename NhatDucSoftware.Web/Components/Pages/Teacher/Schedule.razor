@@ -76,15 +76,15 @@ else
     protected override void OnInitialized()
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
-        if (Session.CurrentUser?.TeacherId is int teacherId)
-            _assignedClasses = ClassService.GetClassesByTeacher(teacherId);
         LoadSchedule();
     }
 
     private void LoadSchedule()
     {
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
+
         var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
+        _assignedClasses = ClassService.GetClassesByTeacher(teacherId, monday);
         _schedule = ScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
     }
 }

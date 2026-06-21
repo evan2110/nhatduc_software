@@ -1,5 +1,6 @@
 using Npgsql;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -21,7 +22,8 @@ SELECT c.Id,
        c.TeacherId,
        COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id) AS CurrentSize,
-       c.Status
+       c.Status,
+       c.InactiveFromWeekStart
 FROM Classes c
 INNER JOIN Courses co ON co.Id = c.CourseId
 LEFT JOIN Teachers t ON t.Id = c.TeacherId
@@ -39,14 +41,31 @@ ORDER BY c.Id ASC;";
                 TeacherId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
                 TeacherName = reader.GetString(5),
                 CurrentSize = reader.GetInt32(6),
-                Status = reader.GetString(7)
+                Status = reader.GetString(7),
+                InactiveFromWeekStart = reader.IsDBNull(8) ? null : reader.GetString(8)
             });
         }
 
         return result;
     }
 
-    public List<ClassInfo> GetClassesByTeacher(int teacherId)
+    public List<ClassInfo> GetClassesForDate(DateTime date) =>
+        GetAll().Where(c => ClassVisibility.IsVisibleForDate(c, date)).ToList();
+
+    public List<ClassInfo> GetClassesByTeacher(int teacherId, DateTime? forDate = null)
+    {
+        var classes = GetClassesByTeacherInternal(teacherId);
+        if (forDate is null)
+        {
+            return classes;
+        }
+
+        return classes
+            .Where(c => ClassVisibility.IsVisibleForDate(c, forDate.Value))
+            .ToList();
+    }
+
+    private List<ClassInfo> GetClassesByTeacherInternal(int teacherId)
     {
         var result = new List<ClassInfo>();
         using var connection = DbContext.CreateConnection();
@@ -56,7 +75,8 @@ ORDER BY c.Id ASC;";
         command.CommandText = @"
 SELECT c.Id, c.ClassName, c.CourseId, co.Name, c.TeacherId, COALESCE(t.FullName, ''),
        (SELECT COUNT(1) FROM ClassStudents cs WHERE cs.ClassId = c.Id),
-       c.Status
+       c.Status,
+       c.InactiveFromWeekStart
 FROM Classes c
 INNER JOIN Courses co ON co.Id = c.CourseId
 LEFT JOIN Teachers t ON t.Id = c.TeacherId
@@ -76,7 +96,8 @@ ORDER BY c.Id ASC;";
                 TeacherId = reader.IsDBNull(4) ? null : reader.GetInt32(4),
                 TeacherName = reader.GetString(5),
                 CurrentSize = reader.GetInt32(6),
-                Status = reader.GetString(7)
+                Status = reader.GetString(7),
+                InactiveFromWeekStart = reader.IsDBNull(8) ? null : reader.GetString(8)
             });
         }
 
@@ -111,6 +132,35 @@ VALUES(@id, @name, @courseId, @teacherId, 999, @status);";
         command.Parameters.AddWithValue("@courseId", courseId);
         command.Parameters.AddWithValue("@teacherId", (object?)teacherId ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", status);
+        command.ExecuteNonQuery();
+    }
+
+    public void UpdateClass(int classId, string className, int courseId, int? teacherId, string status, DateTime? inactiveFromWeekStart = null)
+    {
+        if (string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase) && inactiveFromWeekStart is null)
+        {
+            throw new InvalidOperationException("Vui lòng chọn tuần bắt đầu ngừng hoạt động.");
+        }
+
+        string? inactiveWeek = null;
+        if (string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase))
+        {
+            inactiveWeek = ClassWeeklySchedule.GetMondayOfWeek(inactiveFromWeekStart!.Value).ToString("yyyy-MM-dd");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"UPDATE Classes
+SET ClassName = @name, CourseId = @courseId, TeacherId = @teacherId, Status = @status, InactiveFromWeekStart = @inactiveFromWeek
+WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", classId);
+        command.Parameters.AddWithValue("@name", className);
+        command.Parameters.AddWithValue("@courseId", courseId);
+        command.Parameters.AddWithValue("@teacherId", (object?)teacherId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@status", status);
+        command.Parameters.AddWithValue("@inactiveFromWeek", (object?)inactiveWeek ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 

@@ -43,13 +43,13 @@ else
             </div>
             <div class="form-group">
                 <label>Tháng</label>
-                <select @bind="_month">
+                <select @bind="_month" @bind:after="LoadClassesForPeriod">
                     @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
                 </select>
             </div>
             <div class="form-group">
                 <label>Năm</label>
-                <select @bind="_year">
+                <select @bind="_year" @bind:after="LoadClassesForPeriod">
                     @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
                 </select>
             </div>
@@ -82,9 +82,33 @@ else
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
         _allStudents = StudentService.GetAll();
-        if (Session.CurrentUser?.TeacherId is int teacherId)
-            _classes = ClassService.GetClassesByTeacher(teacherId);
-        if (_classes.Count > 0) { _classId = _classes[0].Id; LoadStudentsInClass(); }
+        LoadClassesForPeriod();
+    }
+
+    private void LoadClassesForPeriod()
+    {
+        if (Session.CurrentUser?.TeacherId is not int teacherId)
+        {
+            _classes = new();
+            return;
+        }
+
+        var referenceDate = new DateTime(_year, _month, DateTime.DaysInMonth(_year, _month));
+        _classes = ClassService.GetClassesByTeacher(teacherId, referenceDate);
+        if (_classes.Count > 0)
+        {
+            if (!_classes.Any(c => c.Id == _classId))
+            {
+                _classId = _classes[0].Id;
+            }
+
+            LoadStudentsInClass();
+        }
+        else
+        {
+            _classId = 0;
+            _studentsInClass = new();
+        }
     }
 
     private void LoadStudentsInClass()

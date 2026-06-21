@@ -7,6 +7,7 @@
 @inject ClassService ClassService
 @inject PaymentService PaymentService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
 
 <PageTitle>Ngày công</PageTitle>
@@ -173,7 +174,7 @@ else
                 <div class="toolbar">
                     <label>Lớp</label>
                     <select @bind="_makeupClassId" @bind:after="OnMakeupAttendanceFilterChanged">
-                        @foreach (var c in _classes)
+                        @foreach (var c in VisibleMakeupClasses)
                         {
                             <option value="@c.Id">@c.ClassName</option>
                         }
@@ -238,6 +239,9 @@ else
     private List<int> _makeupAttShifts = new();
     private string? _makeupAttMessage;
     private bool _makeupAttIsError;
+
+    private List<ClassInfo> VisibleMakeupClasses =>
+        _classes.Where(c => ClassVisibility.IsVisibleForDate(c, _makeupAttDate)).ToList();
 
     protected override void OnInitialized()
     {
@@ -355,6 +359,7 @@ else
         _makeupAttMessage = null;
         _makeupAttIsError = false;
         _showMakeupAttendance = true;
+        EnsureMakeupClassSelection();
         OnMakeupAttendanceFilterChanged();
     }
 
@@ -396,8 +401,24 @@ else
 
     private void OnMakeupAttendanceFilterChanged()
     {
+        EnsureMakeupClassSelection();
         LoadMakeupShifts();
         LoadMakeupStudents();
+    }
+
+    private void EnsureMakeupClassSelection()
+    {
+        var visible = VisibleMakeupClasses;
+        if (visible.Count == 0)
+        {
+            _makeupClassId = 0;
+            return;
+        }
+
+        if (!visible.Any(c => c.Id == _makeupClassId))
+        {
+            _makeupClassId = visible[0].Id;
+        }
     }
 
     private void LoadMakeupStudents()

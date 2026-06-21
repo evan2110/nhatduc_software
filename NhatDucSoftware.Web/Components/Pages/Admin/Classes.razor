@@ -48,6 +48,21 @@ else
                     }
                 </select>
             </div>
+            <div class="form-group">
+                <label>Trạng thái</label>
+                <select @bind="_status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+            @if (_status == "Inactive")
+            {
+                <div class="form-group">
+                    <label>Tuần ngừng hoạt động</label>
+                    <input type="date" @bind="_inactiveFromWeek" />
+                    <span class="text-muted">Lớp sẽ ẩn khỏi lịch/điểm danh từ tuần này trở đi.</span>
+                </div>
+            }
         </div>
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="CreateClass">Tạo lớp</button>
@@ -63,7 +78,7 @@ else
             <div class="table-responsive">
             <table class="data-table compact">
                 <thead>
-                    <tr><th>Tên lớp</th><th>Khóa</th><th>GV</th><th>HS</th></tr>
+                    <tr><th>Tên lớp</th><th>Khóa</th><th>GV</th><th>HS</th><th>TT</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var c in _classes)
@@ -73,6 +88,7 @@ else
                             <td>@c.CourseCode</td>
                             <td>@c.TeacherName</td>
                             <td>@c.CurrentSize</td>
+                            <td>@GetClassStatusLabel(c)</td>
                         </tr>
                     }
                 </tbody>
@@ -216,6 +232,8 @@ else
     private string _className = "";
     private int _courseId;
     private int _teacherId;
+    private string _status = "Active";
+    private DateTime _inactiveFromWeek = DateTime.Today;
     private int _addStudentId;
     private string _studentSearchText = "";
     private string? _message;
@@ -287,6 +305,10 @@ else
         _className = c.ClassName;
         _courseId = c.CourseId;
         _teacherId = c.TeacherId ?? 0;
+        _status = c.Status;
+        _inactiveFromWeek = string.IsNullOrWhiteSpace(c.InactiveFromWeekStart)
+            ? DateTime.Today
+            : DateTime.Parse(c.InactiveFromWeekStart);
         _classStudents = ClassService.GetStudentsInClass(c.Id);
         _selectedStudentInClassId = null;
         _addStudentId = 0;
@@ -303,9 +325,19 @@ else
     private void UpdateClass()
     {
         if (_selectedClassId is null) return;
-        ClassService.UpdateClass(_selectedClassId.Value, _className.Trim(), _courseId, _teacherId > 0 ? _teacherId : null);
-        _message = "Đã cập nhật lớp.";
-        LoadClasses();
+        try
+        {
+            ClassService.UpdateClass(
+                _selectedClassId.Value,
+                _className.Trim(),
+                _courseId,
+                _teacherId > 0 ? _teacherId : null,
+                _status,
+                _status == "Inactive" ? _inactiveFromWeek : null);
+            _message = "Đã cập nhật lớp.";
+            LoadClasses();
+        }
+        catch (Exception ex) { _message = ex.Message; }
     }
 
     private void DeleteClass()
@@ -408,5 +440,17 @@ else
         ScheduleService.SaveScheduleForWeek(_selectedClassId.Value, monday, entries);
         _message = "Đã lưu lịch học!";
         _showSchedule = false;
+    }
+
+    private static string GetClassStatusLabel(ClassInfo c)
+    {
+        if (!string.Equals(c.Status, "Inactive", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Active";
+        }
+
+        return string.IsNullOrWhiteSpace(c.InactiveFromWeekStart)
+            ? "Inactive"
+            : $"Inactive từ {DateTime.Parse(c.InactiveFromWeekStart):dd/MM/yyyy}";
     }
 }

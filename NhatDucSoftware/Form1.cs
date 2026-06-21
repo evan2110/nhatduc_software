@@ -1000,7 +1000,7 @@ namespace NhatDucSoftware
             ApplyClassHeaders(dgvClasses);
 
             var attendanceClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
-                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value, dtpSessionDate.Value.Date)
                 : _classes;
             cmbClassAttendance.DataSource = null;
             cmbClassAttendance.DataSource = attendanceClasses.ToList();
@@ -1010,7 +1010,7 @@ namespace NhatDucSoftware
             LoadPaymentClassFilter();
 
             var evaluateClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
-                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value, DateTime.Today)
                 : _classes;
             cmbClassEvaluate.DataSource = null;
             cmbClassEvaluate.DataSource = evaluateClasses.ToList();
@@ -1022,8 +1022,9 @@ namespace NhatDucSoftware
             cmbClassAddStudent.DisplayMember = nameof(ClassInfo.ClassName);
             cmbClassAddStudent.ValueMember = nameof(ClassInfo.Id);
 
+            var teacherWeekMonday = ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
             var teacherClasses = _currentUser.Role == "Teacher" && _currentUser.TeacherId.HasValue
-                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value)
+                ? _classService.GetClassesByTeacher(_currentUser.TeacherId.Value, teacherWeekMonday)
                 : _classes;
             dgvTeacherClasses.DataSource = null;
             dgvTeacherClasses.DataSource = teacherClasses.ToList();
@@ -2874,6 +2875,10 @@ namespace NhatDucSoftware
 
             var monday = ClassWeeklySchedule.GetMondayOfWeek(dtpTeacherWeek.Value);
             var schedule = _classScheduleService.GetTeacherScheduleForWeek(teacherId, monday);
+
+            dgvTeacherClasses.DataSource = null;
+            dgvTeacherClasses.DataSource = _classService.GetClassesByTeacher(teacherId, monday).ToList();
+            ApplyClassHeaders(dgvTeacherClasses);
 
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));

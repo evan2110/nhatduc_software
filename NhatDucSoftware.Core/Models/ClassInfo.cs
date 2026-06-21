@@ -10,4 +10,5 @@ public class ClassInfo
     public string TeacherName { get; set; } = string.Empty;
     public int CurrentSize { get; set; }
     public string Status { get; set; } = "Active";
+    public string? InactiveFromWeekStart { get; set; }
 }

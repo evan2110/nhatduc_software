@@ -47,7 +47,17 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
         MigrateAttendanceSessionsShiftNumber(connection);
         MigrateStudentBalanceColumn(connection);
         MigrateStudentBalanceHistoryTable(connection);
+        MigrateClassInactiveFromWeekColumn(connection);
         MigrateTeacherProfileColumns(connection);
+    }
+
+    private static void MigrateClassInactiveFromWeekColumn(System.Data.Common.DbConnection connection)
+    {
+        using var addColumn = connection.CreateCommand();
+        addColumn.CommandText = @"
+ALTER TABLE Classes
+ADD COLUMN IF NOT EXISTS InactiveFromWeekStart TEXT;";
+        addColumn.ExecuteNonQuery();
     }
 
     private static void MigrateTeacherProfileColumns(System.Data.Common.DbConnection connection)

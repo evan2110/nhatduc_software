@@ -1,4 +1,5 @@
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -123,24 +124,39 @@ VALUES(@classId, @week, @day, @shift);";
     public List<TeacherScheduleEntry> GetTeacherScheduleEntriesForWeek(int teacherId, DateTime weekMonday)
     {
         var result = new List<TeacherScheduleEntry>();
+        var weekStart = ClassWeeklySchedule.GetMondayOfWeek(weekMonday);
 
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var classCmd = connection.CreateCommand();
-        classCmd.CommandText = "SELECT Id, ClassName FROM Classes WHERE TeacherId = @tid;";
+        classCmd.CommandText = @"
+SELECT Id, ClassName, Status, InactiveFromWeekStart
+FROM Classes
+WHERE TeacherId = @tid;";
         classCmd.Parameters.AddWithValue("@tid", teacherId);
 
-        var classes = new List<(int Id, string Name)>();
+        var classes = new List<(int Id, string Name, string Status, string? InactiveFromWeekStart)>();
         using (var reader = classCmd.ExecuteReader())
         {
             while (reader.Read())
-                classes.Add((reader.GetInt32(0), reader.GetString(1)));
+            {
+                classes.Add((
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3)));
+            }
         }
 
-        foreach (var (classId, className) in classes)
+        foreach (var (classId, className, status, inactiveFromWeekStart) in classes)
         {
-            var schedule = GetScheduleForWeek(classId, weekMonday);
+            if (!ClassVisibility.IsVisibleForWeek(status, inactiveFromWeekStart, weekStart))
+            {
+                continue;
+            }
+
+            var schedule = GetScheduleForWeek(classId, weekStart);
             foreach (var s in schedule)
             {
                 result.Add(new TeacherScheduleEntry
@@ -161,6 +177,11 @@ VALUES(@classId, @week, @day, @shift);";
     /// </summary>
     public List<int> GetShiftsForClassOnDate(int classId, DateTime date)
     {
+        if (!IsClassVisibleForDate(classId, date))
+        {
+            return new List<int>();
+        }
+
         var monday = ClassWeeklySchedule.GetMondayOfWeek(date);
         var scheduleDay = ToScheduleDayOfWeek(date);
         return GetScheduleForWeek(classId, monday)
@@ -288,6 +309,30 @@ VALUES(@classId, @week, @day, @shift);";
             AllTimesheetsComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.TimesheetRecorded),
             AllAttendanceComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.Classes.All(c => c.AttendanceComplete))
         };
+    }
+
+    private static bool IsClassVisibleForDate(int classId, DateTime date)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Status, InactiveFromWeekStart
+FROM Classes
+WHERE Id = @classId
+LIMIT 1;";
+        command.Parameters.AddWithValue("@classId", classId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return false;
+        }
+
+        var status = reader.GetString(0);
+        var inactiveFromWeekStart = reader.IsDBNull(1) ? null : reader.GetString(1);
+        return ClassVisibility.IsVisibleForWeek(status, inactiveFromWeekStart, ClassWeeklySchedule.GetMondayOfWeek(date));
     }
 
     private static bool IsTeacherAssignedToClass(int classId, int teacherId)

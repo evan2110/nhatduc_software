@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS "Classes" (
     "TeacherId" BIGINT NULL,
     "MaxSize" INTEGER NOT NULL,
     "Status" TEXT NOT NULL DEFAULT 'Active',
+    "InactiveFromWeekStart" TEXT NULL,
     CONSTRAINT "FK_Classes_Courses_CourseId" FOREIGN KEY ("CourseId") REFERENCES "Courses"("Id"),
     CONSTRAINT "FK_Classes_Teachers_TeacherId" FOREIGN KEY ("TeacherId") REFERENCES "Teachers"("Id")
 );
