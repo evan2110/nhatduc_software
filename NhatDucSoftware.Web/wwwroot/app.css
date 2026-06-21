@@ -779,7 +779,8 @@ a { color: var(--primary); }
 }
 
 .detail-filter-row select,
-.detail-filter-row input[type="search"] {
+.detail-filter-row input[type="search"],
+.detail-filter-row input[type="date"] {
     min-width: 120px;
     padding: 0.45rem 0.6rem;
     border: 1px solid var(--border);

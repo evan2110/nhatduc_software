@@ -66,38 +66,18 @@ else
                 else
                 {
                     <div class="list-toolbar detail-filter-toolbar">
-                        <div class="search-box">
-                            <input type="search"
-                                   placeholder="Tìm theo ngày..."
-                                   value="@_detailDateSearch"
-                                   @oninput="OnDetailDateSearchChanged" />
-                        </div>
                         <div class="detail-filter-row">
                             <label>
-                                Ca
-                                <select @bind="_detailShiftFilter" @bind:after="ResetDetailPage">
-                                    <option value="0">Tất cả</option>
-                                    @for (int s = 1; s <= 5; s++)
-                                    {
-                                        <option value="@s">@TeacherTimesheet.GetShiftDescription(s)</option>
-                                    }
-                                </select>
+                                Ngày
+                                <input type="date"
+                                       value="@DetailFilterDateString"
+                                       @onchange="OnDetailFilterDateChanged" />
                             </label>
-                            <label>
-                                Trạng thái
-                                <select @bind="_detailStatusFilter" @bind:after="ResetDetailPage">
-                                    <option value="">Tất cả</option>
-                                    <option value="present">Có mặt</option>
-                                    <option value="absent">Vắng</option>
-                                </select>
-                            </label>
-                            <label>
-                                Lương
-                                <input type="search"
-                                       placeholder="Lọc lương ca..."
-                                       value="@_detailPayFilter"
-                                       @oninput="OnDetailPayFilterChanged" />
-                            </label>
+                            <button class="btn btn-secondary"
+                                    @onclick="ClearDetailDateFilter"
+                                    disabled="@(_detailFilterDate is null)">
+                                Xóa lọc ngày
+                            </button>
                         </div>
                         <div class="list-meta">
                             <span>@FilteredDetailCount ca</span>
@@ -320,12 +300,12 @@ else
     private string? _makeupAttMessage;
     private bool _makeupAttIsError;
 
-    private string _detailDateSearch = "";
-    private int _detailShiftFilter;
-    private string _detailStatusFilter = "";
-    private string _detailPayFilter = "";
+    private DateTime? _detailFilterDate;
     private int _detailCurrentPage = 1;
     private int _detailPageSize = 15;
+
+    private string? DetailFilterDateString =>
+        _detailFilterDate?.ToString("yyyy-MM-dd");
 
     private List<ClassInfo> VisibleMakeupClasses =>
         _classes.Where(c => ClassVisibility.IsVisibleForDate(c, _makeupAttDate)).ToList();
@@ -377,36 +357,12 @@ else
     {
         get
         {
-            IEnumerable<TimesheetDetailRow> rows = _detailRecords;
-
-            if (!string.IsNullOrWhiteSpace(_detailDateSearch))
+            if (_detailFilterDate is not DateTime filterDate)
             {
-                var dateQ = _detailDateSearch.Trim();
-                rows = rows.Where(r =>
-                    r.WorkDate.ToString("yyyy-MM-dd").Contains(dateQ, StringComparison.OrdinalIgnoreCase)
-                    || r.WorkDate.ToString("dd/MM/yyyy").Contains(dateQ, StringComparison.OrdinalIgnoreCase)
-                    || r.WorkDate.Day.ToString().Contains(dateQ, StringComparison.OrdinalIgnoreCase));
+                return _detailRecords;
             }
 
-            if (_detailShiftFilter > 0)
-            {
-                rows = rows.Where(r => r.ShiftNumber == _detailShiftFilter);
-            }
-
-            rows = _detailStatusFilter switch
-            {
-                "present" => rows.Where(r => r.IsPresent),
-                "absent" => rows.Where(r => !r.IsPresent),
-                _ => rows
-            };
-
-            if (!string.IsNullOrWhiteSpace(_detailPayFilter))
-            {
-                var payQ = _detailPayFilter.Trim();
-                rows = rows.Where(r => MatchesDetailPayFilter(r, payQ));
-            }
-
-            return rows;
+            return _detailRecords.Where(r => r.WorkDate.Date == filterDate.Date);
         }
     }
 
@@ -433,29 +389,9 @@ else
         }
     }
 
-    private static bool MatchesDetailPayFilter(TimesheetDetailRow row, string payQ)
-    {
-        if (!row.IsPresent)
-        {
-            return payQ == "-" || payQ == "0";
-        }
-
-        if (MoneyHelper.TryParseMoney(payQ, out var amount))
-        {
-            return row.ShiftPay == amount;
-        }
-
-        var normalized = payQ.Replace(" ", "", StringComparison.Ordinal);
-        return MoneyHelper.FormatCurrency(row.ShiftPay).Contains(payQ, StringComparison.OrdinalIgnoreCase)
-            || row.ShiftPay.ToString("0").Contains(normalized, StringComparison.OrdinalIgnoreCase);
-    }
-
     private void ResetDetailFilters()
     {
-        _detailDateSearch = "";
-        _detailShiftFilter = 0;
-        _detailStatusFilter = "";
-        _detailPayFilter = "";
+        _detailFilterDate = null;
         _detailCurrentPage = 1;
     }
 
@@ -464,15 +400,16 @@ else
         _detailCurrentPage = 1;
     }
 
-    private void OnDetailDateSearchChanged(ChangeEventArgs e)
+    private void OnDetailFilterDateChanged(ChangeEventArgs e)
     {
-        _detailDateSearch = e.Value?.ToString() ?? "";
+        var value = e.Value?.ToString();
+        _detailFilterDate = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
         ResetDetailPage();
     }
 
-    private void OnDetailPayFilterChanged(ChangeEventArgs e)
+    private void ClearDetailDateFilter()
     {
-        _detailPayFilter = e.Value?.ToString() ?? "";
+        _detailFilterDate = null;
         ResetDetailPage();
     }
 
