@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
         EnsureSchemaMigrationsTable(connection);
         MigrateAttendanceSessionsShiftNumber(connection);
         MigrateStudentBalanceColumn(connection);
+        MigrateStudentBalanceHistoryTable(connection);
         MigrateTeacherProfileColumns(connection);
     }
 
@@ -106,6 +107,21 @@ CREATE TABLE IF NOT EXISTS TeacherMaterials (
 ALTER TABLE Students
 ADD COLUMN IF NOT EXISTS Balance NUMERIC(18,2) NOT NULL DEFAULT 0;";
         addColumn.ExecuteNonQuery();
+    }
+
+    private static void MigrateStudentBalanceHistoryTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS StudentBalanceHistory (
+    Id BIGSERIAL PRIMARY KEY,
+    StudentId BIGINT NOT NULL,
+    OldBalance NUMERIC(18,2) NOT NULL,
+    NewBalance NUMERIC(18,2) NOT NULL,
+    UpdatedAt TEXT NOT NULL,
+    UpdatedBy BIGINT NOT NULL
+);";
+        createTable.ExecuteNonQuery();
     }
 
     private static void EnsureSchemaMigrationsTable(System.Data.Common.DbConnection connection)

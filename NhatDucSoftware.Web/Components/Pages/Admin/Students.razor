@@ -4,6 +4,7 @@
 @inject StudentService StudentService
 @inject EvaluationService EvaluationService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Học viên</PageTitle>
@@ -65,6 +66,7 @@ else
             </label>
             <a class="btn btn-success" href="/api/export/students" target="_blank">Xuất Excel</a>
             <button class="btn btn-secondary" @onclick="ShowEvaluations" disabled="@(_selectedId is null)">Xem điểm/NX</button>
+            <button class="btn btn-secondary" @onclick="ShowBalanceHistory" disabled="@(_selectedId is null)">Lịch sử số dư</button>
         </div>
     </div>
 
@@ -185,6 +187,53 @@ else
             </div>
         </div>
     }
+
+    @if (_showBalanceHistoryModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseBalanceHistoryModal">
+            <div class="modal-content modal-lg" @onclick:stopPropagation="true">
+                <h3>Lịch sử số dư — @_balanceHistoryStudentName</h3>
+                <div class="toolbar">
+                    <button class="btn btn-secondary" @onclick="CloseBalanceHistoryModal">Đóng</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table compact">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Người cập nhật</th>
+                                <th>Số dư trước</th>
+                                <th>Số dư sau</th>
+                                <th>Thay đổi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_balanceHistory.Count == 0)
+                            {
+                                <tr class="empty-row">
+                                    <td colspan="5">Chưa có lịch sử chỉnh sửa số dư.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in _balanceHistory)
+                                {
+                                    var delta = item.NewBalance - item.OldBalance;
+                                    <tr>
+                                        <td>@FormatHistoryTime(item.UpdatedAt)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.UpdatedByName) ? $"User #{item.UpdatedBy}" : item.UpdatedByName)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.OldBalance)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.NewBalance)</td>
+                                        <td class="@(delta >= 0 ? "status-ok" : "status-missing")">@FormatBalanceDelta(delta)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -197,6 +246,9 @@ else
     private int _evalMonth = DateTime.Now.Month;
     private int _evalYear = DateTime.Now.Year;
     private List<StudentEvaluationRow> _evaluations = new();
+    private bool _showBalanceHistoryModal;
+    private string _balanceHistoryStudentName = "";
+    private List<StudentBalanceHistory> _balanceHistory = new();
 
     private string _searchText = "";
     private int _currentPage = 1;
@@ -315,7 +367,7 @@ else
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
                 Status = _form.Status,
                 Balance = balance
-            });
+            }, Session.CurrentUser?.Id);
             _message = "Đã thêm học viên.";
             LoadStudents();
             ClearForm();
@@ -326,6 +378,12 @@ else
     private void UpdateStudent()
     {
         if (_selectedId is null) return;
+        if (Session.CurrentUser is null)
+        {
+            _message = "Không xác định được người dùng.";
+            return;
+        }
+
         try
         {
             if (!TryParseBalance(out var balance))
@@ -344,7 +402,7 @@ else
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
                 Status = _form.Status,
                 Balance = balance
-            });
+            }, Session.CurrentUser.Id);
             _message = "Đã cập nhật học viên.";
             LoadStudents();
         }
@@ -441,6 +499,39 @@ else
     }
 
     private void CloseEvalModal() => _showEvalModal = false;
+
+    private void ShowBalanceHistory()
+    {
+        if (_selectedId is null) return;
+
+        var student = _students.FirstOrDefault(s => s.Id == _selectedId);
+        if (student is null)
+        {
+            _message = "Không tìm thấy học viên đã chọn.";
+            return;
+        }
+
+        _balanceHistoryStudentName = student.FullName;
+        _balanceHistory = StudentService.GetBalanceHistory(_selectedId.Value);
+        _showBalanceHistoryModal = true;
+    }
+
+    private void CloseBalanceHistoryModal() => _showBalanceHistoryModal = false;
+
+    private static string FormatHistoryTime(DateTime updatedAt)
+    {
+        var local = updatedAt.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(updatedAt, DateTimeKind.Utc).ToLocalTime()
+            : updatedAt.ToLocalTime();
+        return local.ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private static string FormatBalanceDelta(decimal delta)
+    {
+        if (delta == 0) return "0đ";
+        var prefix = delta > 0 ? "+" : "";
+        return $"{prefix}{MoneyHelper.FormatCurrency(delta)}";
+    }
 
     private void ClearForm()
     {

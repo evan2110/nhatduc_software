@@ -1172,7 +1172,7 @@ namespace NhatDucSoftware
                     BirthYear = int.TryParse(txtStudentBirthYear.Text.Trim(), out var birthYear) ? birthYear : null,
                     Address = txtStudentAddress.Text.Trim(),
                     Status = cmbStudentStatus.Text
-                });
+                }, _currentUser.Id);
                 LoadStudents();
             }
             catch (Exception ex)
@@ -1314,7 +1314,7 @@ namespace NhatDucSoftware
                     return;
                 }
                 s.Balance = balance;
-                _studentService.Update(s);
+                _studentService.Update(s, _currentUser.Id);
                 LoadStudents();
             }
             catch (Exception ex)

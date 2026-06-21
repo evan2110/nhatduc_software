@@ -62,45 +62,139 @@ ORDER BY s.Id ASC;";
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    public void Add(Student student)
+    public void Add(Student student, int? updatedByUserId = null)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
+
+        using var transaction = connection.BeginTransaction();
 
         var nextId = GetNextAvailableId(connection);
 
-        using var command = connection.CreateCommand();
-        command.CommandText = @"INSERT INTO Students(Id, FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt, Balance)
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"INSERT INTO Students(Id, FullName, Phone, Email, BirthYear, Address, Language, Status, CreatedAt, Balance)
 VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt, @balance);";
-        command.Parameters.AddWithValue("@id", nextId);
-        command.Parameters.AddWithValue("@name", student.FullName);
-        command.Parameters.AddWithValue("@phone", student.Phone);
-        command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
-        command.Parameters.AddWithValue("@birthYear", (object?)student.BirthYear ?? DBNull.Value);
-        command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
-        command.Parameters.AddWithValue("@status", student.Status);
-        command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
-        command.Parameters.AddWithValue("@balance", student.Balance);
-        command.ExecuteNonQuery();
+            command.Parameters.AddWithValue("@id", nextId);
+            command.Parameters.AddWithValue("@name", student.FullName);
+            command.Parameters.AddWithValue("@phone", student.Phone);
+            command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
+            command.Parameters.AddWithValue("@birthYear", (object?)student.BirthYear ?? DBNull.Value);
+            command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
+            command.Parameters.AddWithValue("@status", student.Status);
+            command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
+            command.Parameters.AddWithValue("@balance", student.Balance);
+            command.ExecuteNonQuery();
+        }
+
+        if (updatedByUserId is int userId && student.Balance != 0)
+        {
+            LogBalanceChange(connection, transaction, nextId, 0, student.Balance, userId);
+        }
+
+        transaction.Commit();
     }
 
-    public void Update(Student student)
+    public void Update(Student student, int updatedByUserId)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
-        using var command = connection.CreateCommand();
-        command.CommandText = @"UPDATE Students
+        using var transaction = connection.BeginTransaction();
+
+        var oldBalance = GetStudentBalance(connection, transaction, student.Id);
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = @"UPDATE Students
 SET FullName = @name, Phone = @phone, Email = @mail, BirthYear = @birthYear, Address = @address, Status = @status, Balance = @balance
 WHERE Id = @id;";
-        command.Parameters.AddWithValue("@id", student.Id);
-        command.Parameters.AddWithValue("@name", student.FullName);
-        command.Parameters.AddWithValue("@phone", student.Phone);
-        command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
-        command.Parameters.AddWithValue("@birthYear", (object?)student.BirthYear ?? DBNull.Value);
-        command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
-        command.Parameters.AddWithValue("@status", student.Status);
-        command.Parameters.AddWithValue("@balance", student.Balance);
+            command.Parameters.AddWithValue("@id", student.Id);
+            command.Parameters.AddWithValue("@name", student.FullName);
+            command.Parameters.AddWithValue("@phone", student.Phone);
+            command.Parameters.AddWithValue("@mail", (object?)student.Email ?? DBNull.Value);
+            command.Parameters.AddWithValue("@birthYear", (object?)student.BirthYear ?? DBNull.Value);
+            command.Parameters.AddWithValue("@address", (object?)student.Address ?? DBNull.Value);
+            command.Parameters.AddWithValue("@status", student.Status);
+            command.Parameters.AddWithValue("@balance", student.Balance);
+            command.ExecuteNonQuery();
+        }
+
+        if (oldBalance != student.Balance)
+        {
+            LogBalanceChange(connection, transaction, student.Id, oldBalance, student.Balance, updatedByUserId);
+        }
+
+        transaction.Commit();
+    }
+
+    public List<StudentBalanceHistory> GetBalanceHistory(int studentId)
+    {
+        var result = new List<StudentBalanceHistory>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT h.Id,
+       h.OldBalance,
+       h.NewBalance,
+       h.UpdatedAt,
+       h.UpdatedBy,
+       COALESCE(u.Username, '')
+FROM StudentBalanceHistory h
+LEFT JOIN Users u ON u.Id = h.UpdatedBy
+WHERE h.StudentId = @studentId
+ORDER BY h.UpdatedAt DESC, h.Id DESC;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new StudentBalanceHistory
+            {
+                Id = reader.GetInt64(0),
+                StudentId = studentId,
+                OldBalance = Convert.ToDecimal(reader.GetValue(1)),
+                NewBalance = Convert.ToDecimal(reader.GetValue(2)),
+                UpdatedAt = DateTime.Parse(reader.GetString(3)),
+                UpdatedBy = reader.GetInt32(4),
+                UpdatedByName = reader.GetString(5)
+            });
+        }
+
+        return result;
+    }
+
+    private static decimal GetStudentBalance(NpgsqlConnection connection, NpgsqlTransaction transaction, int studentId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COALESCE(Balance, 0) FROM Students WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", studentId);
+        return Convert.ToDecimal(command.ExecuteScalar() ?? 0m);
+    }
+
+    private static void LogBalanceChange(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int studentId,
+        decimal oldBalance,
+        decimal newBalance,
+        int updatedByUserId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+INSERT INTO StudentBalanceHistory(StudentId, OldBalance, NewBalance, UpdatedAt, UpdatedBy)
+VALUES(@studentId, @oldBalance, @newBalance, @updatedAt, @updatedBy);";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@oldBalance", oldBalance);
+        command.Parameters.AddWithValue("@newBalance", newBalance);
+        command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("o"));
+        command.Parameters.AddWithValue("@updatedBy", updatedByUserId);
         command.ExecuteNonQuery();
     }
 
@@ -120,6 +214,7 @@ WHERE Id = @id;";
             cmd.ExecuteNonQuery();
         }
 
+        Exec("DELETE FROM StudentBalanceHistory WHERE StudentId = @id;");
         Exec("DELETE FROM StudentEvaluations WHERE StudentId = @id;");
         Exec("DELETE FROM AttendanceRecords WHERE StudentId = @id;");
         Exec("DELETE FROM Payments WHERE StudentId = @id;");
