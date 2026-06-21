@@ -39,21 +39,7 @@ else
             <button class="btn btn-secondary" @onclick="OpenPaySettings">Cài đặt lương/ca</button>
             <button class="btn btn-secondary" @onclick="OpenMakeupTimesheet" disabled="@(_selectedTeacherId is null)">Chấm công bù GV</button>
             <button class="btn btn-secondary" @onclick="OpenMakeupAttendance">Điểm danh bù HS</button>
-        </div>
-
-        <div class="toolbar export-toolbar">
-            <label>Từ ngày</label>
-            <input type="date" value="@ExportFromDateString" @onchange="OnExportFromDateChanged" />
-            <label>Đến ngày</label>
-            <input type="date" value="@ExportToDateString" @onchange="OnExportToDateChanged" />
-            @if (CanExportActivity)
-            {
-                <a class="btn btn-success" href="@GetActivityExportUrl()" target="_blank">Xuất Excel điểm danh & chấm công</a>
-            }
-            else
-            {
-                <button class="btn btn-success" disabled title="Chọn từ ngày và đến ngày hợp lệ">Xuất Excel điểm danh & chấm công</button>
-            }
+            <button class="btn btn-success" @onclick="OpenExportModal">Xuất Excel điểm danh & chấm công</button>
         </div>
 
         <div class="split-grid">
@@ -284,6 +270,39 @@ else
             </div>
         </div>
     }
+
+    @if (_showExportModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseExportModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Xuất Excel điểm danh & chấm công</h3>
+                <p class="text-muted">Chọn khoảng ngày cần xuất dữ liệu điểm danh học viên và chấm công giáo viên của trung tâm.</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Từ ngày</label>
+                        <input type="date" @bind="_exportFromDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Đến ngày</label>
+                        <input type="date" @bind="_exportToDate" />
+                    </div>
+                </div>
+                @if (!CanExportActivity)
+                {
+                    <p class="text-danger">Từ ngày phải nhỏ hơn hoặc bằng đến ngày.</p>
+                }
+                @if (CanExportActivity)
+                {
+                    <a class="btn btn-success" href="@GetActivityExportUrl()" target="_blank" @onclick="CloseExportModal">Xuất Excel</a>
+                }
+                else
+                {
+                    <button class="btn btn-success" disabled>Xuất Excel</button>
+                }
+                <button class="btn btn-secondary" @onclick="CloseExportModal">Đóng</button>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -310,6 +329,7 @@ else
     private bool _makeupIsError;
 
     private bool _showMakeupAttendance;
+    private bool _showExportModal;
     private int _makeupClassId;
     private DateTime _makeupAttDate = DateTime.Today;
     private int _makeupAttShift;
@@ -321,8 +341,8 @@ else
     private int _detailCurrentPage = 1;
     private int _detailPageSize = 15;
 
-    private DateTime? _exportFromDate;
-    private DateTime? _exportToDate;
+    private DateTime _exportFromDate = new(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime _exportToDate = new(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
 
     private string? DetailFilterDateString =>
         _detailFilterDate?.ToString("yyyy-MM-dd");
@@ -337,32 +357,22 @@ else
         _classes = ClassService.GetAll();
         if (_classes.Count > 0) _makeupClassId = _classes[0].Id;
         if (_teachers.Count > 0) _paySettingsTeacherId = _teachers[0].Id;
-        _exportFromDate = new DateTime(_year, _month, 1);
-        _exportToDate = new DateTime(_year, _month, DateTime.DaysInMonth(_year, _month));
         LoadPayroll();
     }
 
-    private string? ExportFromDateString => _exportFromDate?.ToString("yyyy-MM-dd");
-    private string? ExportToDateString => _exportToDate?.ToString("yyyy-MM-dd");
-    private bool CanExportActivity => _exportFromDate is not null && _exportToDate is not null && _exportFromDate <= _exportToDate;
+    private bool CanExportActivity => _exportFromDate.Date <= _exportToDate.Date;
 
-    private void OnExportFromDateChanged(ChangeEventArgs e)
+    private void OpenExportModal()
     {
-        var value = e.Value?.ToString();
-        _exportFromDate = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
+        _exportFromDate = new DateTime(_year, _month, 1);
+        _exportToDate = new DateTime(_year, _month, DateTime.DaysInMonth(_year, _month));
+        _showExportModal = true;
     }
 
-    private void OnExportToDateChanged(ChangeEventArgs e)
-    {
-        var value = e.Value?.ToString();
-        _exportToDate = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
-    }
+    private void CloseExportModal() => _showExportModal = false;
 
-    private string GetActivityExportUrl()
-    {
-        if (!CanExportActivity) return "#";
-        return $"/api/export/center-activity?from={_exportFromDate:yyyy-MM-dd}&to={_exportToDate:yyyy-MM-dd}";
-    }
+    private string GetActivityExportUrl() =>
+        $"/api/export/center-activity?from={_exportFromDate:yyyy-MM-dd}&to={_exportToDate:yyyy-MM-dd}";
 
     private void LoadPayroll()
     {
