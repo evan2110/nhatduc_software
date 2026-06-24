@@ -68,7 +68,10 @@ else
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="CreateClass">Tạo lớp</button>
             <button class="btn btn-secondary" @onclick="UpdateClass" disabled="@(_selectedClassId is null)">Cập nhật</button>
-            <button class="btn btn-danger" @onclick="DeleteClass" disabled="@(_selectedClassId is null)">Xóa lớp</button>
+            @if (Session.CanDeleteClass)
+            {
+                <button class="btn btn-danger" @onclick="DeleteClass" disabled="@(_selectedClassId is null)">Xóa lớp</button>
+            }
             <button class="btn btn-secondary" @onclick="OpenSchedule" disabled="@(_selectedClassId is null)">Lịch học tuần</button>
         </div>
     </div>
@@ -178,8 +181,14 @@ else
             </div>
             <div class="toolbar">
                 <button class="btn btn-primary" @onclick="AddStudentToClass" disabled="@(_selectedClassId is null || _addStudentId <= 0)">Thêm vào lớp</button>
-                <button class="btn btn-secondary" @onclick="OpenTransferModal" disabled="@(_selectedClassId is null || _selectedStudentInClassId is null)">Chuyển lớp</button>
-                <button class="btn btn-danger" @onclick="RemoveStudentFromClass" disabled="@(_selectedStudentInClassId is null)">Xóa khỏi lớp</button>
+                @if (Session.CanTransferClass)
+                {
+                    <button class="btn btn-secondary" @onclick="OpenTransferModal" disabled="@(_selectedClassId is null || _selectedStudentInClassId is null)">Chuyển lớp</button>
+                }
+                @if (Session.CanRemoveStudentFromClass)
+                {
+                    <button class="btn btn-danger" @onclick="RemoveStudentFromClass" disabled="@(_selectedStudentInClassId is null)">Xóa khỏi lớp</button>
+                }
             </div>
             <div class="table-responsive">
             <table class="data-table compact">
@@ -446,6 +455,12 @@ else
 
     private void DeleteClass()
     {
+        if (!Session.CanDeleteClass)
+        {
+            _message = "Bạn không có quyền xóa lớp.";
+            return;
+        }
+
         if (_selectedClassId is null) return;
         try
         {
@@ -475,6 +490,12 @@ else
 
     private void RemoveStudentFromClass()
     {
+        if (!Session.CanRemoveStudentFromClass)
+        {
+            _message = "Bạn không có quyền xóa học viên khỏi lớp.";
+            return;
+        }
+
         if (_selectedClassId is null || _selectedStudentInClassId is null) return;
         ClassService.RemoveStudentFromClass(_selectedClassId.Value, _selectedStudentInClassId.Value);
         _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
@@ -485,6 +506,12 @@ else
 
     private void OpenTransferModal()
     {
+        if (!Session.CanTransferClass)
+        {
+            _message = "Bạn không có quyền chuyển lớp.";
+            return;
+        }
+
         if (_selectedClassId is null || _selectedStudentInClassId is null) return;
 
         var student = _classStudents.FirstOrDefault(s => s.StudentId == _selectedStudentInClassId);
@@ -497,6 +524,12 @@ else
 
     private void ConfirmTransfer()
     {
+        if (!Session.CanTransferClass)
+        {
+            _message = "Bạn không có quyền chuyển lớp.";
+            return;
+        }
+
         if (_selectedClassId is null || _selectedStudentInClassId is null || _transferTargetClassId <= 0) return;
 
         try

@@ -44,7 +44,10 @@ else
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="AddTeacher">Thêm</button>
             <button class="btn btn-secondary" @onclick="UpdateTeacher" disabled="@(_selectedId is null)">Cập nhật</button>
-            <button class="btn btn-danger" @onclick="DeleteTeacher" disabled="@(_selectedId is null)">Xóa</button>
+            @if (Session.CanDeleteTeacher)
+            {
+                <button class="btn btn-danger" @onclick="DeleteTeacher" disabled="@(_selectedId is null)">Xóa</button>
+            }
             <button class="btn btn-secondary" @onclick="ResetPassword" disabled="@(_selectedId is null)">Đổi mật khẩu</button>
         </div>
         @if (!string.IsNullOrEmpty(_accountInfo))
@@ -153,6 +156,12 @@ else
 
     private void DeleteTeacher()
     {
+        if (!Session.CanDeleteTeacher)
+        {
+            _message = "Bạn không có quyền xóa giáo viên.";
+            return;
+        }
+
         if (_selectedId is null) return;
         TeacherService.Delete(_selectedId.Value);
         _message = "Đã xóa giáo viên.";

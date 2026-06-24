@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Web.Services;
@@ -58,6 +59,18 @@ public class UserSession
     public bool IsAdmin => CurrentUser?.Role == "Admin";
 
     public bool IsTeacher => CurrentUser?.Role == "Teacher";
+
+    public bool CanDeleteStudent => AdminPermissions.CanDeleteStudent(CurrentUser);
+
+    public bool CanDeleteClass => AdminPermissions.CanDeleteClass(CurrentUser);
+
+    public bool CanRemoveStudentFromClass => AdminPermissions.CanRemoveStudentFromClass(CurrentUser);
+
+    public bool CanTransferClass => AdminPermissions.CanTransferClass(CurrentUser);
+
+    public bool CanDeleteTeacher => AdminPermissions.CanDeleteTeacher(CurrentUser);
+
+    public bool CanManagePaySettings => AdminPermissions.CanManagePaySettings(CurrentUser);
 
     public void SetCachedUser(AuthenticatedUser user) => _cachedUser = user;
 

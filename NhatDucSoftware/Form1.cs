@@ -1,5 +1,6 @@
 ﻿using System.Drawing.Drawing2D;
 using System.Globalization;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 using NhatDucSoftware.Core.Services;
 
@@ -191,6 +192,26 @@ namespace NhatDucSoftware
                 InitializeAdminMakeupFeatures();
                 InitializeReportFeatures();
                 tabAdminFunctions.SelectedIndexChanged += tabAdminFunctions_SelectedIndexChanged;
+
+                if (!AdminPermissions.CanDeleteStudent(_currentUser))
+                {
+                    btnDeleteStudent.Visible = false;
+                }
+
+                if (!AdminPermissions.CanDeleteClass(_currentUser))
+                {
+                    btnDeleteClass.Visible = false;
+                }
+
+                if (!AdminPermissions.CanRemoveStudentFromClass(_currentUser))
+                {
+                    btnRemoveStudentFromClass.Visible = false;
+                }
+
+                if (!AdminPermissions.CanDeleteTeacher(_currentUser))
+                {
+                    btnDeleteTeacher.Visible = false;
+                }
             }
 
             cmbStudentPayment.SelectedIndexChanged += cmbStudentPayment_SelectedIndexChanged;
@@ -1326,6 +1347,12 @@ namespace NhatDucSoftware
 
         private void btnDeleteStudent_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanDeleteStudent(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền xóa học viên.");
+                return;
+            }
+
             var selected = dgvStudents.SelectedRows
                 .Cast<DataGridViewRow>()
                 .Where(r => r.DataBoundItem is Student)
@@ -1574,6 +1601,12 @@ namespace NhatDucSoftware
 
         private void btnDeleteClass_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanDeleteClass(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền xóa lớp.");
+                return;
+            }
+
             var selected = dgvClasses.SelectedRows
                 .Cast<DataGridViewRow>()
                 .Where(r => r.DataBoundItem is ClassInfo)
@@ -1626,6 +1659,12 @@ namespace NhatDucSoftware
 
         private void btnRemoveStudentFromClass_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanRemoveStudentFromClass(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền xóa học viên khỏi lớp.");
+                return;
+            }
+
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
 
             var selected = dgvClassStudents.SelectedRows
@@ -1711,6 +1750,12 @@ namespace NhatDucSoftware
 
         private void btnDeleteTeacher_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanDeleteTeacher(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền xóa giáo viên.");
+                return;
+            }
+
             var selected = dgvTeachers.SelectedRows
                 .Cast<DataGridViewRow>()
                 .Where(r => r.DataBoundItem is Teacher)

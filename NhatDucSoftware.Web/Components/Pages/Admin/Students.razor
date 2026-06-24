@@ -59,7 +59,10 @@ else
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="AddStudent">Thêm</button>
             <button class="btn btn-secondary" @onclick="UpdateStudent" disabled="@(_selectedId is null)">Cập nhật</button>
-            <button class="btn btn-danger" @onclick="DeleteStudent" disabled="@(_selectedId is null)">Xóa</button>
+            @if (Session.CanDeleteStudent)
+            {
+                <button class="btn btn-danger" @onclick="DeleteStudent" disabled="@(_selectedId is null)">Xóa</button>
+            }
             <label class="btn btn-secondary btn-file-label">
                 Nhập TXT
                 <InputFile OnChange="ImportStudents" accept=".txt" />
@@ -411,6 +414,12 @@ else
 
     private void DeleteStudent()
     {
+        if (!Session.CanDeleteStudent)
+        {
+            _message = "Bạn không có quyền xóa học viên.";
+            return;
+        }
+
         if (_selectedId is null) return;
         try
         {

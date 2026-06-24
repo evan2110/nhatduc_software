@@ -36,7 +36,10 @@ else
             <select @bind="_year" @bind:after="LoadPayroll">
                 @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
-            <button class="btn btn-secondary" @onclick="OpenPaySettings">Cài đặt lương/ca</button>
+            @if (Session.CanManagePaySettings)
+            {
+                <button class="btn btn-secondary" @onclick="OpenPaySettings">Cài đặt lương/ca</button>
+            }
             <button class="btn btn-secondary" @onclick="OpenMakeupTimesheet" disabled="@(_selectedTeacherId is null)">Chấm công bù GV</button>
             <button class="btn btn-secondary" @onclick="OpenMakeupAttendance">Điểm danh bù HS</button>
             <button class="btn btn-success" @onclick="OpenExportModal">Xuất Excel điểm danh & chấm công</button>
@@ -142,7 +145,7 @@ else
         </div>
     </div>
 
-    @if (_showPaySettings)
+    @if (_showPaySettings && Session.CanManagePaySettings)
     {
         <div class="modal-backdrop" @onclick="ClosePaySettings">
             <div class="modal-content modal-lg" @onclick:stopPropagation="true">
@@ -474,6 +477,12 @@ else
 
     private void OpenPaySettings()
     {
+        if (!Session.CanManagePaySettings)
+        {
+            _message = "Bạn không có quyền cài đặt lương/ca.";
+            return;
+        }
+
         if (_teachers.Count == 0)
         {
             _message = "Chưa có giáo viên để cấu hình lương.";
@@ -503,6 +512,12 @@ else
 
     private void SavePaySetting(TeacherClassPaySetting item)
     {
+        if (!Session.CanManagePaySettings)
+        {
+            _message = "Bạn không có quyền cài đặt lương/ca.";
+            return;
+        }
+
         try
         {
             TimesheetService.SaveClassPayRate(_paySettingsTeacherId, item.ClassId, item.PayPerShift);
