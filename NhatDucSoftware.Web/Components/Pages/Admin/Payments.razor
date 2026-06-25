@@ -23,7 +23,7 @@ else
     <div class="card">
         <div class="toolbar">
             <label>Lớp</label>
-            <select @bind="_classId" @bind:after="LoadGrid">
+            <select @bind="_classId" @bind:after="OnFilterChanged">
                 <option value="0">Tất cả</option>
                 @foreach (var c in _classes)
                 {
@@ -31,11 +31,11 @@ else
                 }
             </select>
             <label>Tháng</label>
-            <select @bind="_month" @bind:after="LoadGrid">
+            <select @bind="_month" @bind:after="OnFilterChanged">
                 @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
             </select>
             <label>Năm</label>
-            <select @bind="_year" @bind:after="LoadGrid">
+            <select @bind="_year" @bind:after="OnFilterChanged">
                 @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
             <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
@@ -51,34 +51,86 @@ else
             </div>
         </div>
 
+        <div class="list-toolbar">
+            <div class="search-box">
+                <input type="search"
+                       placeholder="Tìm theo tên hoặc lớp..."
+                       value="@_searchText"
+                       @oninput="OnSearchChanged" />
+            </div>
+            <div class="list-meta">
+                <span>@FilteredCount học viên</span>
+                <label>
+                    Hiển thị
+                    <select @bind="_pageSize" @bind:after="OnPageSizeChanged">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                    / trang
+                </label>
+            </div>
+        </div>
+
         <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th></th></tr>
             </thead>
             <tbody>
-                @foreach (var row in _paymentRows)
+                @if (PagedPaymentRows.Count == 0)
                 {
-                    <tr class="@(row.StudentId == 0 ? "total-row" : _selectedStudentId == row.StudentId ? "selected" : "")"
-                        @onclick="() => SelectPaymentRow(row)">
-                        <td>@(row.StudentId == 0 ? "" : row.ThuTu.ToString())</td>
-                        <td>@row.HoVaTen</td>
-                        <td>@row.Lop</td>
-                        <td>@row.NgayThu</td>
-                        <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
-                        <td>@row.NguoiThu</td>
-                        <td>
-                            @if (row.StudentId > 0)
-                            {
+                    <tr class="empty-row">
+                        <td colspan="7">Không tìm thấy học viên phù hợp.</td>
+                    </tr>
+                }
+                else
+                {
+                    @for (var i = 0; i < PagedPaymentRows.Count; i++)
+                    {
+                        var row = PagedPaymentRows[i];
+                        var rowIndex = (_currentPage - 1) * _pageSize + i + 1;
+                        <tr class="@(_selectedStudentId == row.StudentId ? "selected" : "")"
+                            @onclick="() => SelectPaymentRow(row)">
+                            <td>@rowIndex</td>
+                            <td>@row.HoVaTen</td>
+                            <td>@row.Lop</td>
+                            <td>@row.NgayThu</td>
+                            <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
+                            <td>@row.NguoiThu</td>
+                            <td>
                                 <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
                                 <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@(_isFinalized || _classId <= 0)">Thanh toán</button>
-                            }
-                        </td>
+                            </td>
+                        </tr>
+                    }
+                    <tr class="total-row">
+                        <td></td>
+                        <td>Tổng cộng</td>
+                        <td colspan="2"></td>
+                        <td>@MoneyHelper.FormatCurrency(FilteredTotalPaid)</td>
+                        <td colspan="2"></td>
                     </tr>
                 }
             </tbody>
         </table>
         </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="btn btn-secondary" @onclick="() => GoToPage(1)" disabled="@(_currentPage <= 1)">«</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage - 1)" disabled="@(_currentPage <= 1)">‹</button>
+                @foreach (var p in VisiblePages)
+                {
+                    <button class="btn btn-secondary @(p == _currentPage ? "active" : "")" @onclick="() => GoToPage(p)">@p</button>
+                }
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage + 1)" disabled="@(_currentPage >= TotalPages)">›</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(TotalPages)" disabled="@(_currentPage >= TotalPages)">»</button>
+                <span class="pagination-info">Trang @_currentPage / @TotalPages</span>
+            </div>
+        }
     </div>
 
     @if (_selectedStudentId > 0)
@@ -192,10 +244,13 @@ else
 
 @code {
     private List<ClassInfo> _classes = new();
-    private List<PaymentClassListRow> _paymentRows = new();
+    private List<PaymentClassListRow> _allPaymentRows = new();
     private int _classId;
     private int _month = DateTime.Now.Month;
     private int _year = DateTime.Now.Year;
+    private string _searchText = "";
+    private int _currentPage = 1;
+    private int _pageSize = 15;
     private int _selectedStudentId;
     private string _selectedStudentName = "";
     private decimal _paid;
@@ -215,6 +270,35 @@ else
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
     private ClassPaymentSummary _summary = new();
 
+    private IEnumerable<PaymentClassListRow> FilteredPaymentRows =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _allPaymentRows
+            : _allPaymentRows.Where(MatchesSearch);
+
+    private int FilteredCount => FilteredPaymentRows.Count();
+
+    private decimal FilteredTotalPaid => FilteredPaymentRows.Sum(x => x.SoTien);
+
+    private int TotalPages => PaginationHelper.GetTotalPages(FilteredCount, _pageSize);
+
+    private List<PaymentClassListRow> PagedPaymentRows =>
+        PaginationHelper.GetPage(FilteredPaymentRows.ToList(), _currentPage, _pageSize);
+
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var pages = new List<int>();
+            var start = Math.Max(1, _currentPage - 2);
+            var end = Math.Min(TotalPages, _currentPage + 2);
+            for (var p = start; p <= end; p++)
+            {
+                pages.Add(p);
+            }
+            return pages;
+        }
+    }
+
     protected override void OnInitialized()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
@@ -227,17 +311,46 @@ else
     {
         _isFinalized = _classId > 0 && PaymentService.IsFinalized(_classId, _month, _year);
         _summary = PaymentService.GetClassPaymentSummary(_classId, _month, _year);
-        var list = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
-        _paymentRows = list.ToList();
-        _paymentRows.Add(new PaymentClassListRow
-        {
-            HoVaTen = "Tổng cộng",
-            SoTien = list.Sum(x => x.SoTien)
-        });
+        _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
+        _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
 
-        var first = list.FirstOrDefault();
-        if (first is not null) SelectPaymentRow(first);
-        else { _selectedStudentId = 0; _classTuitionBreakdown.Clear(); }
+        var selectedStillVisible = _selectedStudentId > 0 && FilteredPaymentRows.Any(x => x.StudentId == _selectedStudentId);
+        if (selectedStillVisible)
+        {
+            SelectPaymentRow(FilteredPaymentRows.First(x => x.StudentId == _selectedStudentId));
+        }
+        else
+        {
+            var first = FilteredPaymentRows.FirstOrDefault();
+            if (first is not null) SelectPaymentRow(first);
+            else { _selectedStudentId = 0; _classTuitionBreakdown.Clear(); }
+        }
+    }
+
+    private bool MatchesSearch(PaymentClassListRow row) =>
+        row.HoVaTen.Contains(_searchText.Trim(), StringComparison.OrdinalIgnoreCase)
+        || row.Lop.Contains(_searchText.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? "";
+        _currentPage = 1;
+    }
+
+    private void OnPageSizeChanged()
+    {
+        _currentPage = 1;
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = Math.Clamp(page, 1, TotalPages);
+    }
+
+    private void OnFilterChanged()
+    {
+        _currentPage = 1;
+        LoadGrid();
     }
 
     private void SelectPaymentRow(PaymentClassListRow row)
