@@ -203,16 +203,24 @@ else
                     <div class="table-responsive" style="margin-bottom: 1rem;">
                         <table class="data-table compact">
                             <thead>
-                                <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
+                                <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th><th></th></tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in _detailClassBreakdown)
                                 {
+                                    var classFinalized = PaymentService.IsFinalized(item.ClassId, _month, _year);
                                     <tr>
                                         <td>@item.ClassName</td>
                                         <td>@MoneyHelper.FormatCurrency(item.TotalDue)</td>
                                         <td>@MoneyHelper.FormatCurrency(item.Paid)</td>
                                         <td>@MoneyHelper.FormatCurrency(item.Remaining)</td>
+                                        <td>
+                                            <button class="btn btn-primary btn-sm"
+                                                    disabled="@(item.Remaining <= 0 || classFinalized)"
+                                                    @onclick="() => PayNowFromDetail(item)">
+                                                Thanh toán ngay
+                                            </button>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -309,7 +317,6 @@ else
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
         _classes = ClassService.GetAll();
-        if (_classes.Count > 0) _classId = _classes[0].Id;
         LoadGrid();
     }
 
@@ -479,6 +486,35 @@ else
             LoadGrid();
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }
+    }
+
+    private void PayNowFromDetail(StudentClassTuitionRow item)
+    {
+        if (item.Remaining <= 0) return;
+        if (PaymentService.IsFinalized(item.ClassId, _month, _year)) return;
+
+        var studentId = _detailStudentId;
+        _showDetail = false;
+        _searchText = "";
+        _classId = item.ClassId;
+
+        _isFinalized = PaymentService.IsFinalized(_classId, _month, _year);
+        _summary = PaymentService.GetClassPaymentSummary(_classId, _month, _year);
+        _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
+
+        var filtered = FilteredPaymentRows.ToList();
+        var index = filtered.FindIndex(x => x.StudentId == studentId);
+        if (index >= 0)
+        {
+            _currentPage = (index / _pageSize) + 1;
+            SelectPaymentRow(filtered[index]);
+        }
+        else
+        {
+            _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+            _selectedStudentId = 0;
+            _classTuitionBreakdown.Clear();
+        }
     }
 
     private void ShowDetail(PaymentClassListRow row)
