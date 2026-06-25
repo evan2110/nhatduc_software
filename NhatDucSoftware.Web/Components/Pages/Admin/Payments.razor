@@ -100,11 +100,13 @@ else
                             <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
                             <td>@row.NguoiThu</td>
                             <td>
-                                <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
-                                @if (_classId > 0)
-                                {
-                                    <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@_isFinalized">Thanh toán</button>
-                                }
+                                <div class="table-actions">
+                                    <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
+                                    @if (_classId > 0)
+                                    {
+                                        <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@_isFinalized">Thanh toán</button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }

@@ -254,6 +254,13 @@ a { color: var(--primary); }
 .data-table tr:hover { background: #f8fafc; }
 .data-table tr.total-row { font-weight: 700; background: #fef9c3; }
 
+.table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .input-attendance {
     width: 60px;
     min-height: 40px;
