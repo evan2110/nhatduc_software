@@ -352,17 +352,14 @@ SELECT p.Id,
        p.PaymentDate,
        p.Amount,
        COALESCE(u.Username, ''),
-       COALESCE(p.Note, '')
+       COALESCE(p.Note, ''),
+       COALESCE(c.ClassName, '')
 FROM Payments p
 LEFT JOIN Users u ON u.Id = p.CreatedBy
+LEFT JOIN Classes c ON c.Id = p.ClassId
 WHERE p.StudentId = @studentId
   AND LEFT(p.PaymentDate::text, 7) = @yearMonth
-  AND (@classId = 0 OR EXISTS (
-      SELECT 1
-      FROM ClassStudents cs
-      WHERE cs.StudentId = p.StudentId
-        AND cs.ClassId = @classId
-  ))
+  AND (@classId = 0 OR p.ClassId = @classId)
 ORDER BY p.PaymentDate DESC, p.Id DESC;";
         command.Parameters.AddWithValue("@studentId", studentId);
         command.Parameters.AddWithValue("@classId", classId);
@@ -372,13 +369,91 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            results.Add(MapPaymentHistoryRow(reader));
+            results.Add(MapPaymentHistoryRow(reader, includeClassName: true));
         }
 
         return results;
     }
 
-    private static PaymentHistoryRow MapPaymentHistoryRow(DbDataReader reader)
+    public List<StudentClassTuitionRow> GetStudentTuitionBreakdownByClassMonthYear(int studentId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+WITH Enrollments AS (
+    SELECT cs.ClassId, c.ClassName
+    FROM ClassStudents cs
+    INNER JOIN Classes c ON c.Id = cs.ClassId
+    WHERE cs.StudentId = @studentId
+),
+StudentTuition AS (
+    SELECT ats.ClassId,
+           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
+    FROM AttendanceRecords ar
+    INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+    INNER JOIN Classes c ON c.Id = ats.ClassId
+    INNER JOIN Courses co ON co.Id = c.CourseId
+    WHERE ar.StudentId = @studentId
+      AND ar.Status = 'C'
+      AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
+      AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
+    GROUP BY ats.ClassId
+),
+StudentCarryOver AS (
+    SELECT ClassId,
+           COALESCE(SUM(Amount), 0) AS CarryOver
+    FROM PaymentCarryOvers
+    WHERE StudentId = @studentId
+      AND ToMonth = @month
+      AND ToYear = @year
+    GROUP BY ClassId
+),
+StudentPaid AS (
+    SELECT p.ClassId,
+           COALESCE(SUM(p.Amount), 0) AS Paid
+    FROM Payments p
+    WHERE p.StudentId = @studentId
+      AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
+      AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
+    GROUP BY p.ClassId
+)
+SELECT e.ClassId,
+       e.ClassName,
+       COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0),
+       COALESCE(sp.Paid, 0),
+       COALESCE(sc.CarryOver, 0)
+FROM Enrollments e
+LEFT JOIN StudentTuition st ON st.ClassId = e.ClassId
+LEFT JOIN StudentCarryOver sc ON sc.ClassId = e.ClassId
+LEFT JOIN StudentPaid sp ON sp.ClassId = e.ClassId
+ORDER BY e.ClassName;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        var results = new List<StudentClassTuitionRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var due = ReadDecimal(reader, 2);
+            var paid = ReadDecimal(reader, 3);
+            results.Add(new StudentClassTuitionRow
+            {
+                ClassId = reader.GetInt32(0),
+                ClassName = reader.GetString(1),
+                TotalDue = due,
+                Paid = paid,
+                Remaining = Math.Max(0, due - paid),
+                CarryOver = ReadDecimal(reader, 4)
+            });
+        }
+
+        return results;
+    }
+
+    private static PaymentHistoryRow MapPaymentHistoryRow(DbDataReader reader, bool includeClassName = false)
     {
         return new PaymentHistoryRow
         {
@@ -386,7 +461,8 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
             NgayThu = FormatPaymentDate(reader, 1),
             SoTien = ReadDecimal(reader, 2),
             NguoiThu = ReadString(reader, 3),
-            GhiChu = ReadString(reader, 4)
+            GhiChu = ReadString(reader, 4),
+            Lop = includeClassName ? ReadString(reader, 5) : ""
         };
     }
 
@@ -538,52 +614,59 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-WITH ClassStudentIds AS (
-    SELECT cs.StudentId
+WITH Enrollments AS (
+    SELECT cs.StudentId, cs.ClassId
     FROM ClassStudents cs
-    WHERE cs.ClassId = @classId
+    WHERE @classId = 0 OR cs.ClassId = @classId
 ),
 StudentTuition AS (
     SELECT ar.StudentId,
+           ats.ClassId,
            COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
     FROM AttendanceRecords ar
     INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
     INNER JOIN Classes c ON c.Id = ats.ClassId
     INNER JOIN Courses co ON co.Id = c.CourseId
     WHERE ar.Status = 'C'
-      AND ats.ClassId = @classId
+      AND (@classId = 0 OR ats.ClassId = @classId)
       AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
       AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-      AND ar.StudentId IN (SELECT StudentId FROM ClassStudentIds)
-    GROUP BY ar.StudentId
+    GROUP BY ar.StudentId, ats.ClassId
 ),
 StudentCarryOver AS (
     SELECT StudentId,
+           ClassId,
            COALESCE(SUM(Amount), 0) AS CarryOver
     FROM PaymentCarryOvers
-    WHERE ClassId = @classId
+    WHERE (@classId = 0 OR ClassId = @classId)
       AND ToMonth = @month
       AND ToYear = @year
-      AND StudentId IN (SELECT StudentId FROM ClassStudentIds)
-    GROUP BY StudentId
+    GROUP BY StudentId, ClassId
 ),
 StudentPaid AS (
     SELECT p.StudentId,
+           p.ClassId,
            COALESCE(SUM(p.Amount), 0) AS Paid
     FROM Payments p
-    WHERE p.ClassId = @classId
+    WHERE (@classId = 0 OR p.ClassId = @classId)
       AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
       AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
-      AND p.StudentId IN (SELECT StudentId FROM ClassStudentIds)
-    GROUP BY p.StudentId
+    GROUP BY p.StudentId, p.ClassId
+),
+PerClass AS (
+    SELECT e.StudentId,
+           e.ClassId,
+           COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0) AS Due,
+           COALESCE(sp.Paid, 0) AS Paid
+    FROM Enrollments e
+    LEFT JOIN StudentTuition st ON st.StudentId = e.StudentId AND st.ClassId = e.ClassId
+    LEFT JOIN StudentCarryOver sc ON sc.StudentId = e.StudentId AND sc.ClassId = e.ClassId
+    LEFT JOIN StudentPaid sp ON sp.StudentId = e.StudentId AND sp.ClassId = e.ClassId
 )
-SELECT COALESCE(SUM(COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0)), 0),
-       COALESCE(SUM(COALESCE(sp.Paid, 0)), 0),
-       COALESCE(SUM(GREATEST(0, COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0) - COALESCE(sp.Paid, 0))), 0)
-FROM ClassStudentIds cs
-LEFT JOIN StudentTuition st ON st.StudentId = cs.StudentId
-LEFT JOIN StudentCarryOver sc ON sc.StudentId = cs.StudentId
-LEFT JOIN StudentPaid sp ON sp.StudentId = cs.StudentId;";
+SELECT COALESCE(SUM(Due), 0),
+       COALESCE(SUM(Paid), 0),
+       COALESCE(SUM(GREATEST(0, Due - Paid)), 0)
+FROM PerClass;";
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
         command.Parameters.AddWithValue("@year", year);
@@ -809,6 +892,17 @@ public class PaymentHistoryRow
     public decimal SoTien { get; set; }
     public string NguoiThu { get; set; } = "";
     public string GhiChu { get; set; } = "";
+    public string Lop { get; set; } = "";
+}
+
+public class StudentClassTuitionRow
+{
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
+    public decimal TotalDue { get; set; }
+    public decimal Paid { get; set; }
+    public decimal Remaining { get; set; }
+    public decimal CarryOver { get; set; }
 }
 
 public class ClassPaymentSummary

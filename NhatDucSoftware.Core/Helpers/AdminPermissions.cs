@@ -32,4 +32,10 @@ public static class AdminPermissions
 
     public static bool CanManagePaySettings(AuthenticatedUser? user) =>
         IsAdmin(user) && !IsRestrictedAdmin(user);
+
+    public static bool CanDeletePaymentHistory(AuthenticatedUser? user) =>
+        IsAdmin(user) && !IsRestrictedAdmin(user);
+
+    public static bool CanManageWeeklySchedule(AuthenticatedUser? user) =>
+        IsAdmin(user) && !IsRestrictedAdmin(user);
 }

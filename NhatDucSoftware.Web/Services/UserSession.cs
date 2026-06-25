@@ -72,6 +72,10 @@ public class UserSession
 
     public bool CanManagePaySettings => AdminPermissions.CanManagePaySettings(CurrentUser);
 
+    public bool CanDeletePaymentHistory => AdminPermissions.CanDeletePaymentHistory(CurrentUser);
+
+    public bool CanManageWeeklySchedule => AdminPermissions.CanManageWeeklySchedule(CurrentUser);
+
     public void SetCachedUser(AuthenticatedUser user) => _cachedUser = user;
 
     public void ClearCache() => _cachedUser = null;

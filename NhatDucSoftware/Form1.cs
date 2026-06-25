@@ -212,6 +212,16 @@ namespace NhatDucSoftware
                 {
                     btnDeleteTeacher.Visible = false;
                 }
+
+                if (!AdminPermissions.CanDeletePaymentHistory(_currentUser))
+                {
+                    btnDeletePaymentHistory.Visible = false;
+                }
+
+                if (!AdminPermissions.CanManageWeeklySchedule(_currentUser))
+                {
+                    btnClassSchedule.Visible = false;
+                }
             }
 
             cmbStudentPayment.SelectedIndexChanged += cmbStudentPayment_SelectedIndexChanged;
@@ -1691,6 +1701,12 @@ namespace NhatDucSoftware
 
         private void btnClassSchedule_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanManageWeeklySchedule(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền quản lý lịch học tuần.");
+                return;
+            }
+
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
             using var form = new ClassScheduleForm(c.Id, c.ClassName);
             form.ShowDialog();
@@ -2386,6 +2402,12 @@ namespace NhatDucSoftware
 
         private void btnDeletePaymentHistory_Click(object sender, EventArgs e)
         {
+            if (!AdminPermissions.CanDeletePaymentHistory(_currentUser))
+            {
+                MessageBox.Show("Bạn không có quyền xóa lịch sử thu phí.");
+                return;
+            }
+
             if (!cmbStudentPayment.Visible)
             {
                 return;

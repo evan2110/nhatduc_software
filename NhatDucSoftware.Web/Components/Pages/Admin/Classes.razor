@@ -72,7 +72,10 @@ else
             {
                 <button class="btn btn-danger" @onclick="DeleteClass" disabled="@(_selectedClassId is null)">Xóa lớp</button>
             }
-            <button class="btn btn-secondary" @onclick="OpenSchedule" disabled="@(_selectedClassId is null)">Lịch học tuần</button>
+            @if (Session.CanManageWeeklySchedule)
+            {
+                <button class="btn btn-secondary" @onclick="OpenSchedule" disabled="@(_selectedClassId is null)">Lịch học tuần</button>
+            }
         </div>
     </div>
 
@@ -231,7 +234,7 @@ else
         </div>
     }
 
-    @if (_showSchedule)
+    @if (_showSchedule && Session.CanManageWeeklySchedule)
     {
         <div class="modal-backdrop" @onclick="() => _showSchedule = false">
             <div class="modal-content modal-lg" @onclick:stopPropagation="true">
@@ -546,6 +549,12 @@ else
 
     private void OpenSchedule()
     {
+        if (!Session.CanManageWeeklySchedule)
+        {
+            _message = "Bạn không có quyền quản lý lịch học tuần.";
+            return;
+        }
+
         if (_selectedClassId is null) return;
         _scheduleClassName = _className;
         _weekDate = DateTime.Today;
@@ -571,6 +580,12 @@ else
 
     private void SaveSchedule()
     {
+        if (!Session.CanManageWeeklySchedule)
+        {
+            _message = "Bạn không có quyền quản lý lịch học tuần.";
+            return;
+        }
+
         if (_selectedClassId is null) return;
         var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
         var entries = _scheduleShifts.Select(x => (x.Day, x.Shift)).ToList();
