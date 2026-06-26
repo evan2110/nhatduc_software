@@ -1,4 +1,5 @@
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -314,11 +315,15 @@ LIMIT 1;";
     {
         var monday = ClassWeeklySchedule.GetMondayOfWeek(workDate);
         var scheduleDay = ToScheduleDayOfWeek(workDate);
-        var classIds = GetTeacherClassIds(teacherId);
         var matched = new List<int>();
 
-        foreach (var classId in classIds)
+        foreach (var (classId, status, inactiveFromWeekStart) in GetTeacherClasses(teacherId))
         {
+            if (!ClassVisibility.IsVisibleForWeek(status, inactiveFromWeekStart, monday))
+            {
+                continue;
+            }
+
             var schedule = _scheduleService.GetScheduleForWeek(classId, monday);
             if (schedule.Any(s => s.DayOfWeek == scheduleDay && s.ShiftNumber == shiftNumber))
             {
@@ -329,20 +334,27 @@ LIMIT 1;";
         return matched;
     }
 
-    private static List<int> GetTeacherClassIds(int teacherId)
+    private static List<(int Id, string Status, string? InactiveFromWeekStart)> GetTeacherClasses(int teacherId)
     {
-        var result = new List<int>();
+        var result = new List<(int Id, string Status, string? InactiveFromWeekStart)>();
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id FROM Classes WHERE TeacherId = @teacherId ORDER BY Id;";
+        command.CommandText = @"
+SELECT Id, Status, InactiveFromWeekStart
+FROM Classes
+WHERE TeacherId = @teacherId
+ORDER BY Id;";
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            result.Add(reader.GetInt32(0));
+            result.Add((
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2)));
         }
 
         return result;

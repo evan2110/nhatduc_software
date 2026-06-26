@@ -40,7 +40,7 @@ public class CourseService
         checkCmd.Parameters.AddWithValue("@code", course.Name);
         if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
         {
-            throw new InvalidOperationException($"Khùa h?c v?i m? '{course.Name}' ù? t?n t?i.");
+            throw new InvalidOperationException($"KhÔøΩa h?c v?i m? '{course.Name}' ÔøΩ? t?n t?i.");
         }
 
         using var command = connection.CreateCommand();
@@ -66,7 +66,7 @@ VALUES(@code, @name, '', @fee, 90, @status);";
         checkCmd.Parameters.AddWithValue("@id", course.Id);
         if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
         {
-            throw new InvalidOperationException($"Khùa h?c v?i m? '{course.Name}' ù? t?n t?i.");
+            throw new InvalidOperationException($"KhÔøΩa h?c v?i m? '{course.Name}' ÔøΩ? t?n t?i.");
         }
 
         using var command = connection.CreateCommand();
@@ -83,7 +83,7 @@ VALUES(@code, @name, '', @fee, 90, @status);";
     {
         if (string.IsNullOrWhiteSpace(course.Name))
         {
-            throw new InvalidOperationException("TÍn khÛa h?c khÙng ???c ?? tr?ng.");
+            throw new InvalidOperationException("TÔøΩn khÔøΩa h?c khÔøΩng ???c ?? tr?ng.");
         }
     }
 }
