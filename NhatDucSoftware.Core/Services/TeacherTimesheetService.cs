@@ -1,13 +1,10 @@
 using NhatDucSoftware.Core.Data;
-using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
 
 public class TeacherTimesheetService
 {
-    private readonly ClassScheduleService _scheduleService = new();
-
     /// <summary>
     /// Lưu chấm công cho giáo viên theo ngày và ca.
     /// </summary>
@@ -246,129 +243,23 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
         command.ExecuteNonQuery();
     }
 
-    public decimal GetShiftPay(int teacherId, DateTime workDate, int shiftNumber)
+    public decimal GetShiftPay(int teacherId, DateTime workDate, int shiftNumber) =>
+        GetTeacherPayPerShift(teacherId);
+
+    /// <summary>
+    /// Lương/ca áp dụng cho giáo viên theo cài đặt lương/ca (lấy mức cao nhất trong các lớp phụ trách).
+    /// </summary>
+    public decimal GetTeacherPayPerShift(int teacherId)
     {
-        var classIds = ResolveClassesForShift(teacherId, workDate, shiftNumber);
-        if (classIds.Count == 0)
-        {
-            return GetFallbackPayRate(teacherId);
-        }
-
-        decimal total = 0;
-        foreach (var classId in classIds)
-        {
-            total += GetConfiguredPayRate(teacherId, classId) ?? TeacherTimesheet.DefaultPayPerShift;
-        }
-
-        return total;
+        var settings = GetClassPaySettings(teacherId);
+        return settings.Count == 0
+            ? TeacherTimesheet.DefaultPayPerShift
+            : settings.Max(x => x.PayPerShift);
     }
 
     /// <summary>
-    /// Tính lương giáo viên trong tháng theo lương/ca đã cấu hình từng lớp.
+    /// Tính lương giáo viên trong tháng: số ca có mặt × lương/ca đã cài đặt.
     /// </summary>
-    public decimal CalculateMonthlyPay(int teacherId, int year, int month)
-    {
-        decimal total = 0;
-        foreach (var record in GetTimesheetByMonth(teacherId, year, month).Where(r => r.IsPresent))
-        {
-            total += GetShiftPay(teacherId, record.WorkDate, record.ShiftNumber);
-        }
-
-        return total;
-    }
-
-    private decimal GetFallbackPayRate(int teacherId)
-    {
-        var settings = GetClassPaySettings(teacherId).Where(x => x.IsConfigured).ToList();
-        if (settings.Count == 0)
-        {
-            return TeacherTimesheet.DefaultPayPerShift;
-        }
-
-        return settings.Max(x => x.PayPerShift);
-    }
-
-    private decimal? GetConfiguredPayRate(int teacherId, int classId)
-    {
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT PayPerShift
-FROM TeacherClassPayRates
-WHERE TeacherId = @teacherId AND ClassId = @classId
-LIMIT 1;";
-        command.Parameters.AddWithValue("@teacherId", teacherId);
-        command.Parameters.AddWithValue("@classId", classId);
-
-        var value = command.ExecuteScalar();
-        if (value is null || value == DBNull.Value)
-        {
-            return null;
-        }
-
-        return Convert.ToDecimal(value);
-    }
-
-    private List<int> ResolveClassesForShift(int teacherId, DateTime workDate, int shiftNumber)
-    {
-        var monday = ClassWeeklySchedule.GetMondayOfWeek(workDate);
-        var scheduleDay = ToScheduleDayOfWeek(workDate);
-        var matched = new List<int>();
-
-        foreach (var (classId, status, inactiveFromWeekStart) in GetTeacherClasses(teacherId))
-        {
-            if (!ClassVisibility.IsVisibleForWeek(status, inactiveFromWeekStart, monday))
-            {
-                continue;
-            }
-
-            var schedule = _scheduleService.GetScheduleForWeek(classId, monday);
-            if (schedule.Any(s => s.DayOfWeek == scheduleDay && s.ShiftNumber == shiftNumber))
-            {
-                matched.Add(classId);
-            }
-        }
-
-        return matched;
-    }
-
-    private static List<(int Id, string Status, string? InactiveFromWeekStart)> GetTeacherClasses(int teacherId)
-    {
-        var result = new List<(int Id, string Status, string? InactiveFromWeekStart)>();
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT Id, Status, InactiveFromWeekStart
-FROM Classes
-WHERE TeacherId = @teacherId
-ORDER BY Id;";
-        command.Parameters.AddWithValue("@teacherId", teacherId);
-
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            result.Add((
-                reader.GetInt32(0),
-                reader.GetString(1),
-                reader.IsDBNull(2) ? null : reader.GetString(2)));
-        }
-
-        return result;
-    }
-
-    private static int ToScheduleDayOfWeek(DateTime date) => date.DayOfWeek switch
-    {
-        DayOfWeek.Monday => 0,
-        DayOfWeek.Tuesday => 1,
-        DayOfWeek.Wednesday => 2,
-        DayOfWeek.Thursday => 3,
-        DayOfWeek.Friday => 4,
-        DayOfWeek.Saturday => 5,
-        DayOfWeek.Sunday => 6,
-        _ => 0
-    };
+    public decimal CalculateMonthlyPay(int teacherId, int year, int month) =>
+        GetTotalShiftsInMonth(teacherId, year, month) * GetTeacherPayPerShift(teacherId);
 }

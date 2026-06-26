@@ -150,7 +150,7 @@ else
         <div class="modal-backdrop" @onclick="ClosePaySettings">
             <div class="modal-content modal-lg" @onclick:stopPropagation="true">
                 <h3>Cài đặt lương theo lớp</h3>
-                <p class="text-muted">Mặc định @MoneyHelper.FormatCurrency(TeacherTimesheet.DefaultPayPerShift)/ca nếu chưa cấu hình hoặc ca không khớp lịch lớp.</p>
+                <p class="text-muted">Mặc định @MoneyHelper.FormatCurrency(TeacherTimesheet.DefaultPayPerShift)/ca nếu chưa cấu hình. Lương tháng = tổng ca có mặt × lương/ca (lấy mức cao nhất trong các lớp đã cài).</p>
                 <div class="form-group">
                     <label>Giáo viên</label>
                     <select @bind="_paySettingsTeacherId" @bind:after="LoadPaySettings">
