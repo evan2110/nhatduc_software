@@ -81,8 +81,22 @@ else
         _feeText = c.TuitionFee.ToString("N0");
     }
 
+    private bool TryValidateCourseForm()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _message = "Tên khóa học không được để trống.";
+            _isError = true;
+            return false;
+        }
+
+        return true;
+    }
+
     private void AddCourse()
     {
+        if (!TryValidateCourseForm()) return;
+
         try
         {
             MoneyHelper.TryParseMoney(_feeText, out var fee);
@@ -98,6 +112,8 @@ else
     private void UpdateCourse()
     {
         if (_selectedId is null) return;
+        if (!TryValidateCourseForm()) return;
+
         try
         {
             MoneyHelper.TryParseMoney(_feeText, out var fee);

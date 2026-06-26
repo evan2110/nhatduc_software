@@ -98,6 +98,8 @@ WHERE TeacherId = @teacherId;";
 
     public (string Username, string Password) Add(Teacher teacher)
     {
+        ValidateTeacher(teacher);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -195,6 +197,8 @@ VALUES(@username, @password, 'Teacher', @teacherId);";
 
     public void Update(Teacher teacher)
     {
+        ValidateTeacher(teacher);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -238,6 +242,14 @@ WHERE Id = @id;";
         deleteTeacher.ExecuteNonQuery();
 
         transaction.Commit();
+    }
+
+    private static void ValidateTeacher(Teacher teacher)
+    {
+        if (string.IsNullOrWhiteSpace(teacher.FullName))
+        {
+            throw new InvalidOperationException("Họ tên không được để trống.");
+        }
     }
 }
 

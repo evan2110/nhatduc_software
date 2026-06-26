@@ -64,6 +64,8 @@ ORDER BY s.Id ASC;";
 
     public void Add(Student student, int? updatedByUserId = null)
     {
+        ValidateStudent(student);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -98,6 +100,8 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt,
 
     public void Update(Student student, int updatedByUserId)
     {
+        ValidateStudent(student);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -248,5 +252,13 @@ VALUES(@studentId, @courseId, @date, 'Active');";
         command.Parameters.AddWithValue("@courseId", courseId);
         command.Parameters.AddWithValue("@date", DateTime.UtcNow.ToString("o"));
         command.ExecuteNonQuery();
+    }
+
+    private static void ValidateStudent(Student student)
+    {
+        if (string.IsNullOrWhiteSpace(student.FullName))
+        {
+            throw new InvalidOperationException("Họ tên không được để trống.");
+        }
     }
 }

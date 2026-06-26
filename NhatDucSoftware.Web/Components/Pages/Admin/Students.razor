@@ -351,10 +351,23 @@ else
         return MoneyHelper.TryParseMoney(_form.BalanceText, out balance) && balance >= 0;
     }
 
+    private bool TryValidateStudentForm()
+    {
+        if (string.IsNullOrWhiteSpace(_form.FullName))
+        {
+            _message = "Họ tên không được để trống.";
+            return false;
+        }
+
+        return true;
+    }
+
     private void AddStudent()
     {
         try
         {
+            if (!TryValidateStudentForm()) return;
+
             if (!TryParseBalance(out var balance))
             {
                 _message = "Số dư phải là số không âm.";
@@ -389,6 +402,8 @@ else
 
         try
         {
+            if (!TryValidateStudentForm()) return;
+
             if (!TryParseBalance(out var balance))
             {
                 _message = "Số dư phải là số không âm.";
@@ -438,21 +453,39 @@ else
 
         var imported = 0;
         var skipped = 0;
+        var errors = new List<string>();
+        var lineNo = 0;
         using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
         using var reader = new StreamReader(stream);
         while (await reader.ReadLineAsync() is { } line)
         {
+            lineNo++;
             var raw = line.Trim();
-            if (string.IsNullOrWhiteSpace(raw)) { skipped++; continue; }
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                skipped++;
+                errors.Add($"Dòng {lineNo}: Dòng trống.");
+                continue;
+            }
 
             var parts = raw.Split('-', 5);
             var fullName = parts.Length > 0 ? parts[0].Trim() : "";
-            if (string.IsNullOrWhiteSpace(fullName)) { skipped++; continue; }
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                skipped++;
+                errors.Add($"Dòng {lineNo}: Họ tên không được để trống.");
+                continue;
+            }
 
             int? birthYear = null;
             if (parts.Length > 3 && !string.IsNullOrWhiteSpace(parts[3]))
             {
-                if (!int.TryParse(parts[3].Trim(), out var y)) { skipped++; continue; }
+                if (!int.TryParse(parts[3].Trim(), out var y))
+                {
+                    skipped++;
+                    errors.Add($"Dòng {lineNo}: Năm sinh không hợp lệ '{parts[3].Trim()}'.");
+                    continue;
+                }
                 birthYear = y;
             }
 
@@ -469,10 +502,19 @@ else
                 });
                 imported++;
             }
-            catch { skipped++; }
+            catch (Exception ex)
+            {
+                skipped++;
+                errors.Add($"Dòng {lineNo}: {ex.Message}");
+            }
         }
 
         _message = $"Đã nhập {imported} học viên. Bỏ qua {skipped} dòng.";
+        if (errors.Count > 0)
+        {
+            _message += " " + string.Join(" ", errors.Take(5));
+            if (errors.Count > 5) _message += " ...";
+        }
         LoadStudents();
     }
 

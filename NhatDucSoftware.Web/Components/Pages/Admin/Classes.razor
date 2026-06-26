@@ -431,16 +431,35 @@ else
         _studentSearchText = "";
     }
 
+    private bool TryValidateClassForm()
+    {
+        if (string.IsNullOrWhiteSpace(_className))
+        {
+            _message = "Tên lớp không được để trống.";
+            return false;
+        }
+
+        return true;
+    }
+
     private void CreateClass()
     {
-        ClassService.AddClass(_className.Trim(), _courseId, _teacherId > 0 ? _teacherId : null, "Active");
-        _message = "Đã tạo lớp.";
-        LoadClasses();
+        if (!TryValidateClassForm()) return;
+
+        try
+        {
+            ClassService.AddClass(_className.Trim(), _courseId, _teacherId > 0 ? _teacherId : null, "Active");
+            _message = "Đã tạo lớp.";
+            LoadClasses();
+        }
+        catch (Exception ex) { _message = ex.Message; }
     }
 
     private void UpdateClass()
     {
         if (_selectedClassId is null) return;
+        if (!TryValidateClassForm()) return;
+
         try
         {
             ClassService.UpdateClass(

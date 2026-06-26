@@ -120,8 +120,21 @@ else
         _accountInfo = null;
     }
 
+    private bool TryValidateTeacherForm()
+    {
+        if (string.IsNullOrWhiteSpace(_fullName))
+        {
+            _message = "Họ tên không được để trống.";
+            return false;
+        }
+
+        return true;
+    }
+
     private void AddTeacher()
     {
+        if (!TryValidateTeacherForm()) return;
+
         try
         {
             var (username, password) = TeacherService.Add(new Teacher
@@ -142,16 +155,22 @@ else
     private void UpdateTeacher()
     {
         if (_selectedId is null) return;
-        TeacherService.Update(new Teacher
+        if (!TryValidateTeacherForm()) return;
+
+        try
         {
-            Id = _selectedId.Value,
-            FullName = _fullName.Trim(),
-            Phone = _phone.Trim(),
-            Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
-            Status = _status
-        });
-        _message = "Đã cập nhật giáo viên.";
-        LoadTeachers();
+            TeacherService.Update(new Teacher
+            {
+                Id = _selectedId.Value,
+                FullName = _fullName.Trim(),
+                Phone = _phone.Trim(),
+                Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
+                Status = _status
+            });
+            _message = "Đã cập nhật giáo viên.";
+            LoadTeachers();
+        }
+        catch (Exception ex) { _message = ex.Message; }
     }
 
     private void DeleteTeacher()

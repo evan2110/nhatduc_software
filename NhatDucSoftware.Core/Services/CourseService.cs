@@ -30,6 +30,8 @@ public class CourseService
 
     public void Add(Course course)
     {
+        ValidateCourse(course);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -38,7 +40,7 @@ public class CourseService
         checkCmd.Parameters.AddWithValue("@code", course.Name);
         if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
         {
-            throw new InvalidOperationException($"KhÛa h?c v?i m? '{course.Name}' ? t?n t?i.");
+            throw new InvalidOperationException($"Khùa h?c v?i m? '{course.Name}' ù? t?n t?i.");
         }
 
         using var command = connection.CreateCommand();
@@ -53,6 +55,8 @@ VALUES(@code, @name, '', @fee, 90, @status);";
 
     public void Update(Course course)
     {
+        ValidateCourse(course);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -62,7 +66,7 @@ VALUES(@code, @name, '', @fee, 90, @status);";
         checkCmd.Parameters.AddWithValue("@id", course.Id);
         if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
         {
-            throw new InvalidOperationException($"KhÛa h?c v?i m? '{course.Name}' ? t?n t?i.");
+            throw new InvalidOperationException($"Khùa h?c v?i m? '{course.Name}' ù? t?n t?i.");
         }
 
         using var command = connection.CreateCommand();
@@ -73,5 +77,13 @@ VALUES(@code, @name, '', @fee, 90, @status);";
         command.Parameters.AddWithValue("@fee", course.TuitionFee);
         command.Parameters.AddWithValue("@status", course.Status);
         command.ExecuteNonQuery();
+    }
+
+    private static void ValidateCourse(Course course)
+    {
+        if (string.IsNullOrWhiteSpace(course.Name))
+        {
+            throw new InvalidOperationException("TÍn khÛa h?c khÙng ???c ?? tr?ng.");
+        }
     }
 }

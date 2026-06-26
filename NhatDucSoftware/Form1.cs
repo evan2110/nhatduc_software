@@ -1196,6 +1196,12 @@ namespace NhatDucSoftware
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(txtStudentName.Text))
+                {
+                    MessageBox.Show("Họ tên không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 _studentService.Add(new Student
                 {
                     FullName = txtStudentName.Text.Trim(),
@@ -1236,6 +1242,7 @@ namespace NhatDucSoftware
                 if (string.IsNullOrWhiteSpace(raw))
                 {
                     skipped++;
+                    errors.Add($"Dòng {item.index + 1}: Dòng trống.");
                     continue;
                 }
 
@@ -1249,6 +1256,7 @@ namespace NhatDucSoftware
                 if (string.IsNullOrWhiteSpace(fullName))
                 {
                     skipped++;
+                    errors.Add($"Dòng {item.index + 1}: Họ tên không được để trống.");
                     continue;
                 }
 
@@ -1334,6 +1342,12 @@ namespace NhatDucSoftware
 
             try
             {
+                if (string.IsNullOrWhiteSpace(txtStudentName.Text))
+                {
+                    MessageBox.Show("Họ tên không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 s.FullName = txtStudentName.Text.Trim();
                 s.Phone = txtStudentPhone.Text.Trim();
                 s.Email = txtStudentEmail.Text.Trim();
@@ -1528,6 +1542,12 @@ namespace NhatDucSoftware
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(txtCourseName.Text))
+                {
+                    MessageBox.Show("Tên khóa học không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 _courseService.Add(new Course
                 {
                     Name = txtCourseName.Text.Trim(),
@@ -1545,6 +1565,12 @@ namespace NhatDucSoftware
         private void btnUpdateCourse_Click(object sender, EventArgs e)
         {
             if (dgvCourses.CurrentRow?.DataBoundItem is not Course c) return;
+
+            if (string.IsNullOrWhiteSpace(txtCourseName.Text))
+            {
+                MessageBox.Show("Tên khóa học không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             c.Name = txtCourseName.Text.Trim();
             c.TuitionFee = TryParseMoney(txtCourseFee.Text, out var fee) ? fee : 0;
@@ -1570,15 +1596,28 @@ namespace NhatDucSoftware
 
         private void btnCreateClass_Click(object sender, EventArgs e)
         {
+            if (string.IsNullOrWhiteSpace(txtClassName.Text))
+            {
+                MessageBox.Show("Tên lớp không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             int? teacherId = cmbTeacherClass.SelectedValue is int selectedTeacherId ? selectedTeacherId : null;
 
-            _classService.AddClass(
+            try
+            {
+                _classService.AddClass(
                 txtClassName.Text.Trim(),
                 cmbCourseClass.SelectedValue is int courseId ? courseId : 0,
                 teacherId,
                 "Active");
 
-            LoadClasses();
+                LoadClasses();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void btnAddStudentToClass_Click(object sender, EventArgs e)
@@ -1602,11 +1641,25 @@ namespace NhatDucSoftware
         private void btnUpdateClass_Click(object sender, EventArgs e)
         {
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
+
+            if (string.IsNullOrWhiteSpace(txtClassName.Text))
+            {
+                MessageBox.Show("Tên lớp không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             int? teacherId = cmbTeacherClass.SelectedValue is int tid ? tid : null;
-            _classService.UpdateClass(c.Id, txtClassName.Text.Trim(),
-                cmbCourseClass.SelectedValue is int cid ? cid : 0, teacherId);
-            LoadClasses();
-            MessageBox.Show("Đã cập nhật lớp học.");
+            try
+            {
+                _classService.UpdateClass(c.Id, txtClassName.Text.Trim(),
+                    cmbCourseClass.SelectedValue is int cid ? cid : 0, teacherId);
+                LoadClasses();
+                MessageBox.Show("Đã cập nhật lớp học.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
         private void btnDeleteClass_Click(object sender, EventArgs e)
@@ -1717,6 +1770,12 @@ namespace NhatDucSoftware
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(txtTeacherName.Text))
+                {
+                    MessageBox.Show("Họ tên không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 var (username, password) = _teacherService.Add(new Teacher
                 {
                     FullName = txtTeacherName.Text.Trim(),
@@ -1748,6 +1807,12 @@ namespace NhatDucSoftware
 
             try
             {
+                if (string.IsNullOrWhiteSpace(txtTeacherName.Text))
+                {
+                    MessageBox.Show("Họ tên không được để trống.", "Dữ liệu không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 teacher.FullName = txtTeacherName.Text.Trim();
                 teacher.Phone = txtTeacherPhone.Text.Trim();
                 teacher.Email = txtTeacherEmail.Text.Trim();

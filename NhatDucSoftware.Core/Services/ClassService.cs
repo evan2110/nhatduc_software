@@ -119,6 +119,8 @@ ORDER BY c.Id ASC;";
 
     public void AddClass(string className, int courseId, int? teacherId, string status)
     {
+        ValidateClassName(className);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -137,6 +139,8 @@ VALUES(@id, @name, @courseId, @teacherId, 999, @status);";
 
     public void UpdateClass(int classId, string className, int courseId, int? teacherId, string status, DateTime? inactiveFromWeekStart = null)
     {
+        ValidateClassName(className);
+
         if (string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase) && inactiveFromWeekStart is null)
         {
             throw new InvalidOperationException("Vui lòng chọn tuần bắt đầu ngừng hoạt động.");
@@ -166,6 +170,8 @@ WHERE Id = @id;";
 
     public void UpdateClass(int classId, string className, int courseId, int? teacherId)
     {
+        ValidateClassName(className);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -418,5 +424,13 @@ ORDER BY s.Id ASC;";
         }
 
         return Convert.ToInt32(value);
+    }
+
+    private static void ValidateClassName(string className)
+    {
+        if (string.IsNullOrWhiteSpace(className))
+        {
+            throw new InvalidOperationException("Tên lớp không được để trống.");
+        }
     }
 }
