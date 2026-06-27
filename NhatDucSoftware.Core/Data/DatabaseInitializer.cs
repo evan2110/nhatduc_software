@@ -43,6 +43,17 @@ CREATE TABLE IF NOT EXISTS TeacherClassPayRates (
             createPayRates.ExecuteNonQuery();
         }
 
+        using (var createAppSettings = connection.CreateCommand())
+        {
+            createAppSettings.CommandText = @"
+CREATE TABLE IF NOT EXISTS AppSettings (
+    SettingKey TEXT PRIMARY KEY,
+    SettingValue TEXT NOT NULL,
+    UpdatedAt TEXT NOT NULL
+);";
+            createAppSettings.ExecuteNonQuery();
+        }
+
         EnsureSchemaMigrationsTable(connection);
         MigrateAttendanceSessionsShiftNumber(connection);
         MigrateStudentBalanceColumn(connection);

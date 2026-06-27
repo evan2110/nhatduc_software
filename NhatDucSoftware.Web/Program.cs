@@ -11,6 +11,20 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
 
+static void SetEnvIfEmpty(string key, string? value)
+{
+    if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key))
+        && !string.IsNullOrWhiteSpace(value))
+    {
+        Environment.SetEnvironmentVariable(key, value.Trim());
+    }
+}
+
+SetEnvIfEmpty("GOOGLE_DRIVE_CLIENT_ID", builder.Configuration["GoogleDrive:ClientId"]);
+SetEnvIfEmpty("GOOGLE_DRIVE_CLIENT_SECRET", builder.Configuration["GoogleDrive:ClientSecret"]);
+SetEnvIfEmpty("GOOGLE_DRIVE_REFRESH_TOKEN", builder.Configuration["GoogleDrive:RefreshToken"]);
+SetEnvIfEmpty("NHATDUC_GMAIL_REFRESH_TOKEN", builder.Configuration["GoogleDrive:GmailRefreshToken"]);
+
 var connectionString = builder.Configuration.GetConnectionString("Default");
 var dbPassword = builder.Configuration["Database:Password"]
     ?? Environment.GetEnvironmentVariable("SUPABASE_DB_PASSWORD");
@@ -19,6 +33,8 @@ DbContext.Configure(
     dbPassword);
 
 DatabaseInitializer.Initialize();
+
+SetEnvIfEmpty("NHATDUC_GMAIL_REFRESH_TOKEN", AppSettingsService.Get("NHATDUC_GMAIL_REFRESH_TOKEN"));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
