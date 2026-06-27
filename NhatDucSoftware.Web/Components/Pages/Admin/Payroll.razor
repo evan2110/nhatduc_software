@@ -6,6 +6,7 @@
 @inject AttendanceService AttendanceService
 @inject ClassService ClassService
 @inject PaymentService PaymentService
+@inject TeacherTimesheetNotificationService PayrollEmailService
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
@@ -48,7 +49,7 @@ else
         <div class="split-grid">
             <div class="table-responsive">
             <table class="data-table compact">
-                <thead><tr><th>Giáo viên</th><th>Tổng ca</th><th>Lương</th></tr></thead>
+                <thead><tr><th>Giáo viên</th><th>Tổng ca</th><th>Lương</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var row in _payrollRows)
                     {
@@ -56,6 +57,14 @@ else
                             <td>@row.Name</td>
                             <td>@row.TotalShifts</td>
                             <td>@MoneyHelper.FormatCurrency(row.Pay)</td>
+                            <td>
+                                <button class="btn btn-primary btn-sm"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => SendPayrollEmail(row)"
+                                        disabled="@(_sendingPayrollTeacherId == row.TeacherId)">
+                                    @(_sendingPayrollTeacherId == row.TeacherId ? "Đang gửi..." : "Gửi mail công")
+                                </button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -346,6 +355,7 @@ else
 
     private DateTime _exportFromDate = new(DateTime.Now.Year, DateTime.Now.Month, 1);
     private DateTime _exportToDate = new(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
+    private int? _sendingPayrollTeacherId;
 
     private string? DetailFilterDateString =>
         _detailFilterDate?.ToString("yyyy-MM-dd");
@@ -386,10 +396,61 @@ else
             {
                 TeacherId = t.Id,
                 Name = t.FullName,
+                Email = t.Email,
                 TotalShifts = shifts,
-                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month)
+                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month),
+                ActualWorkingDays = TimesheetService.GetActualWorkingDaysInMonth(t.Id, _year, _month)
             };
         }).ToList();
+    }
+
+    private async Task SendPayrollEmail(PayrollRow row)
+    {
+        if (_sendingPayrollTeacherId is not null)
+        {
+            return;
+        }
+
+        var teacher = _teachers.FirstOrDefault(t => t.Id == row.TeacherId);
+        if (teacher is null)
+        {
+            _message = "Không tìm thấy giáo viên.";
+            return;
+        }
+
+        _sendingPayrollTeacherId = row.TeacherId;
+        _message = null;
+
+        try
+        {
+            var payroll = new TeacherPayrollEmailData
+            {
+                Year = _year,
+                Month = _month,
+                ActualWorkingDays = row.ActualWorkingDays,
+                StandardWorkingDays = TeacherTimesheetService.GetStandardWorkingDaysInMonth(_year, _month),
+                TotalPay = row.Pay
+            };
+
+            var result = await Task.Run(() =>
+            {
+                var ok = PayrollEmailService.TrySendPayrollEmail(teacher, payroll, out var errorMessage);
+                return (ok, errorMessage);
+            });
+
+            if (result.ok)
+            {
+                _message = $"Đã gửi phiếu lương tháng {_month:D2}/{_year} đến {teacher.Email}.";
+            }
+            else
+            {
+                _message = result.errorMessage;
+            }
+        }
+        finally
+        {
+            _sendingPayrollTeacherId = null;
+        }
     }
 
     private void SelectTeacher(PayrollRow row)
@@ -700,8 +761,10 @@ else
     {
         public int TeacherId { get; set; }
         public string Name { get; set; } = "";
+        public string? Email { get; set; }
         public int TotalShifts { get; set; }
         public decimal Pay { get; set; }
+        public int ActualWorkingDays { get; set; }
     }
 
     private class TimesheetDetailRow

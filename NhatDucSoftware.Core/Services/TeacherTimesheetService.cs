@@ -262,4 +262,32 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
     /// </summary>
     public decimal CalculateMonthlyPay(int teacherId, int year, int month) =>
         GetTotalShiftsInMonth(teacherId, year, month) * GetTeacherPayPerShift(teacherId);
+
+    /// <summary>
+    /// Số ngày có mặt thực tế trong tháng (đếm theo ngày, không theo ca).
+    /// </summary>
+    public int GetActualWorkingDaysInMonth(int teacherId, int year, int month) =>
+        GetTimesheetByMonth(teacherId, year, month)
+            .Where(t => t.IsPresent)
+            .Select(t => t.WorkDate.Date)
+            .Distinct()
+            .Count();
+
+    /// <summary>
+    /// Ngày công chuẩn trong tháng (Thứ 2–Thứ 7, không tính Chủ nhật).
+    /// </summary>
+    public static int GetStandardWorkingDaysInMonth(int year, int month)
+    {
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        var count = 0;
+        for (var day = 1; day <= daysInMonth; day++)
+        {
+            if (new DateTime(year, month, day).DayOfWeek != DayOfWeek.Sunday)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 }

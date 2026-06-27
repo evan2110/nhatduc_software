@@ -58,6 +58,7 @@ builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
+builder.Services.AddScoped<TeacherTimesheetNotificationService>();
 builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<TeacherProfileService>();

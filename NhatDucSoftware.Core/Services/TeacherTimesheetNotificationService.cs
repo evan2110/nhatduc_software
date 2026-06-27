@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
@@ -7,7 +8,15 @@ namespace NhatDucSoftware.Core.Services;
 
 public class TeacherTimesheetNotificationService
 {
-    private const string RecipientEmail = "ctytnhhgiaoducnhatduc@gmail.com";
+    private const string CompanyEmail = "ctytnhhgiaoducnhatduc@gmail.com";
+    private const string RecipientEmail = CompanyEmail;
+
+    private const string CompanyName = "CÔNG TY TNHH PHÁT TRIỂN GIÁO DỤC NHẬT ĐỨC";
+    private const string CompanyAddress = "Phú Hòa Nam, Trường Phú, Quảng Trị, Việt Nam";
+    private const string CompanyTaxId = "3101139405";
+    private const string CompanyPhone = "08887058685";
+    private const string LeaderName = "Nguyễn Thị Duyến";
+    private const string PreparedByName = "Đỗ Nhật Đức";
 
     public bool TrySendTimesheetEmail(
         Teacher teacher,
@@ -55,6 +64,52 @@ public class TeacherTimesheetNotificationService
         }
     }
 
+    public bool TrySendPayrollEmail(
+        Teacher teacher,
+        TeacherPayrollEmailData payroll,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(teacher.Email))
+        {
+            errorMessage = $"Giáo viên {teacher.FullName} chưa có email.";
+            return false;
+        }
+
+        if (!TryReadSmtpConfig(out var config, out errorMessage))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var message = new MailMessage
+            {
+                From = new MailAddress(config.FromEmail, CompanyName),
+                Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}",
+                Body = BuildPayrollEmailHtml(teacher, payroll),
+                BodyEncoding = Encoding.UTF8,
+                SubjectEncoding = Encoding.UTF8,
+                IsBodyHtml = true
+            };
+            message.To.Add(teacher.Email.Trim());
+
+            using var smtp = new SmtpClient(config.Host, config.Port)
+            {
+                EnableSsl = config.EnableSsl,
+                Credentials = new NetworkCredential(config.Username, config.Password)
+            };
+            smtp.Send(message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Gửi phiếu lương thất bại: {ex.Message}";
+            return false;
+        }
+    }
+
     private static string BuildEmailBody(Teacher teacher, string username, IReadOnlyCollection<TeacherTimesheetEmailEntry> entries)
     {
         var sb = new StringBuilder();
@@ -75,6 +130,87 @@ public class TeacherTimesheetNotificationService
 
         return sb.ToString();
     }
+
+    private static string BuildPayrollEmailHtml(Teacher teacher, TeacherPayrollEmailData payroll)
+    {
+        var actualDays = payroll.ActualWorkingDays.ToString("0.0", CultureInfo.InvariantCulture);
+        var standardDays = payroll.StandardWorkingDays.ToString(CultureInfo.InvariantCulture);
+        var totalPay = payroll.TotalPay.ToString("N0", CultureInfo.InvariantCulture);
+        var monthYear = $"Tháng {payroll.Month:D2} năm {payroll.Year}";
+
+        return $"""
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>PHIẾU LƯƠNG</title>
+</head>
+<body style="font-family: 'Times New Roman', Times, serif; color: #111; margin: 24px;">
+  <div style="text-align: center; margin-bottom: 16px;">
+    <div style="font-weight: bold; font-size: 16px;">{CompanyName}</div>
+    <div style="font-size: 13px;">{CompanyAddress}</div>
+    <div style="font-size: 13px;">Mã số thuế: {CompanyTaxId}</div>
+    <div style="font-size: 13px;">Số điện thoại: {CompanyPhone}</div>
+  </div>
+
+  <div style="text-align: center; margin: 24px 0;">
+    <div style="font-weight: bold; font-size: 18px;">PHIẾU LƯƠNG</div>
+    <div style="font-size: 14px; margin-top: 8px;">{monthYear}</div>
+    <div style="font-size: 13px; margin-top: 4px;">Đơn vị tính: VNĐ</div>
+  </div>
+
+  <div style="margin-bottom: 16px; font-size: 14px;">
+    <strong>Họ và tên:</strong> {WebEncode(teacher.FullName)}
+  </div>
+
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    <thead>
+      <tr>
+        <th style="border: 1px solid #333; padding: 8px; width: 48px;">STT</th>
+        <th style="border: 1px solid #333; padding: 8px;">NỘI DUNG</th>
+        <th style="border: 1px solid #333; padding: 8px; width: 140px;">SỐ TIỀN</th>
+        <th style="border: 1px solid #333; padding: 8px; width: 220px;">GHI CHÚ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border: 1px solid #333; padding: 8px; text-align: center;">1</td>
+        <td style="border: 1px solid #333; padding: 8px;">Ngày công thực tế</td>
+        <td style="border: 1px solid #333; padding: 8px; text-align: right; color: #c00000; font-weight: bold;">{actualDays}</td>
+        <td style="border: 1px solid #333; padding: 8px;">Ngày công chuẩn: {standardDays}</td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #333; padding: 8px; text-align: center;">2</td>
+        <td style="border: 1px solid #333; padding: 8px;">Tổng lương</td>
+        <td style="border: 1px solid #333; padding: 8px; text-align: right; font-weight: bold;">{totalPay}</td>
+        <td style="border: 1px solid #333; padding: 8px;"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table style="width: 100%; margin-top: 48px; font-size: 13px; text-align: center;">
+    <tr>
+      <td style="width: 33%; vertical-align: top;">
+        <div style="font-weight: bold;">Lãnh đạo</div>
+        <div style="margin-top: 64px;">{LeaderName}</div>
+      </td>
+      <td style="width: 33%; vertical-align: top;">
+        <div style="font-weight: bold;">Người lập</div>
+        <div style="margin-top: 64px;">{PreparedByName}</div>
+      </td>
+      <td style="width: 33%; vertical-align: top;">
+        <div style="font-weight: bold;">Người lao động</div>
+        <div style="margin-top: 64px;">{WebEncode(teacher.FullName)}</div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+""";
+    }
+
+    private static string WebEncode(string value) =>
+        WebUtility.HtmlEncode(value);
 
     private static bool TryReadSmtpConfig(out SmtpConfig config, out string errorMessage)
     {
@@ -117,14 +253,21 @@ public class TeacherTimesheetNotificationService
         var enableSslRaw = Read("NHATDUC_SMTP_ENABLE_SSL");
         config.EnableSsl = string.IsNullOrWhiteSpace(enableSslRaw) || !enableSslRaw.Equals("false", StringComparison.OrdinalIgnoreCase);
 
-        if (string.IsNullOrWhiteSpace(config.Username) ||
-            string.IsNullOrWhiteSpace(config.Password) ||
-            string.IsNullOrWhiteSpace(config.FromEmail))
+        if (string.IsNullOrWhiteSpace(config.FromEmail))
+        {
+            config.FromEmail = CompanyEmail;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.Username))
+        {
+            config.Username = CompanyEmail;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.Password))
         {
             errorMessage =
-                "Thiếu cấu hình gửi mail. Vui lòng thiết lập biến môi trường: " +
-                "NHATDUC_SMTP_USERNAME, NHATDUC_SMTP_PASSWORD, NHATDUC_SMTP_FROM " +
-                "(có thể tùy chọn thêm NHATDUC_SMTP_HOST, NHATDUC_SMTP_PORT, NHATDUC_SMTP_ENABLE_SSL).";
+                "Thiếu cấu hình gửi mail. Vui lòng thiết lập biến môi trường NHATDUC_SMTP_PASSWORD " +
+                "(có thể tùy chọn thêm NHATDUC_SMTP_USERNAME, NHATDUC_SMTP_FROM, NHATDUC_SMTP_HOST, NHATDUC_SMTP_PORT, NHATDUC_SMTP_ENABLE_SSL).";
             return false;
         }
 
@@ -150,4 +293,13 @@ public sealed class TeacherTimesheetEmailEntry
     public int ShiftNumber { get; set; }
     public bool IsPresent { get; set; }
     public string? Note { get; set; }
+}
+
+public sealed class TeacherPayrollEmailData
+{
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public decimal ActualWorkingDays { get; set; }
+    public int StandardWorkingDays { get; set; }
+    public decimal TotalPay { get; set; }
 }
