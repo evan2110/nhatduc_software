@@ -1,7 +1,11 @@
 using System.Globalization;
+using System.IO;
 using System.Net;
-using System.Net.Mail;
+using System.Net.Sockets;
 using System.Text;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -10,6 +14,7 @@ public class TeacherTimesheetNotificationService
 {
     private const string CompanyEmail = "ctytnhhgiaoducnhatduc@gmail.com";
     private const string RecipientEmail = CompanyEmail;
+    private const int SmtpTimeoutMs = 60_000;
 
     private const string CompanyName = "CÔNG TY TNHH PHÁT TRIỂN GIÁO DỤC NHẬT ĐỨC";
     private const string CompanyAddress = "Phú Hòa Nam, Trường Phú, Quảng Trị, Việt Nam";
@@ -38,24 +43,8 @@ public class TeacherTimesheetNotificationService
 
         try
         {
-            using var message = new MailMessage
-            {
-                From = new MailAddress(config.FromEmail),
-                Subject = $"[Cham cong giao vien] {teacher.FullName} - {DateTime.Now:dd/MM/yyyy HH:mm}",
-                Body = BuildEmailBody(teacher, username, entries),
-                BodyEncoding = Encoding.UTF8,
-                SubjectEncoding = Encoding.UTF8,
-                IsBodyHtml = false
-            };
-            message.To.Add(RecipientEmail);
-
-            using var smtp = new SmtpClient(config.Host, config.Port)
-            {
-                EnableSsl = config.EnableSsl,
-                Credentials = new NetworkCredential(config.Username, config.Password)
-            };
-            smtp.Send(message);
-            return true;
+            var message = BuildTimesheetMessage(teacher, username, entries, config);
+            return TrySendMimeMessage(message, config, out errorMessage);
         }
         catch (Exception ex)
         {
@@ -69,46 +58,177 @@ public class TeacherTimesheetNotificationService
         TeacherPayrollEmailData payroll,
         out string errorMessage)
     {
-        errorMessage = string.Empty;
+        var result = TrySendPayrollEmailAsync(teacher, payroll).GetAwaiter().GetResult();
+        errorMessage = result.ErrorMessage;
+        return result.Success;
+    }
 
+    public async Task<(bool Success, string ErrorMessage)> TrySendPayrollEmailAsync(
+        Teacher teacher,
+        TeacherPayrollEmailData payroll,
+        CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(teacher.Email))
         {
-            errorMessage = $"Giáo viên {teacher.FullName} chưa có email.";
-            return false;
+            return (false, $"Giáo viên {teacher.FullName} chưa có email.");
         }
 
-        if (!TryReadSmtpConfig(out var config, out errorMessage))
+        if (!TryReadSmtpConfig(out var config, out var errorMessage))
         {
-            return false;
+            return (false, errorMessage);
         }
 
         try
         {
-            using var message = new MailMessage
+            var message = BuildPayrollMessage(teacher, payroll, config);
+            var sent = await TrySendMimeMessageAsync(message, config, cancellationToken);
+            if (sent)
             {
-                From = new MailAddress(config.FromEmail, CompanyName),
-                Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}",
-                Body = BuildPayrollEmailHtml(teacher, payroll),
-                BodyEncoding = Encoding.UTF8,
-                SubjectEncoding = Encoding.UTF8,
-                IsBodyHtml = true
-            };
-            message.To.Add(teacher.Email.Trim());
+                return (true, string.Empty);
+            }
 
-            using var smtp = new SmtpClient(config.Host, config.Port)
-            {
-                EnableSsl = config.EnableSsl,
-                Credentials = new NetworkCredential(config.Username, config.Password)
-            };
-            smtp.Send(message);
-            return true;
+            return (false, "Gửi phiếu lương thất bại: không thể kết nối SMTP.");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Gửi phiếu lương thất bại: {ex.Message}";
+            return (false, $"Gửi phiếu lương thất bại: {ex.Message}");
+        }
+    }
+
+    private static MimeMessage BuildTimesheetMessage(
+        Teacher teacher,
+        string username,
+        IReadOnlyCollection<TeacherTimesheetEmailEntry> entries,
+        SmtpConfig config)
+    {
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(config.FromEmail, config.FromEmail));
+        message.To.Add(MailboxAddress.Parse(RecipientEmail));
+        message.Subject = $"[Cham cong giao vien] {teacher.FullName} - {DateTime.Now:dd/MM/yyyy HH:mm}";
+        message.Body = new TextPart("plain")
+        {
+            Text = BuildEmailBody(teacher, username, entries),
+            ContentTransferEncoding = ContentEncoding.EightBit
+        };
+        return message;
+    }
+
+    private static MimeMessage BuildPayrollMessage(
+        Teacher teacher,
+        TeacherPayrollEmailData payroll,
+        SmtpConfig config)
+    {
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(CompanyName, config.FromEmail));
+        message.To.Add(MailboxAddress.Parse(teacher.Email!.Trim()));
+        message.Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}";
+        message.Body = new BodyBuilder
+        {
+            HtmlBody = BuildPayrollEmailHtml(teacher, payroll)
+        }.ToMessageBody();
+        return message;
+    }
+
+    private static bool TrySendMimeMessage(MimeMessage message, SmtpConfig config, out string errorMessage)
+    {
+        try
+        {
+            var sent = TrySendMimeMessageAsync(message, config).GetAwaiter().GetResult();
+            errorMessage = sent ? string.Empty : "Gửi email thất bại: không thể kết nối SMTP.";
+            return sent;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
             return false;
         }
     }
+
+    private static async Task<bool> TrySendMimeMessageAsync(
+        MimeMessage message,
+        SmtpConfig config,
+        CancellationToken cancellationToken = default)
+    {
+        Exception? lastException = null;
+
+        foreach (var profile in GetSmtpConnectionProfiles(config))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                using var client = new SmtpClient { Timeout = SmtpTimeoutMs };
+                await client.ConnectAsync(profile.Host, profile.Port, profile.SecureSocketOptions, cancellationToken);
+                await client.AuthenticateAsync(config.Username, config.NormalizedPassword, cancellationToken);
+                await client.SendAsync(message, cancellationToken);
+                await client.DisconnectAsync(true, cancellationToken);
+                return true;
+            }
+            catch (Exception ex) when (IsRetryableSmtpError(ex))
+            {
+                lastException = ex;
+            }
+        }
+
+        if (lastException is not null)
+        {
+            throw lastException;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<SmtpConnectionProfile> GetSmtpConnectionProfiles(SmtpConfig config)
+    {
+        var profiles = new List<SmtpConnectionProfile>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(string host, int port, SecureSocketOptions secureSocketOptions)
+        {
+            var key = $"{host}:{port}:{secureSocketOptions}";
+            if (seen.Add(key))
+            {
+                profiles.Add(new SmtpConnectionProfile(host, port, secureSocketOptions));
+            }
+        }
+
+        Add(config.Host, config.Port, GetSecureSocketOptions(config.Port, config.EnableSsl));
+
+        if (config.Port != 587)
+        {
+            Add(config.Host, 587, SecureSocketOptions.StartTls);
+        }
+
+        if (config.Port != 465)
+        {
+            Add(config.Host, 465, SecureSocketOptions.SslOnConnect);
+        }
+
+        return profiles;
+    }
+
+    private static SecureSocketOptions GetSecureSocketOptions(int port, bool enableSsl)
+    {
+        if (!enableSsl)
+        {
+            return SecureSocketOptions.None;
+        }
+
+        return port switch
+        {
+            465 => SecureSocketOptions.SslOnConnect,
+            587 => SecureSocketOptions.StartTls,
+            _ => SecureSocketOptions.Auto
+        };
+    }
+
+    private static bool IsRetryableSmtpError(Exception ex) =>
+        ex is TimeoutException
+        || ex is SmtpCommandException
+        || ex is SmtpProtocolException
+        || ex is IOException
+        || ex is SocketException
+        || (ex.InnerException is not null && IsRetryableSmtpError(ex.InnerException));
 
     private static string BuildEmailBody(Teacher teacher, string username, IReadOnlyCollection<TeacherTimesheetEmailEntry> entries)
     {
@@ -222,11 +342,8 @@ public class TeacherTimesheetNotificationService
         config.Password = Read("NHATDUC_SMTP_PASSWORD");
         config.FromEmail = Read("NHATDUC_SMTP_FROM");
 
-        // Nếu không có password từ biến môi trường, lấy từ danh sách nội bộ
         if (string.IsNullOrWhiteSpace(config.Password))
         {
-            // Có thể mở rộng logic chọn password phù hợp với username nếu cần
-            // Ở đây lấy giá trị đầu tiên
             config.Password = "nocs nwfe nroh froj";
         }
 
@@ -271,6 +388,7 @@ public class TeacherTimesheetNotificationService
             return false;
         }
 
+        config.NormalizedPassword = config.Password.Replace(" ", string.Empty, StringComparison.Ordinal);
         return true;
     }
 
@@ -282,9 +400,12 @@ public class TeacherTimesheetNotificationService
         public int Port { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string NormalizedPassword { get; set; } = string.Empty;
         public string FromEmail { get; set; } = string.Empty;
         public bool EnableSsl { get; set; } = true;
     }
+
+    private sealed record SmtpConnectionProfile(string Host, int Port, SecureSocketOptions SecureSocketOptions);
 }
 
 public sealed class TeacherTimesheetEmailEntry

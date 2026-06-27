@@ -432,19 +432,14 @@ else
                 TotalPay = row.Pay
             };
 
-            var result = await Task.Run(() =>
-            {
-                var ok = PayrollEmailService.TrySendPayrollEmail(teacher, payroll, out var errorMessage);
-                return (ok, errorMessage);
-            });
-
-            if (result.ok)
+            var result = await PayrollEmailService.TrySendPayrollEmailAsync(teacher, payroll);
+            if (result.Success)
             {
                 _message = $"Đã gửi phiếu lương tháng {_month:D2}/{_year} đến {teacher.Email}.";
             }
             else
             {
-                _message = result.errorMessage;
+                _message = result.ErrorMessage;
             }
         }
         finally
