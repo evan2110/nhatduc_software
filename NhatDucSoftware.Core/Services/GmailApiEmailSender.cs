@@ -114,6 +114,20 @@ public static class GmailApiEmailSender
             var token = tokenElement.GetString();
             if (!string.IsNullOrWhiteSpace(token))
             {
+                if (json.RootElement.TryGetProperty("scope", out var scopeElement))
+                {
+                    var scope = scopeElement.GetString() ?? string.Empty;
+                    if (!scope.Contains("gmail.send", StringComparison.OrdinalIgnoreCase)
+                        && !scope.Contains("mail.google.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException(
+                            "Refresh token chua co quyen gmail.send. "
+                            + "Thu hoi quyen app tai https://myaccount.google.com/permissions, "
+                            + "chay scripts/generate-gmail-token.py, "
+                            + "roi dat NHATDUC_GMAIL_REFRESH_TOKEN tren Render.");
+                    }
+                }
+
                 return token;
             }
         }
@@ -155,7 +169,9 @@ public static class GmailApiEmailSender
             || body.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
         {
             return "Tài khoản Google chưa cấp quyền gửi mail (gmail.send). "
-                   + "Chạy scripts/generate-google-drive-token.py và cập nhật GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
+                   + "1) Bật Gmail API trên Google Cloud. "
+                   + "2) Thu hồi quyền app tại https://myaccount.google.com/permissions . "
+                   + "3) Chạy scripts/generate-gmail-token.py và đặt NHATDUC_GMAIL_REFRESH_TOKEN trên Render.";
         }
 
         return $"Gmail API trả lỗi {(int)statusCode}: {body}";

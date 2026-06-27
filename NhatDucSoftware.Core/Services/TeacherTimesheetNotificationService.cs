@@ -434,8 +434,7 @@ public class TeacherTimesheetNotificationService
         if (GmailApiEmailSender.IsRenderEnvironment())
         {
             return "Render chặn SMTP. Hãy cấu hình Gmail API: bật Gmail API trên Google Cloud, "
-                   + "chạy scripts/generate-google-drive-token.py để tạo refresh token mới (scope gmail.send), "
-                   + "rồi cập nhật GOOGLE_DRIVE_REFRESH_TOKEN trên Render.";
+                   + "chạy scripts/generate-gmail-token.py và đặt NHATDUC_GMAIL_REFRESH_TOKEN trên Render.";
         }
 
         return "Thiếu cấu hình gửi mail. Thiết lập NHATDUC_SMTP_PASSWORD hoặc Google OAuth "
