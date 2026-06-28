@@ -2588,6 +2588,14 @@ namespace NhatDucSoftware
                 return;
             }
 
+            var today = DateTime.Today;
+            if (month != today.Month || year != today.Year)
+            {
+                MessageBox.Show("Chỉ được chốt số liệu cho tháng hiện tại. Vui lòng chọn đúng tháng/năm trên bộ lọc.",
+                    "Không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             // Check if already finalized
             if (_paymentService.IsFinalized(classId, month, year))
             {

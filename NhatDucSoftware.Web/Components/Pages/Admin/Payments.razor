@@ -39,7 +39,7 @@ else
                 @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
             <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
-            <button class="btn btn-primary" @onclick="FinalizeMonth" disabled="@(_isFinalized || _classId <= 0)">Chốt số liệu</button>
+            <button class="btn btn-primary" @onclick="OpenFinalizeConfirm" disabled="@(_isFinalized || _classId <= 0)">Chốt số liệu</button>
         </div>
 
         <div class="summary-panel class-summary">
@@ -273,6 +273,23 @@ else
             </div>
         </div>
     }
+
+    @if (_showFinalizeConfirm)
+    {
+        <div class="modal-backdrop" @onclick="CloseFinalizeConfirm">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Xác nhận chốt số liệu</h3>
+                <p>Bạn có chắc muốn chốt số liệu tháng @_month:D2/@_year cho lớp đang chọn?</p>
+                <p class="text-muted">Sau khi chốt:</p>
+                <ul class="text-muted">
+                    <li>Không thể thu học phí, sửa hoặc xóa lịch sử thu của tháng này.</li>
+                    <li>Số tiền còn nợ sẽ được chuyển sang tháng sau.</li>
+                </ul>
+                <button class="btn btn-primary" @onclick="ConfirmFinalizeMonth">Xác nhận chốt</button>
+                <button class="btn btn-secondary" @onclick="CloseFinalizeConfirm">Hủy</button>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -296,6 +313,7 @@ else
     private bool _isError;
     private bool _isFinalized;
     private bool _showDetail;
+    private bool _showFinalizeConfirm;
     private int _detailStudentId;
     private string _detailStudentName = "";
     private List<PaymentHistoryRow> _detailHistory = new();
@@ -487,7 +505,7 @@ else
         catch (Exception ex) { _message = ex.Message; _isError = true; }
     }
 
-    private void FinalizeMonth()
+    private void OpenFinalizeConfirm()
     {
         var today = DateTime.Today;
         if (today.Day != DateTime.DaysInMonth(today.Year, today.Month))
@@ -497,6 +515,34 @@ else
             return;
         }
 
+        if (_month != today.Month || _year != today.Year)
+        {
+            _message = "Chỉ được chốt số liệu cho tháng hiện tại. Vui lòng chọn đúng tháng/năm trên bộ lọc.";
+            _isError = true;
+            return;
+        }
+
+        if (_classId <= 0)
+        {
+            _message = "Vui lòng chọn một lớp cụ thể.";
+            _isError = true;
+            return;
+        }
+
+        _showFinalizeConfirm = true;
+        _message = null;
+    }
+
+    private void CloseFinalizeConfirm() => _showFinalizeConfirm = false;
+
+    private void ConfirmFinalizeMonth()
+    {
+        _showFinalizeConfirm = false;
+        FinalizeMonth();
+    }
+
+    private void FinalizeMonth()
+    {
         if (_classId <= 0)
         {
             _message = "Vui lòng chọn một lớp cụ thể.";

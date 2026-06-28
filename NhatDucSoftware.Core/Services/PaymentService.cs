@@ -140,6 +140,12 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
             throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
         }
 
+        var today = DateTime.Today;
+        if (classId is int collectClassId && IsFinalized(collectClassId, today.Month, today.Year))
+        {
+            throw new InvalidOperationException("Tháng này đã được chốt số liệu, không thể thu học phí.");
+        }
+
         var remaining = GetRemainingAmount(studentId);
         if (remaining <= 0)
         {
@@ -705,6 +711,18 @@ FROM PerClass;";
 
     public void FinalizePayment(int classId, int month, int year, int finalizedBy)
     {
+        var today = DateTime.Today;
+        if (month != today.Month || year != today.Year)
+        {
+            throw new InvalidOperationException("Chỉ được chốt số liệu cho tháng hiện tại.");
+        }
+
+        if (today.Day != DateTime.DaysInMonth(today.Year, today.Month))
+        {
+            throw new InvalidOperationException(
+                $"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {DateTime.DaysInMonth(today.Year, today.Month)}).");
+        }
+
         if (IsFinalized(classId, month, year))
         {
             throw new InvalidOperationException("Tháng này đã được chốt số liệu rồi.");
@@ -790,6 +808,8 @@ VALUES(@classId, @month, @year, @finalizedAt, @finalizedBy);";
             throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
         }
 
+        EnsurePaymentNotFinalized(paymentId, studentId);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
@@ -827,6 +847,8 @@ WHERE SourcePaymentId = @paymentId;";
 
     public void DeletePaymentHistory(int paymentId, int studentId)
     {
+        EnsurePaymentNotFinalized(paymentId, studentId);
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -880,6 +902,57 @@ WHERE SourcePaymentId = @paymentId;";
         }
 
         transaction.Commit();
+    }
+
+    private void EnsurePaymentNotFinalized(int paymentId, int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT ClassId, PaymentDate
+FROM Payments
+WHERE Id = @paymentId AND StudentId = @studentId
+LIMIT 1;";
+        command.Parameters.AddWithValue("@paymentId", paymentId);
+        command.Parameters.AddWithValue("@studentId", studentId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            throw new InvalidOperationException("Không tìm thấy lịch sử thu để thao tác.");
+        }
+
+        if (reader.IsDBNull(0))
+        {
+            return;
+        }
+
+        var classId = reader.GetInt32(0);
+        var (month, year) = ExtractMonthYear(reader.GetValue(1));
+        if (IsFinalized(classId, month, year))
+        {
+            throw new InvalidOperationException("Tháng này đã được chốt số liệu, không thể sửa hoặc xóa lịch sử thu.");
+        }
+    }
+
+    private static (int Month, int Year) ExtractMonthYear(object value)
+    {
+        if (value is DateTime dt)
+        {
+            var local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+            return (local.Month, local.Year);
+        }
+
+        var text = Convert.ToString(value) ?? string.Empty;
+        if (DateTime.TryParse(text, out var parsed))
+        {
+            var local = parsed.Kind == DateTimeKind.Utc ? parsed.ToLocalTime() : parsed;
+            return (local.Month, local.Year);
+        }
+
+        throw new InvalidOperationException("Không thể xác định tháng/năm của lịch sử thu.");
     }
 }
 
