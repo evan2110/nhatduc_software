@@ -285,9 +285,8 @@ public class TeacherTimesheetNotificationService
 
     private static string BuildPayrollEmailHtml(Teacher teacher, TeacherPayrollEmailData payroll)
     {
-        var actualDays = payroll.ActualWorkingDays.ToString("0.0", CultureInfo.InvariantCulture);
-        var standardDays = payroll.StandardWorkingDays.ToString(CultureInfo.InvariantCulture);
-        var totalPay = payroll.TotalPay.ToString("N0", CultureInfo.InvariantCulture);
+        var totalShifts = payroll.TotalShifts.ToString(CultureInfo.InvariantCulture);
+        var totalPay = payroll.TotalPay.ToString("N0", new NumberFormatInfo { NumberGroupSeparator = " " });
         var monthYear = $"Tháng {payroll.Month:D2} năm {payroll.Year}";
 
         return $"""
@@ -327,9 +326,9 @@ public class TeacherTimesheetNotificationService
     <tbody>
       <tr>
         <td style="border: 1px solid #333; padding: 8px; text-align: center;">1</td>
-        <td style="border: 1px solid #333; padding: 8px;">Ngày công thực tế</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align: right; color: #c00000; font-weight: bold;">{actualDays}</td>
-        <td style="border: 1px solid #333; padding: 8px;">Ngày công chuẩn: {standardDays}</td>
+        <td style="border: 1px solid #333; padding: 8px;">Số ca thực tế</td>
+        <td style="border: 1px solid #333; padding: 8px; text-align: right; color: #c00000; font-weight: bold;">{totalShifts}</td>
+        <td style="border: 1px solid #333; padding: 8px;"></td>
       </tr>
       <tr>
         <td style="border: 1px solid #333; padding: 8px; text-align: center;">2</td>
@@ -473,7 +472,6 @@ public sealed class TeacherPayrollEmailData
 {
     public int Year { get; set; }
     public int Month { get; set; }
-    public decimal ActualWorkingDays { get; set; }
-    public int StandardWorkingDays { get; set; }
+    public int TotalShifts { get; set; }
     public decimal TotalPay { get; set; }
 }

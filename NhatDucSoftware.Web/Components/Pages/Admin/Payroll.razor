@@ -398,8 +398,7 @@ else
                 Name = t.FullName,
                 Email = t.Email,
                 TotalShifts = shifts,
-                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month),
-                ActualWorkingDays = TimesheetService.GetActualWorkingDaysInMonth(t.Id, _year, _month)
+                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month)
             };
         }).ToList();
     }
@@ -427,8 +426,7 @@ else
             {
                 Year = _year,
                 Month = _month,
-                ActualWorkingDays = row.ActualWorkingDays,
-                StandardWorkingDays = TeacherTimesheetService.GetStandardWorkingDaysInMonth(_year, _month),
+                TotalShifts = row.TotalShifts,
                 TotalPay = row.Pay
             };
 
@@ -759,7 +757,6 @@ else
         public string? Email { get; set; }
         public int TotalShifts { get; set; }
         public decimal Pay { get; set; }
-        public int ActualWorkingDays { get; set; }
     }
 
     private class TimesheetDetailRow
