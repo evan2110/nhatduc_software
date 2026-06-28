@@ -7,19 +7,28 @@ public class AttendanceService
 {
     private readonly ClassScheduleService _scheduleService = new();
 
-    public List<(int StudentId, string FullName)> GetStudentsByClass(int classId)
+    public List<(int StudentId, string FullName)> GetStudentsByClass(int classId, DateTime? sessionDate = null)
     {
         var result = new List<(int, string)>();
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
+        var sql = @"
 SELECT s.Id, s.FullName
 FROM ClassStudents cs
 INNER JOIN Students s ON s.Id = cs.StudentId
-WHERE cs.ClassId = @classId
+WHERE cs.ClassId = @classId";
+        if (sessionDate.HasValue)
+        {
+            sql += @"
+  AND DATE(CAST(cs.JoinedDate AS timestamp)) <= @sessionDate::date";
+            command.Parameters.AddWithValue("@sessionDate", sessionDate.Value.Date.ToString("yyyy-MM-dd"));
+        }
+
+        sql += @"
 ORDER BY s.FullName;";
+        command.CommandText = sql;
         command.Parameters.AddWithValue("@classId", classId);
 
         using var reader = command.ExecuteReader();
@@ -71,7 +80,7 @@ WHERE ats.ClassId = @classId
     public (int TotalStudents, int RecordedStudents, bool IsComplete) GetAttendanceCompletionStatus(
         int classId, DateTime sessionDate, int shiftNumber)
     {
-        var students = GetStudentsByClass(classId);
+        var students = GetStudentsByClass(classId, sessionDate);
         if (students.Count == 0)
         {
             return (0, 0, true);
@@ -95,7 +104,7 @@ WHERE ats.ClassId = @classId
     public List<AttendanceRow> GetAttendanceRowsForClass(int classId, DateTime sessionDate, int shiftNumber)
     {
         var saved = GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
-        return GetStudentsByClass(classId)
+        return GetStudentsByClass(classId, sessionDate)
             .Select(x => new AttendanceRow
             {
                 StudentId = x.StudentId,

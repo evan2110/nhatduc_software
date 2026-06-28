@@ -688,7 +688,7 @@ else
         }
 
         var saved = AttendanceService.GetAttendanceByClassDateAndShift(_makeupClassId, _makeupAttDate, _makeupAttShift);
-        _makeupAttendanceRows = AttendanceService.GetStudentsByClass(_makeupClassId)
+        _makeupAttendanceRows = AttendanceService.GetStudentsByClass(_makeupClassId, _makeupAttDate)
             .Select(x => new AttendanceRow
             {
                 StudentId = x.StudentId,

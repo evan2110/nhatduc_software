@@ -183,7 +183,7 @@ else
                 }
             </div>
             <div class="toolbar">
-                <button class="btn btn-primary" @onclick="AddStudentToClass" disabled="@(_selectedClassId is null || _addStudentId <= 0)">Thêm vào lớp</button>
+                <button class="btn btn-primary" @onclick="OpenAddStudentModal" disabled="@(_selectedClassId is null || _addStudentId <= 0)">Thêm vào lớp</button>
                 @if (Session.CanTransferClass)
                 {
                     <button class="btn btn-secondary" @onclick="OpenTransferModal" disabled="@(_selectedClassId is null || _selectedStudentInClassId is null)">Chuyển lớp</button>
@@ -195,13 +195,14 @@ else
             </div>
             <div class="table-responsive">
             <table class="data-table compact">
-                <thead><tr><th>ID</th><th>Họ tên</th></tr></thead>
+                <thead><tr><th>ID</th><th>Họ tên</th><th>Ngày bắt đầu</th></tr></thead>
                 <tbody>
                     @foreach (var s in _classStudents)
                     {
                         <tr class="@(_selectedStudentInClassId == s.StudentId ? "selected" : "")" @onclick="() => _selectedStudentInClassId = s.StudentId">
                             <td>@s.StudentId</td>
                             <td>@s.FullName</td>
+                            <td>@s.JoinedDate.ToString("dd/MM/yyyy")</td>
                         </tr>
                     }
                 </tbody>
@@ -209,6 +210,25 @@ else
             </div>
         </div>
     </div>
+
+    @if (_showAddStudentModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseAddStudentModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Thêm học viên vào lớp</h3>
+                <p><strong>@_addStudentName</strong> · lớp <strong>@_className</strong></p>
+                <div class="form-group">
+                    <label>Ngày bắt đầu học</label>
+                    <input type="date" @bind="_addStudentJoinedDate" />
+                    <span class="text-muted">Các ca học trước ngày này sẽ không yêu cầu điểm danh.</span>
+                </div>
+                <div class="toolbar">
+                    <button class="btn btn-primary" @onclick="ConfirmAddStudentToClass">Xác nhận thêm</button>
+                    <button class="btn btn-secondary" @onclick="CloseAddStudentModal">Hủy</button>
+                </div>
+            </div>
+        </div>
+    }
 
     @if (_showTransferModal)
     {
@@ -284,7 +304,7 @@ else
     private List<Course> _courses = new();
     private List<Teacher> _teachers = new();
     private List<Student> _allStudents = new();
-    private List<(int StudentId, string FullName)> _classStudents = new();
+    private List<(int StudentId, string FullName, DateTime JoinedDate)> _classStudents = new();
     private int? _selectedClassId;
     private int? _selectedStudentInClassId;
     private string _className = "";
@@ -300,8 +320,11 @@ else
     private string? _message;
 
     private bool _showTransferModal;
+    private bool _showAddStudentModal;
     private int _transferTargetClassId;
     private string _transferStudentName = "";
+    private string _addStudentName = "";
+    private DateTime _addStudentJoinedDate = DateTime.Today;
 
     private bool _showSchedule;
     private string _scheduleClassName = "";
@@ -412,6 +435,7 @@ else
     private void SelectStudentToAdd(Student s)
     {
         _addStudentId = s.Id;
+        _addStudentName = s.FullName;
         _studentSearchText = s.FullName;
     }
 
@@ -495,16 +519,27 @@ else
         catch (Exception ex) { _message = ex.Message; }
     }
 
-    private void AddStudentToClass()
+    private void OpenAddStudentModal()
+    {
+        if (_selectedClassId is null || _addStudentId <= 0) return;
+        _addStudentJoinedDate = DateTime.Today;
+        _showAddStudentModal = true;
+    }
+
+    private void CloseAddStudentModal() => _showAddStudentModal = false;
+
+    private void ConfirmAddStudentToClass()
     {
         if (_selectedClassId is null || _addStudentId <= 0) return;
         try
         {
-            ClassService.AddStudentToClass(_selectedClassId.Value, _addStudentId);
+            ClassService.AddStudentToClass(_selectedClassId.Value, _addStudentId, _addStudentJoinedDate);
             _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
             LoadClasses();
             _addStudentId = 0;
+            _addStudentName = "";
             _studentSearchText = "";
+            _showAddStudentModal = false;
             _message = "Đã thêm học viên vào lớp.";
         }
         catch (Exception ex) { _message = ex.Message; }

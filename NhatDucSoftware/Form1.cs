@@ -755,7 +755,7 @@ namespace NhatDucSoftware
                 }
 
                 var savedRecords = _attendanceService.GetAttendanceByClassDateAndShift(classId, dtpDate.Value.Date, shiftNumber);
-                var students = _attendanceService.GetStudentsByClass(classId)
+                var students = _attendanceService.GetStudentsByClass(classId, dtpDate.Value.Date)
                     .Select(x => new AttendanceRow
                     {
                         StudentId = x.StudentId,
@@ -1629,13 +1629,69 @@ namespace NhatDucSoftware
                     return;
                 }
 
-                _classService.AddStudentToClass(classId, studentId);
+                var joinedDate = PromptStudentJoinedDate();
+                if (joinedDate is null)
+                {
+                    return;
+                }
+
+                _classService.AddStudentToClass(classId, studentId, joinedDate.Value);
                 LoadClassesAndRestore(classId);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private static DateTime? PromptStudentJoinedDate()
+        {
+            using var form = new Form
+            {
+                Text = "Ngày bắt đầu học",
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ClientSize = new Size(320, 130)
+            };
+
+            var label = new Label
+            {
+                Text = "Chọn ngày bắt đầu học của học viên:",
+                Location = new Point(12, 12),
+                AutoSize = true
+            };
+
+            var datePicker = new DateTimePicker
+            {
+                Location = new Point(12, 40),
+                Size = new Size(290, 23),
+                Format = DateTimePickerFormat.Short,
+                Value = DateTime.Today
+            };
+
+            var btnOk = new Button
+            {
+                Text = "Xác nhận",
+                DialogResult = DialogResult.OK,
+                Location = new Point(146, 80),
+                Size = new Size(75, 28)
+            };
+
+            var btnCancel = new Button
+            {
+                Text = "Hủy",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(227, 80),
+                Size = new Size(75, 28)
+            };
+
+            form.Controls.AddRange(new Control[] { label, datePicker, btnOk, btnCancel });
+            form.AcceptButton = btnOk;
+            form.CancelButton = btnCancel;
+
+            return form.ShowDialog() == DialogResult.OK ? datePicker.Value.Date : null;
         }
 
         private void btnUpdateClass_Click(object sender, EventArgs e)
@@ -1710,13 +1766,17 @@ namespace NhatDucSoftware
             }
 
             var students = _classService.GetStudentsInClass(c.Id)
-                .Select(s => new { s.StudentId, s.FullName }).ToList();
+                .Select(s => new { s.StudentId, s.FullName, NgayBatDau = s.JoinedDate.ToString("dd/MM/yyyy") }).ToList();
             dgvClassStudents.DataSource = students;
 
             if (dgvClassStudents.Columns.Count > 0)
             {
                 dgvClassStudents.Columns["StudentId"].HeaderText = "Mã học viên";
                 dgvClassStudents.Columns["FullName"].HeaderText = "Họ và tên";
+                if (dgvClassStudents.Columns.Contains("NgayBatDau"))
+                {
+                    dgvClassStudents.Columns["NgayBatDau"].HeaderText = "Ngày bắt đầu";
+                }
             }
         }
 
@@ -2744,7 +2804,7 @@ namespace NhatDucSoftware
             }
 
             var savedRecords = _attendanceService.GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
-            var students = _attendanceService.GetStudentsByClass(classId)
+            var students = _attendanceService.GetStudentsByClass(classId, sessionDate)
                 .Select(x => new AttendanceRow
                 {
                     StudentId = x.StudentId,

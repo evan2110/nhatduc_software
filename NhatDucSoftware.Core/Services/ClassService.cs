@@ -296,7 +296,7 @@ WHERE SessionId IN (SELECT Id FROM AttendanceSessions WHERE ClassId = @id);";
         return result;
     }
 
-    public void AddStudentToClass(int classId, int studentId)
+    public void AddStudentToClass(int classId, int studentId, DateTime joinedDate)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
@@ -306,7 +306,7 @@ WHERE SessionId IN (SELECT Id FROM AttendanceSessions WHERE ClassId = @id);";
 VALUES(@classId, @studentId, @joinedDate);";
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@studentId", studentId);
-        command.Parameters.AddWithValue("@joinedDate", DateTime.UtcNow.ToString("o"));
+        command.Parameters.AddWithValue("@joinedDate", joinedDate.Date.ToString("yyyy-MM-dd"));
         command.ExecuteNonQuery();
     }
 
@@ -322,7 +322,7 @@ VALUES(@classId, @studentId, @joinedDate);";
         command.ExecuteNonQuery();
     }
 
-    public void TransferStudentToClass(int fromClassId, int toClassId, int studentId)
+    public void TransferStudentToClass(int fromClassId, int toClassId, int studentId, DateTime? joinedDate = null)
     {
         if (fromClassId == toClassId)
         {
@@ -377,22 +377,22 @@ WHERE ClassId = @classId AND StudentId = @studentId;";
 VALUES(@classId, @studentId, @joinedDate);";
             add.Parameters.AddWithValue("@classId", toClassId);
             add.Parameters.AddWithValue("@studentId", studentId);
-            add.Parameters.AddWithValue("@joinedDate", DateTime.UtcNow.ToString("o"));
+            add.Parameters.AddWithValue("@joinedDate", (joinedDate ?? DateTime.Today).Date.ToString("yyyy-MM-dd"));
             add.ExecuteNonQuery();
         }
 
         transaction.Commit();
     }
 
-    public List<(int StudentId, string FullName)> GetStudentsInClass(int classId)
+    public List<(int StudentId, string FullName, DateTime JoinedDate)> GetStudentsInClass(int classId)
     {
-        var result = new List<(int, string)>();
+        var result = new List<(int, string, DateTime)>();
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT s.Id, s.FullName
+SELECT s.Id, s.FullName, cs.JoinedDate
 FROM ClassStudents cs
 INNER JOIN Students s ON s.Id = cs.StudentId
 WHERE cs.ClassId = @classId
@@ -402,11 +402,14 @@ ORDER BY s.Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            result.Add((reader.GetInt32(0), reader.GetString(1)));
+            result.Add((reader.GetInt32(0), reader.GetString(1), ParseJoinedDate(reader.GetString(2))));
         }
 
         return result;
     }
+
+    internal static DateTime ParseJoinedDate(string value) =>
+        DateTime.TryParse(value, out var parsed) ? parsed.Date : DateTime.Today;
 
     public int? GetTeacherIdByClass(int classId)
     {

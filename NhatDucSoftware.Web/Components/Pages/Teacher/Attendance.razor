@@ -138,7 +138,7 @@ else
         }
 
         var saved = AttendanceService.GetAttendanceByClassDateAndShift(_classId, _sessionDate, _shiftNumber);
-        _rows = AttendanceService.GetStudentsByClass(_classId)
+        _rows = AttendanceService.GetStudentsByClass(_classId, _sessionDate)
             .Select(x => new AttendanceRow
             {
                 StudentId = x.StudentId,
