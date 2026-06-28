@@ -656,6 +656,8 @@ StudentPaid AS (
 PerClass AS (
     SELECT e.StudentId,
            e.ClassId,
+           COALESCE(st.AttendanceTuition, 0) AS AttendanceDue,
+           COALESCE(sc.CarryOver, 0) AS CarryOverDue,
            COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0) AS Due,
            COALESCE(sp.Paid, 0) AS Paid
     FROM Enrollments e
@@ -665,7 +667,9 @@ PerClass AS (
 )
 SELECT COALESCE(SUM(Due), 0),
        COALESCE(SUM(Paid), 0),
-       COALESCE(SUM(GREATEST(0, Due - Paid)), 0)
+       COALESCE(SUM(GREATEST(0, Due - Paid)), 0),
+       COALESCE(SUM(CarryOverDue), 0),
+       COALESCE(SUM(AttendanceDue), 0)
 FROM PerClass;";
         command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
@@ -678,7 +682,9 @@ FROM PerClass;";
             {
                 TotalDue = ReadDecimal(reader, 0),
                 TotalPaid = ReadDecimal(reader, 1),
-                TotalRemaining = ReadDecimal(reader, 2)
+                TotalRemaining = ReadDecimal(reader, 2),
+                TotalCarryOver = ReadDecimal(reader, 3),
+                TotalAttendanceDue = ReadDecimal(reader, 4)
             };
         }
 
@@ -729,7 +735,7 @@ WHERE cs.ClassId = @classId;";
             foreach (var studentId in studentIds)
             {
                 var total = GetTotalTuitionByStudentInClassMonthYear(studentId, classId, month, year);
-                var paid = GetPaidAmountByStudentMonthYear(studentId, month, year);
+                var paid = GetPaidAmountByStudentMonthYear(studentId, month, year, classId);
                 var remaining = total - paid;
                 if (remaining > 0)
                 {
@@ -910,6 +916,8 @@ public class ClassPaymentSummary
     public decimal TotalDue { get; set; }
     public decimal TotalPaid { get; set; }
     public decimal TotalRemaining { get; set; }
+    public decimal TotalCarryOver { get; set; }
+    public decimal TotalAttendanceDue { get; set; }
 }
 
 public class PaymentClassListRow

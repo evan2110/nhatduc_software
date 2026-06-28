@@ -45,7 +45,13 @@ else
         <div class="summary-panel class-summary">
             <div class="summary-panel-title">@(_classId <= 0 ? "Tổng học phí toàn trung tâm" : "Tổng học phí cả lớp")</div>
             <div class="summary-box">
-                <span>Tổng cần đóng: @MoneyHelper.FormatCurrency(_summary.TotalDue)</span>
+                <span>
+                    Tổng cần đóng: @MoneyHelper.FormatCurrency(_summary.TotalDue)
+                    @if (_summary.TotalCarryOver > 0)
+                    {
+                        <span class="text-muted"> (học phí tháng: @MoneyHelper.FormatCurrency(_summary.TotalAttendanceDue), nợ chuyển: @MoneyHelper.FormatCurrency(_summary.TotalCarryOver))</span>
+                    }
+                </span>
                 <span>Tổng đã đóng: @MoneyHelper.FormatCurrency(_summary.TotalPaid)</span>
                 <span>Tổng còn lại: @MoneyHelper.FormatCurrency(_summary.TotalRemaining)</span>
             </div>
@@ -165,23 +171,24 @@ else
                 <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(_remaining <= 0 || _isFinalized)">Thu học phí</button>
                 <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(_remaining <= 0 || _balance <= 0 || _isFinalized)">Thanh toán từ số dư</button>
             }
-            @if (_classId <= 0 && _classTuitionBreakdown.Count > 0)
+            @if (VisibleTuitionBreakdown.Any())
             {
                 <div class="table-responsive" style="margin-top: 1rem;">
+                    <h3>Chi tiết theo lớp</h3>
                     <table class="data-table compact">
                         <thead>
                             <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
                         </thead>
                         <tbody>
-                            @foreach (var item in _classTuitionBreakdown)
+                            @foreach (var item in VisibleTuitionBreakdown)
                             {
-                                <tr>
+                                <tr class="@(_classId == item.ClassId ? "selected" : "")">
                                     <td>@item.ClassName</td>
                                     <td>
                                         @MoneyHelper.FormatCurrency(item.TotalDue)
                                         @if (item.CarryOver > 0)
                                         {
-                                            <span class="text-muted"> (nợ từ tháng trước: @MoneyHelper.FormatCurrency(item.CarryOver))</span>
+                                            <span class="text-muted"> (nợ chuyển từ tháng trước: @MoneyHelper.FormatCurrency(item.CarryOver))</span>
                                         }
                                     </td>
                                     <td>@MoneyHelper.FormatCurrency(item.Paid)</td>
@@ -200,28 +207,38 @@ else
         <div class="modal-backdrop" @onclick="() => _showDetail = false">
             <div class="modal-content" @onclick:stopPropagation="true">
                 <h3>Chi tiết thu phí - @_detailStudentName</h3>
-                @if (_classId <= 0 && _detailClassBreakdown.Count > 0)
+                @if (VisibleDetailBreakdown.Any())
                 {
                     <div class="table-responsive" style="margin-bottom: 1rem;">
+                        <h3>Còn lại theo lớp</h3>
                         <table class="data-table compact">
                             <thead>
                                 <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th><th></th></tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in _detailClassBreakdown)
+                                @foreach (var item in VisibleDetailBreakdown)
                                 {
                                     var classFinalized = PaymentService.IsFinalized(item.ClassId, _month, _year);
-                                    <tr>
+                                    <tr class="@(_classId == item.ClassId ? "selected" : "")">
                                         <td>@item.ClassName</td>
-                                        <td>@MoneyHelper.FormatCurrency(item.TotalDue)</td>
+                                        <td>
+                                            @MoneyHelper.FormatCurrency(item.TotalDue)
+                                            @if (item.CarryOver > 0)
+                                            {
+                                                <span class="text-muted"> (nợ chuyển từ tháng trước: @MoneyHelper.FormatCurrency(item.CarryOver))</span>
+                                            }
+                                        </td>
                                         <td>@MoneyHelper.FormatCurrency(item.Paid)</td>
                                         <td>@MoneyHelper.FormatCurrency(item.Remaining)</td>
                                         <td>
-                                            <button class="btn btn-primary btn-sm"
-                                                    disabled="@(item.Remaining <= 0 || classFinalized)"
-                                                    @onclick="() => PayNowFromDetail(item)">
-                                                Thanh toán ngay
-                                            </button>
+                                            @if (_classId <= 0)
+                                            {
+                                                <button class="btn btn-primary btn-sm"
+                                                        disabled="@(item.Remaining <= 0 || classFinalized)"
+                                                        @onclick="() => PayNowFromDetail(item)">
+                                                    Thanh toán ngay
+                                                </button>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -285,6 +302,15 @@ else
     private List<StudentClassTuitionRow> _classTuitionBreakdown = new();
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
     private ClassPaymentSummary _summary = new();
+
+    private IEnumerable<StudentClassTuitionRow> VisibleTuitionBreakdown =>
+        _classTuitionBreakdown.Where(HasTuitionActivity);
+
+    private IEnumerable<StudentClassTuitionRow> VisibleDetailBreakdown =>
+        _detailClassBreakdown.Where(HasTuitionActivity);
+
+    private static bool HasTuitionActivity(StudentClassTuitionRow row) =>
+        row.TotalDue > 0 || row.Paid > 0 || row.Remaining > 0 || row.CarryOver > 0;
 
     private IEnumerable<PaymentClassListRow> FilteredPaymentRows =>
         string.IsNullOrWhiteSpace(_searchText)
@@ -379,10 +405,8 @@ else
         _balance = PaymentService.GetStudentBalance(row.StudentId);
         var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
         _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
-        if (carryOver > 0) _needText += $" (nợ từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
-        _classTuitionBreakdown = _classId <= 0
-            ? PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year)
-            : new List<StudentClassTuitionRow>();
+        if (carryOver > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
+        _classTuitionBreakdown = PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
     }
 
     private void CollectPayment()
@@ -526,9 +550,7 @@ else
             _detailStudentId = row.StudentId;
             _detailStudentName = row.HoVaTen;
             _detailHistory = PaymentService.GetPaymentHistoryByClassMonthYear(row.StudentId, _classId, _month, _year);
-            _detailClassBreakdown = _classId <= 0
-                ? PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year)
-                : new List<StudentClassTuitionRow>();
+            _detailClassBreakdown = PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
             _showDetail = true;
             _isError = false;
         }
