@@ -38,18 +38,23 @@ else
                     <option value="@y">@y</option>
                 }
             </select>
-            <label>Chọn tháng</label>
-            <select @bind="_selectedMonth" @bind:after="LoadCommendations">
-                @for (var month = 1; month <= 12; month++)
-                {
-                    <option value="@month">Tháng @month</option>
-                }
-            </select>
         </div>
     </div>
 
     <div class="card report-section">
-        <h3>Tuyên dương học viên tháng @_selectedMonth/@_selectedYear</h3>
+        <div class="report-section-header">
+            <h3>Tuyên dương học viên</h3>
+            <div class="toolbar report-section-toolbar">
+                <label>Tháng</label>
+                <select @bind="_selectedMonth" @bind:after="LoadCommendations">
+                    @for (var month = 1; month <= 12; month++)
+                    {
+                        <option value="@month">Tháng @month</option>
+                    }
+                </select>
+                <span class="report-section-period">/ @_selectedYear</span>
+            </div>
+        </div>
         <div class="report-stat-grid">
             <div class="report-stat-card report-stat-card--diligence">
                 <div class="report-stat-icon" aria-hidden="true">✓</div>

@@ -696,6 +696,17 @@ a { color: var(--primary); }
     font-size: 1.05rem;
 }
 
+.report-section-toolbar {
+    margin-bottom: 0;
+    flex: 0 1 auto;
+}
+
+.report-section-period {
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+
 .report-actions {
     display: flex;
     flex-wrap: wrap;
