@@ -564,6 +564,85 @@ a { color: var(--primary); }
     margin-bottom: 1.5rem;
 }
 
+/* ── Report stat cards ── */
+.report-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.report-stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-radius: 10px;
+    min-height: 96px;
+}
+
+.report-stat-card--diligence {
+    background: #eff6ff;
+}
+
+.report-stat-card--achievement {
+    background: #f5f3ff;
+}
+
+.report-stat-icon {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.report-stat-card--diligence .report-stat-icon {
+    background: #2563eb;
+}
+
+.report-stat-card--achievement .report-stat-icon {
+    background: #7c3aed;
+}
+
+.report-stat-body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.report-stat-title {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 0.25rem;
+}
+
+.report-stat-value {
+    font-size: clamp(1.05rem, 3vw, 1.35rem);
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    word-break: break-word;
+}
+
+.report-stat-subtext {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.report-stat-card--diligence .report-stat-subtext {
+    color: #2563eb;
+}
+
+.report-stat-card--achievement .report-stat-subtext {
+    color: #7c3aed;
+}
+
 /* ── Charts ── */
 .chart-bars {
     display: flex;

@@ -302,6 +302,89 @@ WHERE c.Status = 'Active'
         return Convert.ToDecimal(reader.GetValue(ordinal));
     }
 
+    public StudentCommendationStat? GetMostDiligentStudent(int year, int month)
+    {
+        if (month is < 1 or > 12)
+        {
+            return null;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT s.Id,
+       s.FullName,
+       COUNT(*) AS PresentCount
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Students s ON s.Id = ar.StudentId
+WHERE ar.Status = 'C'
+  AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month
+  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year
+GROUP BY s.Id, s.FullName
+ORDER BY PresentCount DESC, s.FullName ASC
+LIMIT 1;";
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        var presentCount = Convert.ToInt32(reader.GetValue(2));
+        return new StudentCommendationStat
+        {
+            StudentId = reader.GetInt32(0),
+            StudentName = reader.GetString(1),
+            Value = presentCount,
+            ValueLabel = $"{presentCount} buổi điểm danh C"
+        };
+    }
+
+    public StudentCommendationStat? GetTopAchievementStudent(int year, int month)
+    {
+        if (month is < 1 or > 12)
+        {
+            return null;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT s.Id,
+       s.FullName,
+       MAX(se.Score) AS TopScore
+FROM StudentEvaluations se
+INNER JOIN Students s ON s.Id = se.StudentId
+WHERE se.Score IS NOT NULL
+  AND LEFT(se.CreatedAt::text, 7) = @yearMonth
+GROUP BY s.Id, s.FullName
+ORDER BY TopScore DESC, s.FullName ASC
+LIMIT 1;";
+        command.Parameters.AddWithValue("@yearMonth", $"{year}-{month:D2}");
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        var score = Convert.ToDecimal(reader.GetValue(2));
+        return new StudentCommendationStat
+        {
+            StudentId = reader.GetInt32(0),
+            StudentName = reader.GetString(1),
+            Value = score,
+            ValueLabel = $"Điểm cao nhất: {score:0.#}"
+        };
+    }
+
     private static string GetMonthName(int month)
     {
         return month switch

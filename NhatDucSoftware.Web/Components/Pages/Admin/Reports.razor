@@ -38,6 +38,35 @@ else
                     <option value="@y">@y</option>
                 }
             </select>
+            <label>Chọn tháng</label>
+            <select @bind="_selectedMonth" @bind:after="LoadCommendations">
+                @for (var month = 1; month <= 12; month++)
+                {
+                    <option value="@month">Tháng @month</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="card report-section">
+        <h3>Tuyên dương học viên tháng @_selectedMonth/@_selectedYear</h3>
+        <div class="report-stat-grid">
+            <div class="report-stat-card report-stat-card--diligence">
+                <div class="report-stat-icon" aria-hidden="true">✓</div>
+                <div class="report-stat-body">
+                    <div class="report-stat-title">Học viên chuyên cần nhất tháng</div>
+                    <div class="report-stat-value">@(_mostDiligent?.StudentName ?? "Chưa có dữ liệu")</div>
+                    <div class="report-stat-subtext">@(_mostDiligent?.ValueLabel ?? "—")</div>
+                </div>
+            </div>
+            <div class="report-stat-card report-stat-card--achievement">
+                <div class="report-stat-icon" aria-hidden="true">★</div>
+                <div class="report-stat-body">
+                    <div class="report-stat-title">Học viên thành tích tốt nhất tháng</div>
+                    <div class="report-stat-value">@(_topAchievement?.StudentName ?? "Chưa có dữ liệu")</div>
+                    <div class="report-stat-subtext">@(_topAchievement?.ValueLabel ?? "—")</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -191,6 +220,9 @@ else
     private List<ClassTuitionDetailStat> _classDetails = new();
     private List<int> _years = new();
     private int _selectedYear = DateTime.Now.Year;
+    private int _selectedMonth = DateTime.Now.Month;
+    private StudentCommendationStat? _mostDiligent;
+    private StudentCommendationStat? _topAchievement;
     private string? _message;
     private bool _showDetailModal;
     private DetailType _detailType;
@@ -229,6 +261,7 @@ else
             _expenseByMonth = ReportService.GetExpenseByMonth(_selectedYear);
             _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(_selectedYear);
             _enrollmentByMonth = ReportService.GetEnrollmentByMonth(_selectedYear);
+            LoadCommendations();
             _message = null;
         }
         catch (Exception ex)
@@ -237,7 +270,24 @@ else
             _expenseByMonth = new();
             _tuitionByMonth = new();
             _enrollmentByMonth = new();
+            _mostDiligent = null;
+            _topAchievement = null;
             _message = $"Không thể tải báo cáo: {ex.Message}";
+        }
+    }
+
+    private void LoadCommendations()
+    {
+        try
+        {
+            _mostDiligent = ReportService.GetMostDiligentStudent(_selectedYear, _selectedMonth);
+            _topAchievement = ReportService.GetTopAchievementStudent(_selectedYear, _selectedMonth);
+        }
+        catch (Exception ex)
+        {
+            _mostDiligent = null;
+            _topAchievement = null;
+            _message = ex.Message;
         }
     }
 
