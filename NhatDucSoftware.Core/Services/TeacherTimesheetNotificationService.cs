@@ -358,15 +358,15 @@ public class TeacherTimesheetNotificationService
   <table style="width: 100%; margin-top: 48px; font-size: 13px; text-align: center;">
     <tr>
       <td style="width: 33%; vertical-align: top;">
-        <div style="font-weight: bold;">Lãnh đạo</div>
+        <div style="font-weight: bold;">Giám đốc</div>
         <div style="margin-top: 64px;">{LeaderName}</div>
       </td>
       <td style="width: 33%; vertical-align: top;">
-        <div style="font-weight: bold;">Người lập</div>
-        <div style="margin-top: 64px;">{PreparedByName}</div>
+        <div style="font-weight: bold;"></div>
+        <div style="margin-top: 64px;"></div>
       </td>
       <td style="width: 33%; vertical-align: top;">
-        <div style="font-weight: bold;">Người lao động</div>
+        <div style="font-weight: bold;">Người nhận</div>
         <div style="margin-top: 64px;">{WebEncode(teacher.FullName)}</div>
       </td>
     </tr>
