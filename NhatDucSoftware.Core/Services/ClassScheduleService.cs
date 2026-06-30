@@ -173,6 +173,41 @@ WHERE TeacherId = @tid;";
     }
 
     /// <summary>
+    /// Tra cứu tên lớp theo ngày và ca của giáo viên trong tháng (theo lịch tuần).
+    /// </summary>
+    public IReadOnlyDictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<string>> GetTeacherClassNamesByDateAndShiftForMonth(
+        int teacherId, int year, int month)
+    {
+        var result = new Dictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<string>>();
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        var weekSchedules = new Dictionary<DateTime, List<TeacherScheduleEntry>>();
+
+        for (var day = 1; day <= daysInMonth; day++)
+        {
+            var date = new DateTime(year, month, day);
+            var monday = ClassWeeklySchedule.GetMondayOfWeek(date);
+            if (!weekSchedules.TryGetValue(monday, out var entries))
+            {
+                entries = GetTeacherScheduleEntriesForWeek(teacherId, monday);
+                weekSchedules[monday] = entries;
+            }
+
+            var scheduleDay = ToScheduleDayOfWeek(date);
+            foreach (var group in entries.Where(e => e.DayOfWeek == scheduleDay).GroupBy(e => e.ShiftNumber))
+            {
+                result[(date.Date, group.Key)] = group
+                    .Select(e => e.ClassName)
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList()
+                    .AsReadOnly();
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Lấy các ca học của lớp trong ngày chỉ định (theo lịch tuần).
     /// </summary>
     public List<int> GetShiftsForClassOnDate(int classId, DateTime date)

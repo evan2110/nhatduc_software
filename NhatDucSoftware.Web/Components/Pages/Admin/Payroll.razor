@@ -3,6 +3,7 @@
 @inject UserSession Session
 @inject TeacherService TeacherService
 @inject TeacherTimesheetService TimesheetService
+@inject ClassScheduleService ScheduleService
 @inject AttendanceService AttendanceService
 @inject ClassService ClassService
 @inject PaymentService PaymentService
@@ -110,12 +111,12 @@ else
                     </div>
                     <div class="table-responsive">
                     <table class="data-table compact">
-                        <thead><tr><th>Ngày</th><th>Ca</th><th>Trạng thái</th><th>Lương ca</th><th>Ghi chú</th></tr></thead>
+                        <thead><tr><th>Ngày</th><th>Ca</th><th>Lớp</th><th>Trạng thái</th><th>Lương ca</th><th>Ghi chú</th></tr></thead>
                         <tbody>
                             @if (PagedDetailRecords.Count == 0)
                             {
                                 <tr class="empty-row">
-                                    <td colspan="5">Không tìm thấy ca phù hợp.</td>
+                                    <td colspan="6">Không tìm thấy ca phù hợp.</td>
                                 </tr>
                             }
                             else
@@ -125,6 +126,7 @@ else
                                     <tr>
                                         <td>@r.WorkDate.ToString("yyyy-MM-dd")</td>
                                         <td>@r.ShiftNumber</td>
+                                        <td>@(string.IsNullOrEmpty(r.ClassNames) ? "-" : r.ClassNames)</td>
                                         <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
                                         <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
                                         <td>@r.Note</td>
@@ -450,16 +452,22 @@ else
     {
         _selectedTeacherId = row.TeacherId;
         ResetDetailFilters();
+        var classLookup = ScheduleService.GetTeacherClassNamesByDateAndShiftForMonth(row.TeacherId, _year, _month);
         _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month)
-            .Select(r => new TimesheetDetailRow
+            .Select(r =>
             {
-                WorkDate = r.WorkDate,
-                ShiftNumber = r.ShiftNumber,
-                IsPresent = r.IsPresent,
-                Note = r.Note,
-                ShiftPay = r.IsPresent
-                    ? TimesheetService.GetShiftPay(row.TeacherId, r.WorkDate, r.ShiftNumber)
-                    : 0
+                classLookup.TryGetValue((r.WorkDate.Date, r.ShiftNumber), out var classNames);
+                return new TimesheetDetailRow
+                {
+                    WorkDate = r.WorkDate,
+                    ShiftNumber = r.ShiftNumber,
+                    ClassNames = classNames is { Count: > 0 } ? string.Join(", ", classNames) : null,
+                    IsPresent = r.IsPresent,
+                    Note = r.Note,
+                    ShiftPay = r.IsPresent
+                        ? TimesheetService.GetShiftPay(row.TeacherId, r.WorkDate, r.ShiftNumber)
+                        : 0
+                };
             })
             .ToList();
     }
@@ -763,6 +771,7 @@ else
     {
         public DateTime WorkDate { get; set; }
         public int ShiftNumber { get; set; }
+        public string? ClassNames { get; set; }
         public bool IsPresent { get; set; }
         public string? Note { get; set; }
         public decimal ShiftPay { get; set; }
