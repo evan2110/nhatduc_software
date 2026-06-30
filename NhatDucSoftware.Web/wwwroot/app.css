@@ -816,6 +816,16 @@ a { color: var(--primary); }
     max-width: 900px;
 }
 
+.email-preview-frame {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    padding: 16px;
+    max-height: 60vh;
+    overflow: auto;
+    margin-bottom: 1rem;
+}
+
 .copyright {
     margin-top: 2rem;
     font-size: 0.8rem;

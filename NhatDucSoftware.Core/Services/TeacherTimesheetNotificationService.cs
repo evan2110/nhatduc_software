@@ -91,6 +91,21 @@ public class TeacherTimesheetNotificationService
         }
     }
 
+    public TeacherPayrollEmailPreview BuildPayrollEmailPreview(Teacher teacher, TeacherPayrollEmailData payroll)
+    {
+        if (string.IsNullOrWhiteSpace(teacher.Email))
+        {
+            throw new InvalidOperationException($"Giáo viên {teacher.FullName} chưa có email.");
+        }
+
+        return new TeacherPayrollEmailPreview
+        {
+            ToEmail = teacher.Email.Trim(),
+            Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}",
+            HtmlBody = BuildPayrollEmailHtml(teacher, payroll)
+        };
+    }
+
     private static MimeMessage BuildTimesheetMessage(
         Teacher teacher,
         string username,
@@ -288,6 +303,7 @@ public class TeacherTimesheetNotificationService
         var totalShifts = payroll.TotalShifts.ToString(CultureInfo.InvariantCulture);
         var totalPay = payroll.TotalPay.ToString("N0", new NumberFormatInfo { NumberGroupSeparator = " " });
         var monthYear = $"Tháng {payroll.Month:D2} năm {payroll.Year}";
+        var adjustmentNotesHtml = BuildAdjustmentNotesHtml(payroll.AdjustmentNotes);
 
         return $"""
 <!DOCTYPE html>
@@ -334,7 +350,7 @@ public class TeacherTimesheetNotificationService
         <td style="border: 1px solid #333; padding: 8px; text-align: center;">2</td>
         <td style="border: 1px solid #333; padding: 8px;">Tổng lương</td>
         <td style="border: 1px solid #333; padding: 8px; text-align: right; font-weight: bold;">{totalPay}</td>
-        <td style="border: 1px solid #333; padding: 8px;"></td>
+        <td style="border: 1px solid #333; padding: 8px;">{adjustmentNotesHtml}</td>
       </tr>
     </tbody>
   </table>
@@ -362,6 +378,16 @@ public class TeacherTimesheetNotificationService
 
     private static string WebEncode(string value) =>
         WebUtility.HtmlEncode(value);
+
+    private static string BuildAdjustmentNotesHtml(IReadOnlyList<string> notes)
+    {
+        if (notes.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join("<br />", notes.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => WebEncode(n.Trim())));
+    }
 
     private static bool TryReadEmailConfig(out EmailConfig config, out string errorMessage)
     {
@@ -474,4 +500,12 @@ public sealed class TeacherPayrollEmailData
     public int Month { get; set; }
     public int TotalShifts { get; set; }
     public decimal TotalPay { get; set; }
+    public List<string> AdjustmentNotes { get; set; } = new();
+}
+
+public sealed class TeacherPayrollEmailPreview
+{
+    public string ToEmail { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string HtmlBody { get; set; } = string.Empty;
 }

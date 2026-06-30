@@ -11,7 +11,9 @@
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Core.Services
 @using NhatDucSoftware.Web.Helpers
+@using Microsoft.AspNetCore.Components
 
 <PageTitle>Ngày công</PageTitle>
 
@@ -70,9 +72,8 @@ else
                                     }
                                     <button class="btn btn-primary btn-sm"
                                             @onclick:stopPropagation="true"
-                                            @onclick="() => SendPayrollEmail(row)"
-                                            disabled="@(_sendingPayrollTeacherId == row.TeacherId)">
-                                        @(_sendingPayrollTeacherId == row.TeacherId ? "Đang gửi..." : "Gửi mail công")
+                                            @onclick="() => OpenPayrollEmailPreview(row)">
+                                        Gửi mail công
                                     </button>
                                 </div>
                             </td>
@@ -420,6 +421,36 @@ else
             </div>
         </div>
     }
+
+    @if (_showPayrollEmailPreview)
+    {
+        <div class="modal-backdrop" @onclick="ClosePayrollEmailPreview">
+            <div class="modal-content modal-lg" @onclick:stopPropagation="true">
+                <h3>Xem trước phiếu lương</h3>
+                <p class="text-muted">
+                    <strong>Gửi đến:</strong> @_payrollEmailPreviewTo<br />
+                    <strong>Tiêu đề:</strong> @_payrollEmailPreviewSubject
+                </p>
+                @if (!string.IsNullOrEmpty(_payrollEmailPreviewMessage))
+                {
+                    <div class="alert @(_payrollEmailPreviewIsError ? "alert-danger" : "alert-success")">@_payrollEmailPreviewMessage</div>
+                }
+                <div class="email-preview-frame">
+                    @((MarkupString)_payrollEmailPreviewHtml)
+                </div>
+                <button class="btn btn-primary"
+                        @onclick="ConfirmSendPayrollEmail"
+                        disabled="@(_sendingPayrollTeacherId is not null)">
+                    @(_sendingPayrollTeacherId is not null ? "Đang gửi..." : "Gửi")
+                </button>
+                <button class="btn btn-secondary"
+                        @onclick="ClosePayrollEmailPreview"
+                        disabled="@(_sendingPayrollTeacherId is not null)">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -461,6 +492,15 @@ else
     private DateTime _exportFromDate = new(DateTime.Now.Year, DateTime.Now.Month, 1);
     private DateTime _exportToDate = new(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
     private int? _sendingPayrollTeacherId;
+
+    private bool _showPayrollEmailPreview;
+    private PayrollRow? _payrollEmailPreviewRow;
+    private Teacher? _payrollEmailPreviewTeacher;
+    private string _payrollEmailPreviewTo = "";
+    private string _payrollEmailPreviewSubject = "";
+    private string _payrollEmailPreviewHtml = "";
+    private string? _payrollEmailPreviewMessage;
+    private bool _payrollEmailPreviewIsError;
 
     private bool _showPayAdjustment;
     private int _payAdjustmentTeacherId;
@@ -522,13 +562,22 @@ else
         }).ToList();
     }
 
-    private async Task SendPayrollEmail(PayrollRow row)
-    {
-        if (_sendingPayrollTeacherId is not null)
+    private TeacherPayrollEmailData BuildPayrollEmailData(PayrollRow row) =>
+        new()
         {
-            return;
-        }
+            Year = _year,
+            Month = _month,
+            TotalShifts = row.TotalShifts,
+            TotalPay = row.Pay,
+            AdjustmentNotes = TimesheetService.GetPayAdjustmentsOrdered(row.TeacherId, _year, _month)
+                .Select(a => a.Note)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Select(n => n!.Trim())
+                .ToList()
+        };
 
+    private void OpenPayrollEmailPreview(PayrollRow row)
+    {
         var teacher = _teachers.FirstOrDefault(t => t.Id == row.TeacherId);
         if (teacher is null)
         {
@@ -536,27 +585,60 @@ else
             return;
         }
 
-        _sendingPayrollTeacherId = row.TeacherId;
-        _message = null;
+        try
+        {
+            var payroll = BuildPayrollEmailData(row);
+            var preview = PayrollEmailService.BuildPayrollEmailPreview(teacher, payroll);
+            _payrollEmailPreviewRow = row;
+            _payrollEmailPreviewTeacher = teacher;
+            _payrollEmailPreviewTo = preview.ToEmail;
+            _payrollEmailPreviewSubject = preview.Subject;
+            _payrollEmailPreviewHtml = preview.HtmlBody;
+            _payrollEmailPreviewMessage = null;
+            _payrollEmailPreviewIsError = false;
+            _showPayrollEmailPreview = true;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+    }
+
+    private void ClosePayrollEmailPreview()
+    {
+        _showPayrollEmailPreview = false;
+        _payrollEmailPreviewRow = null;
+        _payrollEmailPreviewTeacher = null;
+        _payrollEmailPreviewTo = "";
+        _payrollEmailPreviewSubject = "";
+        _payrollEmailPreviewHtml = "";
+        _payrollEmailPreviewMessage = null;
+    }
+
+    private async Task ConfirmSendPayrollEmail()
+    {
+        if (_payrollEmailPreviewRow is null || _payrollEmailPreviewTeacher is null || _sendingPayrollTeacherId is not null)
+        {
+            return;
+        }
+
+        _sendingPayrollTeacherId = _payrollEmailPreviewRow.TeacherId;
+        _payrollEmailPreviewMessage = null;
 
         try
         {
-            var payroll = new TeacherPayrollEmailData
-            {
-                Year = _year,
-                Month = _month,
-                TotalShifts = row.TotalShifts,
-                TotalPay = row.Pay
-            };
+            var payroll = BuildPayrollEmailData(_payrollEmailPreviewRow);
 
-            var result = await PayrollEmailService.TrySendPayrollEmailAsync(teacher, payroll);
+            var result = await PayrollEmailService.TrySendPayrollEmailAsync(_payrollEmailPreviewTeacher, payroll);
             if (result.Success)
             {
-                _message = $"Đã gửi phiếu lương tháng {_month:D2}/{_year} đến {teacher.Email}.";
+                _message = $"Đã gửi phiếu lương tháng {_month:D2}/{_year} đến {_payrollEmailPreviewTeacher.Email}.";
+                ClosePayrollEmailPreview();
             }
             else
             {
-                _message = result.ErrorMessage;
+                _payrollEmailPreviewMessage = result.ErrorMessage;
+                _payrollEmailPreviewIsError = true;
             }
         }
         finally
