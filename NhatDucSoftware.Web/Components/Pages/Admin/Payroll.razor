@@ -59,20 +59,22 @@ else
                             <td>@row.TotalShifts</td>
                             <td>@MoneyHelper.FormatCurrency(row.Pay)</td>
                             <td>
-                                @if (Session.CanAdjustMonthlyPay)
-                                {
-                                    <button class="btn btn-secondary btn-sm"
+                                <div class="table-actions">
+                                    @if (Session.CanAdjustMonthlyPay)
+                                    {
+                                        <button class="btn btn-secondary btn-sm"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => OpenPayAdjustment(row)">
+                                            Điều chỉnh
+                                        </button>
+                                    }
+                                    <button class="btn btn-primary btn-sm"
                                             @onclick:stopPropagation="true"
-                                            @onclick="() => OpenPayAdjustment(row)">
-                                        Điều chỉnh lương
+                                            @onclick="() => SendPayrollEmail(row)"
+                                            disabled="@(_sendingPayrollTeacherId == row.TeacherId)">
+                                        @(_sendingPayrollTeacherId == row.TeacherId ? "Đang gửi..." : "Gửi mail công")
                                     </button>
-                                }
-                                <button class="btn btn-primary btn-sm"
-                                        @onclick:stopPropagation="true"
-                                        @onclick="() => SendPayrollEmail(row)"
-                                        disabled="@(_sendingPayrollTeacherId == row.TeacherId)">
-                                    @(_sendingPayrollTeacherId == row.TeacherId ? "Đang gửi..." : "Gửi mail công")
-                                </button>
+                                </div>
                             </td>
                         </tr>
                     }
