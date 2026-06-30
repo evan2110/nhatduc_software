@@ -72,6 +72,8 @@ public class UserSession
 
     public bool CanManagePaySettings => AdminPermissions.CanManagePaySettings(CurrentUser);
 
+    public bool CanAdjustMonthlyPay => AdminPermissions.CanAdjustMonthlyPay(CurrentUser);
+
     public bool CanDeletePaymentHistory => AdminPermissions.CanDeletePaymentHistory(CurrentUser);
 
     public bool CanManageWeeklySchedule => AdminPermissions.CanManageWeeklySchedule(CurrentUser);

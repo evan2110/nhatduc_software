@@ -60,6 +60,26 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateStudentBalanceHistoryTable(connection);
         MigrateClassInactiveFromWeekColumn(connection);
         MigrateTeacherProfileColumns(connection);
+        MigrateTeacherPayAdjustmentsTable(connection);
+    }
+
+    private static void MigrateTeacherPayAdjustmentsTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS TeacherPayAdjustments (
+    Id BIGSERIAL PRIMARY KEY,
+    TeacherId BIGINT NOT NULL,
+    Year INTEGER NOT NULL,
+    Month INTEGER NOT NULL,
+    ShiftCount INTEGER NOT NULL,
+    PayPerShift NUMERIC(18,2) NOT NULL,
+    Note TEXT NULL,
+    CreatedByUserId BIGINT NOT NULL,
+    CreatedByUsername TEXT NOT NULL,
+    CreatedAt TEXT NOT NULL
+);";
+        createTable.ExecuteNonQuery();
     }
 
     private static void MigrateClassInactiveFromWeekColumn(System.Data.Common.DbConnection connection)

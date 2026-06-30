@@ -243,8 +243,28 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
         command.ExecuteNonQuery();
     }
 
-    public decimal GetShiftPay(int teacherId, DateTime workDate, int shiftNumber) =>
-        GetTeacherPayPerShift(teacherId);
+    public decimal GetShiftPay(int teacherId, DateTime workDate, int shiftNumber)
+    {
+        var year = workDate.Year;
+        var month = workDate.Month;
+        var defaultRate = GetTeacherPayPerShift(teacherId);
+        var adjustment = GetLatestPayAdjustment(teacherId, year, month);
+        if (adjustment is null)
+        {
+            return defaultRate;
+        }
+
+        var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
+        var index = presentShifts.FindIndex(s =>
+            s.WorkDate.Date == workDate.Date && s.ShiftNumber == shiftNumber);
+        if (index < 0)
+        {
+            return defaultRate;
+        }
+
+        var adjustedCount = GetAdjustedShiftCount(adjustment, presentShifts.Count);
+        return index < adjustedCount ? adjustment.PayPerShift : defaultRate;
+    }
 
     /// <summary>
     /// Lương/ca áp dụng cho giáo viên theo cài đặt lương/ca (lấy mức cao nhất trong các lớp phụ trách).
@@ -258,10 +278,143 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
     }
 
     /// <summary>
-    /// Tính lương giáo viên trong tháng: số ca có mặt × lương/ca đã cài đặt.
+    /// Tính lương giáo viên trong tháng: áp dụng điều chỉnh lương (nếu có) cho số ca đã cấu hình.
     /// </summary>
-    public decimal CalculateMonthlyPay(int teacherId, int year, int month) =>
-        GetTotalShiftsInMonth(teacherId, year, month) * GetTeacherPayPerShift(teacherId);
+    public decimal CalculateMonthlyPay(int teacherId, int year, int month)
+    {
+        var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
+        var totalShifts = presentShifts.Count;
+        if (totalShifts == 0)
+        {
+            return 0;
+        }
+
+        var defaultRate = GetTeacherPayPerShift(teacherId);
+        var adjustment = GetLatestPayAdjustment(teacherId, year, month);
+        if (adjustment is null)
+        {
+            return totalShifts * defaultRate;
+        }
+
+        var adjustedCount = GetAdjustedShiftCount(adjustment, totalShifts);
+        var remainingShifts = totalShifts - adjustedCount;
+        return adjustedCount * adjustment.PayPerShift + remainingShifts * defaultRate;
+    }
+
+    public TeacherPayAdjustment? GetLatestPayAdjustment(int teacherId, int year, int month)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt
+FROM TeacherPayAdjustments
+WHERE TeacherId = @teacherId AND Year = @year AND Month = @month
+ORDER BY CreatedAt DESC, Id DESC
+LIMIT 1;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadPayAdjustment(reader) : null;
+    }
+
+    public List<TeacherPayAdjustment> GetPayAdjustmentHistory(int teacherId, int year, int month)
+    {
+        var result = new List<TeacherPayAdjustment>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt
+FROM TeacherPayAdjustments
+WHERE TeacherId = @teacherId AND Year = @year AND Month = @month
+ORDER BY CreatedAt DESC, Id DESC;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(ReadPayAdjustment(reader));
+        }
+
+        return result;
+    }
+
+    public void SavePayAdjustment(
+        int teacherId,
+        int year,
+        int month,
+        int shiftCount,
+        decimal payPerShift,
+        string? note,
+        int createdByUserId,
+        string createdByUsername)
+    {
+        if (payPerShift <= 0)
+        {
+            throw new InvalidOperationException("Lương mỗi ca phải lớn hơn 0.");
+        }
+
+        var totalShifts = GetTotalShiftsInMonth(teacherId, year, month);
+        if (totalShifts == 0)
+        {
+            throw new InvalidOperationException("Giáo viên chưa có ca có mặt trong tháng này.");
+        }
+
+        if (shiftCount <= 0 || shiftCount > totalShifts)
+        {
+            throw new InvalidOperationException($"Số ca điều chỉnh phải từ 1 đến {totalShifts}.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO TeacherPayAdjustments(TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt)
+VALUES(@teacherId, @year, @month, @shiftCount, @payPerShift, @note, @createdByUserId, @createdByUsername, @createdAt);";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@shiftCount", shiftCount);
+        command.Parameters.AddWithValue("@payPerShift", payPerShift);
+        command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+        command.Parameters.AddWithValue("@createdByUserId", createdByUserId);
+        command.Parameters.AddWithValue("@createdByUsername", createdByUsername);
+        command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    private static int GetAdjustedShiftCount(TeacherPayAdjustment adjustment, int totalPresentShifts) =>
+        Math.Min(adjustment.ShiftCount > 0 ? adjustment.ShiftCount : totalPresentShifts, totalPresentShifts);
+
+    private List<TeacherTimesheet> GetPresentShiftsOrdered(int teacherId, int year, int month) =>
+        GetTimesheetByMonth(teacherId, year, month)
+            .Where(t => t.IsPresent)
+            .OrderBy(t => t.WorkDate)
+            .ThenBy(t => t.ShiftNumber)
+            .ToList();
+
+    private static TeacherPayAdjustment ReadPayAdjustment(System.Data.Common.DbDataReader reader) =>
+        new()
+        {
+            Id = reader.GetInt64(0),
+            TeacherId = reader.GetInt32(1),
+            Year = reader.GetInt32(2),
+            Month = reader.GetInt32(3),
+            ShiftCount = reader.GetInt32(4),
+            PayPerShift = Convert.ToDecimal(reader.GetValue(5)),
+            Note = reader.IsDBNull(6) ? null : reader.GetString(6),
+            CreatedByUserId = reader.GetInt32(7),
+            CreatedByUsername = reader.GetString(8),
+            CreatedAt = DateTime.Parse(reader.GetString(9))
+        };
 
     /// <summary>
     /// Số ngày có mặt thực tế trong tháng (đếm theo ngày, không theo ca).
