@@ -300,39 +300,51 @@ else
         <div class="modal-backdrop" @onclick="ClosePayAdjustment">
             <div class="modal-content modal-lg" @onclick:stopPropagation="true">
                 <h3>Điều chỉnh lương - @_payAdjustmentTeacherName</h3>
-                <p class="text-muted">Tháng @_month/@_year · Tổng ca có mặt: @_payAdjustmentTotalShifts · Lương/ca mặc định: @MoneyHelper.FormatCurrency(_payAdjustmentDefaultRate)</p>
+                <p class="text-muted">
+                    Tháng @_month/@_year · Tổng ca có mặt: @_payAdjustmentTotalShifts
+                    · Đã điều chỉnh: @_payAdjustmentAdjustedShifts ca
+                    · Còn khả dụng: @_payAdjustmentRemainingShifts ca
+                    · Lương/ca mặc định: @MoneyHelper.FormatCurrency(_payAdjustmentDefaultRate)
+                </p>
                 @if (!string.IsNullOrEmpty(_payAdjustmentMessage))
                 {
                     <div class="alert @(_payAdjustmentIsError ? "alert-danger" : "alert-success")">@_payAdjustmentMessage</div>
                 }
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Số ca điều chỉnh</label>
-                        <input type="number"
-                               min="1"
-                               max="@_payAdjustmentTotalShifts"
-                               @bind="_payAdjustmentShiftCount" />
-                    </div>
-                    <div class="form-group">
-                        <label>Lương/ca điều chỉnh (VNĐ)</label>
-                        <input type="number"
-                               min="1"
-                               step="1000"
-                               @bind="_payAdjustmentPayPerShift" />
-                    </div>
-                    <div class="form-group span-2">
-                        <label>Ghi chú</label>
-                        <textarea rows="2" @bind="_payAdjustmentNote" placeholder="Lý do điều chỉnh lương..."></textarea>
-                    </div>
-                </div>
-                @if (_payAdjustmentTotalShifts > 0 && _payAdjustmentShiftCount > 0 && _payAdjustmentPayPerShift > 0)
+                @if (_payAdjustmentRemainingShifts == 0)
                 {
-                    <p class="text-muted">
-                        Lương ước tính sau điều chỉnh:
-                        <strong>@MoneyHelper.FormatCurrency(EstimatedAdjustedPay)</strong>
-                    </p>
+                    <div class="alert alert-info">Đã điều chỉnh hết @_payAdjustmentTotalShifts ca trong tháng. Xóa bản ghi trong lịch sử nếu cần điều chỉnh lại.</div>
                 }
-                <button class="btn btn-primary" @onclick="SavePayAdjustment">Lưu điều chỉnh</button>
+                else
+                {
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Số ca điều chỉnh</label>
+                            <input type="number"
+                                   min="1"
+                                   max="@_payAdjustmentRemainingShifts"
+                                   @bind="_payAdjustmentShiftCount" />
+                        </div>
+                        <div class="form-group">
+                            <label>Lương/ca điều chỉnh (VNĐ)</label>
+                            <input type="number"
+                                   min="1"
+                                   step="1000"
+                                   @bind="_payAdjustmentPayPerShift" />
+                        </div>
+                        <div class="form-group span-2">
+                            <label>Ghi chú</label>
+                            <textarea rows="2" @bind="_payAdjustmentNote" placeholder="Lý do điều chỉnh lương..."></textarea>
+                        </div>
+                    </div>
+                    @if (_payAdjustmentShiftCount > 0 && _payAdjustmentPayPerShift > 0)
+                    {
+                        <p class="text-muted">
+                            Lương ước tính sau điều chỉnh:
+                            <strong>@MoneyHelper.FormatCurrency(EstimatedAdjustedPay)</strong>
+                        </p>
+                    }
+                    <button class="btn btn-primary" @onclick="SavePayAdjustment">Lưu điều chỉnh</button>
+                }
                 <button class="btn btn-secondary" @onclick="ClosePayAdjustment">Đóng</button>
 
                 <h4 style="margin-top: 1.25rem;">Lịch sử điều chỉnh</h4>
@@ -351,6 +363,7 @@ else
                                 <th>Lương/ca</th>
                                 <th>Ghi chú</th>
                                 <th>Người thực hiện</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -362,6 +375,9 @@ else
                                     <td>@MoneyHelper.FormatCurrency(item.PayPerShift)</td>
                                     <td>@(string.IsNullOrWhiteSpace(item.Note) ? "-" : item.Note)</td>
                                     <td>@item.CreatedByUsername</td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => DeletePayAdjustment(item.Id)">Xóa</button>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -450,6 +466,8 @@ else
     private int _payAdjustmentTeacherId;
     private string _payAdjustmentTeacherName = "";
     private int _payAdjustmentTotalShifts;
+    private int _payAdjustmentAdjustedShifts;
+    private int _payAdjustmentRemainingShifts;
     private decimal _payAdjustmentDefaultRate;
     private int _payAdjustmentShiftCount;
     private decimal _payAdjustmentPayPerShift;
@@ -677,36 +695,36 @@ else
         _payAdjustmentTeacherName = row.Name;
         _payAdjustmentTotalShifts = row.TotalShifts;
         _payAdjustmentDefaultRate = TimesheetService.GetTeacherPayPerShift(row.TeacherId);
-        _payAdjustmentShiftCount = row.TotalShifts > 0 ? row.TotalShifts : 1;
         _payAdjustmentPayPerShift = _payAdjustmentDefaultRate;
         _payAdjustmentNote = "";
         _payAdjustmentMessage = null;
         _payAdjustmentIsError = false;
-        LoadPayAdjustmentHistory();
+        RefreshPayAdjustmentFormState();
         _showPayAdjustment = true;
     }
 
     private void ClosePayAdjustment() => _showPayAdjustment = false;
+
+    private void RefreshPayAdjustmentFormState()
+    {
+        LoadPayAdjustmentHistory();
+        _payAdjustmentAdjustedShifts = TimesheetService.GetTotalAdjustedShiftCount(_payAdjustmentTeacherId, _year, _month);
+        _payAdjustmentRemainingShifts = TimesheetService.GetRemainingAdjustableShifts(_payAdjustmentTeacherId, _year, _month);
+        _payAdjustmentShiftCount = _payAdjustmentRemainingShifts > 0 ? 1 : 0;
+    }
 
     private void LoadPayAdjustmentHistory()
     {
         _payAdjustmentHistory = TimesheetService.GetPayAdjustmentHistory(_payAdjustmentTeacherId, _year, _month);
     }
 
-    private decimal EstimatedAdjustedPay
-    {
-        get
-        {
-            if (_payAdjustmentTotalShifts == 0 || _payAdjustmentShiftCount <= 0)
-            {
-                return 0;
-            }
-
-            var adjustedCount = Math.Min(_payAdjustmentShiftCount, _payAdjustmentTotalShifts);
-            var remaining = _payAdjustmentTotalShifts - adjustedCount;
-            return adjustedCount * _payAdjustmentPayPerShift + remaining * _payAdjustmentDefaultRate;
-        }
-    }
+    private decimal EstimatedAdjustedPay =>
+        TimesheetService.CalculateEstimatedMonthlyPay(
+            _payAdjustmentTeacherId,
+            _year,
+            _month,
+            Math.Min(_payAdjustmentShiftCount, _payAdjustmentRemainingShifts),
+            _payAdjustmentPayPerShift);
 
     private void SavePayAdjustment()
     {
@@ -738,7 +756,41 @@ else
             _payAdjustmentMessage = "Đã lưu điều chỉnh lương.";
             _payAdjustmentIsError = false;
             _message = $"Đã điều chỉnh lương cho {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
-            LoadPayAdjustmentHistory();
+            _payAdjustmentNote = "";
+            RefreshPayAdjustmentFormState();
+            LoadPayroll();
+            if (_selectedTeacherId == _payAdjustmentTeacherId)
+            {
+                var row = _payrollRows.FirstOrDefault(r => r.TeacherId == _payAdjustmentTeacherId);
+                if (row is not null)
+                {
+                    SelectTeacher(row);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _payAdjustmentMessage = ex.Message;
+            _payAdjustmentIsError = true;
+        }
+    }
+
+    private void DeletePayAdjustment(long adjustmentId)
+    {
+        if (!Session.CanAdjustMonthlyPay)
+        {
+            _payAdjustmentMessage = "Bạn không có quyền điều chỉnh lương.";
+            _payAdjustmentIsError = true;
+            return;
+        }
+
+        try
+        {
+            TimesheetService.DeletePayAdjustment(adjustmentId, _payAdjustmentTeacherId, _year, _month);
+            _payAdjustmentMessage = "Đã xóa bản ghi điều chỉnh.";
+            _payAdjustmentIsError = false;
+            _message = $"Đã xóa điều chỉnh lương của {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
+            RefreshPayAdjustmentFormState();
             LoadPayroll();
             if (_selectedTeacherId == _payAdjustmentTeacherId)
             {

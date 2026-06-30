@@ -248,12 +248,6 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
         var year = workDate.Year;
         var month = workDate.Month;
         var defaultRate = GetTeacherPayPerShift(teacherId);
-        var adjustment = GetLatestPayAdjustment(teacherId, year, month);
-        if (adjustment is null)
-        {
-            return defaultRate;
-        }
-
         var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
         var index = presentShifts.FindIndex(s =>
             s.WorkDate.Date == workDate.Date && s.ShiftNumber == shiftNumber);
@@ -262,8 +256,8 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
             return defaultRate;
         }
 
-        var adjustedCount = GetAdjustedShiftCount(adjustment, presentShifts.Count);
-        return index < adjustedCount ? adjustment.PayPerShift : defaultRate;
+        var adjustments = GetPayAdjustmentsOrdered(teacherId, year, month);
+        return GetPayRateForShiftIndex(index, presentShifts.Count, adjustments, defaultRate);
     }
 
     /// <summary>
@@ -278,27 +272,54 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
     }
 
     /// <summary>
-    /// Tính lương giáo viên trong tháng: áp dụng điều chỉnh lương (nếu có) cho số ca đã cấu hình.
+    /// Tính lương giáo viên trong tháng: cộng dồn các lần điều chỉnh theo thứ tự thời gian.
     /// </summary>
     public decimal CalculateMonthlyPay(int teacherId, int year, int month)
     {
         var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
-        var totalShifts = presentShifts.Count;
-        if (totalShifts == 0)
+        if (presentShifts.Count == 0)
         {
             return 0;
         }
 
         var defaultRate = GetTeacherPayPerShift(teacherId);
-        var adjustment = GetLatestPayAdjustment(teacherId, year, month);
-        if (adjustment is null)
+        var adjustments = GetPayAdjustmentsOrdered(teacherId, year, month);
+        return CalculatePayFromAdjustments(presentShifts.Count, adjustments, defaultRate);
+    }
+
+    /// <summary>
+    /// Ước tính lương tháng nếu thêm một lần điều chỉnh mới (chưa lưu).
+    /// </summary>
+    public decimal CalculateEstimatedMonthlyPay(
+        int teacherId,
+        int year,
+        int month,
+        int additionalShiftCount,
+        decimal additionalPayPerShift)
+    {
+        var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
+        if (presentShifts.Count == 0)
         {
-            return totalShifts * defaultRate;
+            return 0;
         }
 
-        var adjustedCount = GetAdjustedShiftCount(adjustment, totalShifts);
-        var remainingShifts = totalShifts - adjustedCount;
-        return adjustedCount * adjustment.PayPerShift + remainingShifts * defaultRate;
+        var defaultRate = GetTeacherPayPerShift(teacherId);
+        var adjustments = GetPayAdjustmentsOrdered(teacherId, year, month);
+        return CalculatePayFromAdjustments(
+            presentShifts.Count,
+            adjustments,
+            defaultRate,
+            additionalShiftCount,
+            additionalPayPerShift);
+    }
+
+    public int GetTotalAdjustedShiftCount(int teacherId, int year, int month) =>
+        GetPayAdjustmentsOrdered(teacherId, year, month).Sum(a => a.ShiftCount);
+
+    public int GetRemainingAdjustableShifts(int teacherId, int year, int month)
+    {
+        var totalShifts = GetTotalShiftsInMonth(teacherId, year, month);
+        return Math.Max(0, totalShifts - GetTotalAdjustedShiftCount(teacherId, year, month));
     }
 
     public TeacherPayAdjustment? GetLatestPayAdjustment(int teacherId, int year, int month)
@@ -346,6 +367,31 @@ ORDER BY CreatedAt DESC, Id DESC;";
         return result;
     }
 
+    public List<TeacherPayAdjustment> GetPayAdjustmentsOrdered(int teacherId, int year, int month)
+    {
+        var result = new List<TeacherPayAdjustment>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT Id, TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt
+FROM TeacherPayAdjustments
+WHERE TeacherId = @teacherId AND Year = @year AND Month = @month
+ORDER BY CreatedAt ASC, Id ASC;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(ReadPayAdjustment(reader));
+        }
+
+        return result;
+    }
+
     public void SavePayAdjustment(
         int teacherId,
         int year,
@@ -367,9 +413,15 @@ ORDER BY CreatedAt DESC, Id DESC;";
             throw new InvalidOperationException("Giáo viên chưa có ca có mặt trong tháng này.");
         }
 
-        if (shiftCount <= 0 || shiftCount > totalShifts)
+        var remainingShifts = GetRemainingAdjustableShifts(teacherId, year, month);
+        if (remainingShifts == 0)
         {
-            throw new InvalidOperationException($"Số ca điều chỉnh phải từ 1 đến {totalShifts}.");
+            throw new InvalidOperationException("Đã điều chỉnh hết số ca có mặt trong tháng này.");
+        }
+
+        if (shiftCount <= 0 || shiftCount > remainingShifts)
+        {
+            throw new InvalidOperationException($"Số ca điều chỉnh phải từ 1 đến {remainingShifts}.");
         }
 
         using var connection = DbContext.CreateConnection();
@@ -391,8 +443,87 @@ VALUES(@teacherId, @year, @month, @shiftCount, @payPerShift, @note, @createdByUs
         command.ExecuteNonQuery();
     }
 
-    private static int GetAdjustedShiftCount(TeacherPayAdjustment adjustment, int totalPresentShifts) =>
-        Math.Min(adjustment.ShiftCount > 0 ? adjustment.ShiftCount : totalPresentShifts, totalPresentShifts);
+    public void DeletePayAdjustment(long adjustmentId, int teacherId, int year, int month)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+DELETE FROM TeacherPayAdjustments
+WHERE Id = @id AND TeacherId = @teacherId AND Year = @year AND Month = @month;";
+        command.Parameters.AddWithValue("@id", adjustmentId);
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy bản ghi điều chỉnh.");
+        }
+    }
+
+    private static decimal CalculatePayFromAdjustments(
+        int totalShifts,
+        IReadOnlyList<TeacherPayAdjustment> adjustments,
+        decimal defaultRate,
+        int additionalShiftCount = 0,
+        decimal additionalPayPerShift = 0)
+    {
+        if (totalShifts == 0)
+        {
+            return 0;
+        }
+
+        decimal total = 0;
+        var shiftIndex = 0;
+
+        void ApplyBucket(int count, decimal rate)
+        {
+            if (count <= 0 || shiftIndex >= totalShifts)
+            {
+                return;
+            }
+
+            var applied = Math.Min(count, totalShifts - shiftIndex);
+            total += applied * rate;
+            shiftIndex += applied;
+        }
+
+        foreach (var adjustment in adjustments)
+        {
+            ApplyBucket(adjustment.ShiftCount, adjustment.PayPerShift);
+        }
+
+        if (additionalShiftCount > 0 && additionalPayPerShift > 0)
+        {
+            ApplyBucket(additionalShiftCount, additionalPayPerShift);
+        }
+
+        total += (totalShifts - shiftIndex) * defaultRate;
+        return total;
+    }
+
+    private static decimal GetPayRateForShiftIndex(
+        int shiftIndex,
+        int totalShifts,
+        IReadOnlyList<TeacherPayAdjustment> adjustments,
+        decimal defaultRate)
+    {
+        var cursor = 0;
+        foreach (var adjustment in adjustments)
+        {
+            var count = Math.Min(adjustment.ShiftCount, totalShifts - cursor);
+            if (shiftIndex < cursor + count)
+            {
+                return adjustment.PayPerShift;
+            }
+
+            cursor += count;
+        }
+
+        return defaultRate;
+    }
 
     private List<TeacherTimesheet> GetPresentShiftsOrdered(int teacherId, int year, int month) =>
         GetTimesheetByMonth(teacherId, year, month)
