@@ -107,6 +107,7 @@ else
                             <td>@row.NguoiThu</td>
                             <td>
                                 <div class="table-actions">
+                                    <button class="btn btn-success btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDiscountModal(row)">Giảm phí</button>
                                     <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
                                     @if (_classId > 0)
                                     {
@@ -177,13 +178,15 @@ else
                     <h3>Chi tiết theo lớp</h3>
                     <table class="data-table compact">
                         <thead>
-                            <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
+                            <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
                         </thead>
                         <tbody>
                             @foreach (var item in VisibleTuitionBreakdown)
                             {
                                 <tr class="@(_classId == item.ClassId ? "selected" : "")">
                                     <td>@item.ClassName</td>
+                                    <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
+                                    <td>@MoneyHelper.FormatCurrency(item.DiscountAmount)</td>
                                     <td>
                                         @MoneyHelper.FormatCurrency(item.TotalDue)
                                         @if (item.CarryOver > 0)
@@ -213,7 +216,7 @@ else
                         <h3>Còn lại theo lớp</h3>
                         <table class="data-table compact">
                             <thead>
-                                <tr><th>Lớp</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th><th></th></tr>
+                                <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th><th></th></tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in VisibleDetailBreakdown)
@@ -221,6 +224,8 @@ else
                                     var classFinalized = PaymentService.IsFinalized(item.ClassId, _month, _year);
                                     <tr class="@(_classId == item.ClassId ? "selected" : "")">
                                         <td>@item.ClassName</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.DiscountAmount)</td>
                                         <td>
                                             @MoneyHelper.FormatCurrency(item.TotalDue)
                                             @if (item.CarryOver > 0)
@@ -274,6 +279,75 @@ else
         </div>
     }
 
+    @if (_showDiscountModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseDiscountModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Giảm phí - @_discountStudentName</h3>
+                <p class="text-muted">Tháng @_month:D2/@_year</p>
+
+                @if (_discountPreview is not null)
+                {
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Phần trăm giảm (%)</label>
+                            <input type="number"
+                                   min="0"
+                                   max="100"
+                                   step="0.01"
+                                   value="@_discountPercentText"
+                                   @oninput="OnDiscountPercentChanged"
+                                   disabled="@_discountPreview.IsLocked" />
+                        </div>
+                        <div class="form-group">
+                            <label>Ghi chú lý do giảm</label>
+                            <input value="@_discountNote"
+                                   @oninput="OnDiscountNoteChanged"
+                                   placeholder="Ví dụ: Học 2 lớp, giảm theo chính sách..."
+                                   disabled="@_discountPreview.IsLocked" />
+                        </div>
+                    </div>
+
+                    <div class="summary-box" style="margin-bottom: 1rem;">
+                        <span>Tổng học phí gốc: @MoneyHelper.FormatCurrency(_discountPreview.TotalGrossAttendance)</span>
+                        <span>Được giảm (@FormatPercent(_discountPreview.DiscountPercent)): @MoneyHelper.FormatCurrency(_discountPreview.TotalDiscountAmount)</span>
+                        <span>Còn phải đóng: @MoneyHelper.FormatCurrency(_discountPreview.TotalDueAfterDiscount)</span>
+                    </div>
+
+                    @if (_discountPreview.ClassAllocations.Any(a => a.GrossAttendance > 0 || a.CarryOver > 0))
+                    {
+                        <div class="table-responsive" style="margin-bottom: 1rem;">
+                            <table class="data-table compact">
+                                <thead>
+                                    <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Còn đóng</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in _discountPreview.ClassAllocations.Where(a => a.GrossAttendance > 0 || a.CarryOver > 0))
+                                    {
+                                        <tr>
+                                            <td>@item.ClassName</td>
+                                            <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
+                                            <td>@MoneyHelper.FormatCurrency(item.DiscountAllocated)</td>
+                                            <td>@MoneyHelper.FormatCurrency(item.TotalDue)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (_discountPreview.IsLocked)
+                    {
+                        <p class="text-muted">Tháng này đã chốt số liệu ở ít nhất một lớp, không thể sửa giảm phí.</p>
+                    }
+                }
+
+                <button class="btn btn-primary" @onclick="SaveDiscount" disabled="@(_discountPreview?.IsLocked == true)">Lưu giảm phí</button>
+                <button class="btn btn-secondary" @onclick="CloseDiscountModal">Đóng</button>
+            </div>
+        </div>
+    }
+
     @if (_showFinalizeConfirm)
     {
         <div class="modal-backdrop" @onclick="CloseFinalizeConfirm">
@@ -313,9 +387,15 @@ else
     private bool _isError;
     private bool _isFinalized;
     private bool _showDetail;
+    private bool _showDiscountModal;
     private bool _showFinalizeConfirm;
     private int _detailStudentId;
+    private int _discountStudentId;
     private string _detailStudentName = "";
+    private string _discountStudentName = "";
+    private string _discountPercentText = "0";
+    private string _discountNote = "";
+    private StudentTuitionDiscountPreview? _discountPreview;
     private List<PaymentHistoryRow> _detailHistory = new();
     private List<StudentClassTuitionRow> _classTuitionBreakdown = new();
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
@@ -422,10 +502,124 @@ else
         _remaining = Math.Max(0, total - _paid);
         _balance = PaymentService.GetStudentBalance(row.StudentId);
         var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
+        var discount = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
         _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
+        if (discount.DiscountPercent > 0)
+        {
+            _needText += $" (đã giảm {FormatPercent(discount.DiscountPercent)}";
+            if (!string.IsNullOrWhiteSpace(discount.Note))
+            {
+                _needText += $" - {discount.Note.Trim()}";
+            }
+            _needText += ")";
+        }
         if (carryOver > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
         _classTuitionBreakdown = PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
     }
+
+    private void OpenDiscountModal(PaymentClassListRow row)
+    {
+        _discountStudentId = row.StudentId;
+        _discountStudentName = row.HoVaTen;
+        var currentDiscount = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
+        _discountPercentText = currentDiscount.DiscountPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        _discountNote = currentDiscount.Note;
+        RefreshDiscountPreview();
+        _showDiscountModal = true;
+        _message = null;
+    }
+
+    private void CloseDiscountModal()
+    {
+        _showDiscountModal = false;
+        _discountPreview = null;
+        _discountNote = "";
+    }
+
+    private void OnDiscountPercentChanged(ChangeEventArgs e)
+    {
+        _discountPercentText = e.Value?.ToString() ?? "0";
+        RefreshDiscountPreview();
+    }
+
+    private void OnDiscountNoteChanged(ChangeEventArgs e)
+    {
+        _discountNote = e.Value?.ToString() ?? "";
+        RefreshDiscountPreview();
+    }
+
+    private void RefreshDiscountPreview()
+    {
+        if (_discountStudentId <= 0)
+        {
+            return;
+        }
+
+        if (!decimal.TryParse(_discountPercentText.Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent))
+        {
+            percent = 0;
+        }
+
+        _discountPreview = PaymentService.GetStudentTuitionDiscountPreview(
+            _discountStudentId,
+            _month,
+            _year,
+            percent,
+            _discountNote);
+    }
+
+    private void SaveDiscount()
+    {
+        if (_discountStudentId <= 0)
+        {
+            return;
+        }
+
+        if (!decimal.TryParse(_discountPercentText.Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent))
+        {
+            _message = "Phần trăm giảm không hợp lệ.";
+            _isError = true;
+            return;
+        }
+
+        if (percent > 0 && string.IsNullOrWhiteSpace(_discountNote))
+        {
+            _message = "Vui lòng nhập ghi chú lý do giảm phí.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            PaymentService.SetStudentTuitionDiscount(
+                _discountStudentId,
+                _month,
+                _year,
+                percent,
+                Session.CurrentUser!.Id,
+                _discountNote);
+            _message = percent > 0
+                ? $"Đã lưu giảm phí {FormatPercent(percent)} cho {_discountStudentName}."
+                : $"Đã xóa giảm phí cho {_discountStudentName}.";
+            _isError = false;
+            _showDiscountModal = false;
+            LoadGrid();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private static string FormatPercent(decimal percent) =>
+        percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
 
     private void CollectPayment()
     {

@@ -61,6 +61,31 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateClassInactiveFromWeekColumn(connection);
         MigrateTeacherProfileColumns(connection);
         MigrateTeacherPayAdjustmentsTable(connection);
+        MigrateStudentTuitionDiscountsTable(connection);
+    }
+
+    private static void MigrateStudentTuitionDiscountsTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS StudentTuitionDiscounts (
+    Id BIGSERIAL PRIMARY KEY,
+    StudentId BIGINT NOT NULL,
+    Month INTEGER NOT NULL,
+    Year INTEGER NOT NULL,
+    DiscountPercent NUMERIC(5,2) NOT NULL DEFAULT 0,
+    Note TEXT,
+    CreatedBy BIGINT NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    CONSTRAINT UQ_StudentTuitionDiscounts_StudentId_Month_Year UNIQUE (StudentId, Month, Year)
+);";
+        createTable.ExecuteNonQuery();
+
+        using var addNote = connection.CreateCommand();
+        addNote.CommandText = @"
+ALTER TABLE StudentTuitionDiscounts
+ADD COLUMN IF NOT EXISTS Note TEXT;";
+        addNote.ExecuteNonQuery();
     }
 
     private static void MigrateTeacherPayAdjustmentsTable(System.Data.Common.DbConnection connection)

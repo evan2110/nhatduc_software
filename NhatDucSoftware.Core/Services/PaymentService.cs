@@ -75,41 +75,228 @@ WHERE StudentId = @studentId
 
     public decimal GetTotalTuitionByStudentInClassMonthYear(int studentId, int classId, int month, int year)
     {
+        var allocations = BuildStudentTuitionAllocations(studentId, month, year);
+        if (classId == 0)
+        {
+            return allocations.Sum(a => a.TotalDue);
+        }
+
+        return allocations.FirstOrDefault(a => a.ClassId == classId)?.TotalDue ?? 0;
+    }
+
+    public decimal GetStudentTuitionDiscountPercent(int studentId, int month, int year) =>
+        GetStudentTuitionDiscount(studentId, month, year).DiscountPercent;
+
+    public StudentTuitionDiscountInfo GetStudentTuitionDiscount(int studentId, int month, int year)
+    {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT COALESCE(SUM(co.TuitionFee), 0)
-FROM AttendanceRecords ar
-INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-INNER JOIN Classes c ON c.Id = ats.ClassId
-INNER JOIN Courses co ON co.Id = c.CourseId
-WHERE ar.StudentId = @studentId
-  AND ar.Status = 'C'
-  AND (@classId = 0 OR ats.ClassId = @classId)
-  AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
-  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric;";
+SELECT DiscountPercent, COALESCE(Note, '')
+FROM StudentTuitionDiscounts
+WHERE StudentId = @studentId
+  AND Month = @month
+  AND Year = @year
+LIMIT 1;";
         command.Parameters.AddWithValue("@studentId", studentId);
-        command.Parameters.AddWithValue("@classId", classId);
         command.Parameters.AddWithValue("@month", month);
         command.Parameters.AddWithValue("@year", year);
 
-        var tuition = Convert.ToDecimal(command.ExecuteScalar());
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return new StudentTuitionDiscountInfo();
+        }
 
-        // Add carry-over from previous month
-        using var carryCmd = connection.CreateCommand();
-        carryCmd.CommandText = @"SELECT COALESCE(SUM(Amount), 0) FROM PaymentCarryOvers
-WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
-  AND ToMonth = @month AND ToYear = @year;";
-        carryCmd.Parameters.AddWithValue("@studentId", studentId);
-        carryCmd.Parameters.AddWithValue("@classId", classId);
-        carryCmd.Parameters.AddWithValue("@month", month);
-        carryCmd.Parameters.AddWithValue("@year", year);
+        return new StudentTuitionDiscountInfo
+        {
+            DiscountPercent = ReadDecimal(reader, 0),
+            Note = reader.GetString(1)
+        };
+    }
 
-        tuition += Convert.ToDecimal(carryCmd.ExecuteScalar());
+    public bool IsStudentTuitionDiscountLocked(int studentId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
 
-        return tuition;
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(*)
+FROM ClassStudents cs
+INNER JOIN PaymentFinalizations pf
+        ON pf.ClassId = cs.ClassId
+       AND pf.Month = @month
+       AND pf.Year = @year
+WHERE cs.StudentId = @studentId;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
+    }
+
+    public StudentTuitionDiscountPreview GetStudentTuitionDiscountPreview(
+        int studentId,
+        int month,
+        int year,
+        decimal? discountPercent = null,
+        string? note = null)
+    {
+        var grossRows = GetStudentTuitionGrossRows(studentId, month, year);
+        var storedDiscount = GetStudentTuitionDiscount(studentId, month, year);
+        var percent = discountPercent ?? storedDiscount.DiscountPercent;
+        var allocations = TuitionDiscountAllocator.Allocate(grossRows, percent);
+        var totalGross = grossRows.Sum(r => r.GrossAttendance);
+        var totalDiscount = allocations.Sum(a => a.DiscountAllocated);
+
+        return new StudentTuitionDiscountPreview
+        {
+            StudentId = studentId,
+            Month = month,
+            Year = year,
+            DiscountPercent = percent,
+            Note = note ?? storedDiscount.Note,
+            TotalGrossAttendance = totalGross,
+            TotalDiscountAmount = totalDiscount,
+            TotalDueAfterDiscount = allocations.Sum(a => a.TotalDue),
+            ClassAllocations = allocations,
+            IsLocked = IsStudentTuitionDiscountLocked(studentId, month, year)
+        };
+    }
+
+    public void SetStudentTuitionDiscount(
+        int studentId,
+        int month,
+        int year,
+        decimal discountPercent,
+        int createdBy,
+        string? note = null)
+    {
+        if (discountPercent < 0 || discountPercent > 100)
+        {
+            throw new InvalidOperationException("Phần trăm giảm phải từ 0 đến 100.");
+        }
+
+        if (discountPercent > 0 && string.IsNullOrWhiteSpace(note))
+        {
+            throw new InvalidOperationException("Vui lòng nhập ghi chú lý do giảm phí.");
+        }
+
+        if (IsStudentTuitionDiscountLocked(studentId, month, year))
+        {
+            throw new InvalidOperationException("Tháng này đã được chốt số liệu ở ít nhất một lớp, không thể sửa giảm phí.");
+        }
+
+        var normalizedNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        if (discountPercent == 0)
+        {
+            using var deleteCmd = connection.CreateCommand();
+            deleteCmd.CommandText = @"
+DELETE FROM StudentTuitionDiscounts
+WHERE StudentId = @studentId
+  AND Month = @month
+  AND Year = @year;";
+            deleteCmd.Parameters.AddWithValue("@studentId", studentId);
+            deleteCmd.Parameters.AddWithValue("@month", month);
+            deleteCmd.Parameters.AddWithValue("@year", year);
+            deleteCmd.ExecuteNonQuery();
+            return;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+INSERT INTO StudentTuitionDiscounts(StudentId, Month, Year, DiscountPercent, Note, CreatedBy, CreatedAt)
+VALUES(@studentId, @month, @year, @discountPercent, @note, @createdBy, @createdAt)
+ON CONFLICT(StudentId, Month, Year)
+DO UPDATE SET DiscountPercent = EXCLUDED.DiscountPercent,
+              Note = EXCLUDED.Note,
+              CreatedBy = EXCLUDED.CreatedBy,
+              CreatedAt = EXCLUDED.CreatedAt;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@discountPercent", discountPercent);
+        command.Parameters.AddWithValue("@note", (object?)normalizedNote ?? DBNull.Value);
+        command.Parameters.AddWithValue("@createdBy", createdBy);
+        command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    private List<TuitionClassGrossRow> GetStudentTuitionGrossRows(int studentId, int month, int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+WITH Enrollments AS (
+    SELECT cs.ClassId, c.ClassName
+    FROM ClassStudents cs
+    INNER JOIN Classes c ON c.Id = cs.ClassId
+    WHERE cs.StudentId = @studentId
+),
+StudentTuition AS (
+    SELECT ats.ClassId,
+           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
+    FROM AttendanceRecords ar
+    INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+    INNER JOIN Classes c ON c.Id = ats.ClassId
+    INNER JOIN Courses co ON co.Id = c.CourseId
+    WHERE ar.StudentId = @studentId
+      AND ar.Status = 'C'
+      AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
+      AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
+    GROUP BY ats.ClassId
+),
+StudentCarryOver AS (
+    SELECT ClassId,
+           COALESCE(SUM(Amount), 0) AS CarryOver
+    FROM PaymentCarryOvers
+    WHERE StudentId = @studentId
+      AND ToMonth = @month
+      AND ToYear = @year
+    GROUP BY ClassId
+)
+SELECT e.ClassId,
+       e.ClassName,
+       COALESCE(st.AttendanceTuition, 0),
+       COALESCE(sc.CarryOver, 0)
+FROM Enrollments e
+LEFT JOIN StudentTuition st ON st.ClassId = e.ClassId
+LEFT JOIN StudentCarryOver sc ON sc.ClassId = e.ClassId
+ORDER BY e.ClassName;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        var rows = new List<TuitionClassGrossRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new TuitionClassGrossRow
+            {
+                ClassId = reader.GetInt32(0),
+                ClassName = reader.GetString(1),
+                GrossAttendance = ReadDecimal(reader, 2),
+                CarryOver = ReadDecimal(reader, 3)
+            });
+        }
+
+        return rows;
+    }
+
+    private List<TuitionClassAllocation> BuildStudentTuitionAllocations(int studentId, int month, int year)
+    {
+        var grossRows = GetStudentTuitionGrossRows(studentId, month, year);
+        var discountPercent = GetStudentTuitionDiscountPercent(studentId, month, year);
+        return TuitionDiscountAllocator.Allocate(grossRows, discountPercent);
     }
 
     public decimal GetCarryOverAmount(int studentId, int classId, int month, int year)
@@ -383,80 +570,55 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
 
     public List<StudentClassTuitionRow> GetStudentTuitionBreakdownByClassMonthYear(int studentId, int month, int year)
     {
+        var allocations = BuildStudentTuitionAllocations(studentId, month, year);
+        var paidByClass = GetStudentPaidByClass(studentId, month, year);
+
+        return allocations
+            .Select(allocation =>
+            {
+                var paid = paidByClass.GetValueOrDefault(allocation.ClassId);
+                var totalDue = allocation.TotalDue;
+                return new StudentClassTuitionRow
+                {
+                    ClassId = allocation.ClassId,
+                    ClassName = allocation.ClassName,
+                    GrossAttendance = allocation.GrossAttendance,
+                    DiscountAmount = allocation.DiscountAllocated,
+                    TotalDue = totalDue,
+                    Paid = paid,
+                    Remaining = Math.Max(0, totalDue - paid),
+                    CarryOver = allocation.CarryOver
+                };
+            })
+            .ToList();
+    }
+
+    private Dictionary<int, decimal> GetStudentPaidByClass(int studentId, int month, int year)
+    {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-WITH Enrollments AS (
-    SELECT cs.ClassId, c.ClassName
-    FROM ClassStudents cs
-    INNER JOIN Classes c ON c.Id = cs.ClassId
-    WHERE cs.StudentId = @studentId
-),
-StudentTuition AS (
-    SELECT ats.ClassId,
-           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
-    FROM AttendanceRecords ar
-    INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-    INNER JOIN Classes c ON c.Id = ats.ClassId
-    INNER JOIN Courses co ON co.Id = c.CourseId
-    WHERE ar.StudentId = @studentId
-      AND ar.Status = 'C'
-      AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
-      AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-    GROUP BY ats.ClassId
-),
-StudentCarryOver AS (
-    SELECT ClassId,
-           COALESCE(SUM(Amount), 0) AS CarryOver
-    FROM PaymentCarryOvers
-    WHERE StudentId = @studentId
-      AND ToMonth = @month
-      AND ToYear = @year
-    GROUP BY ClassId
-),
-StudentPaid AS (
-    SELECT p.ClassId,
-           COALESCE(SUM(p.Amount), 0) AS Paid
-    FROM Payments p
-    WHERE p.StudentId = @studentId
-      AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
-      AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
-    GROUP BY p.ClassId
-)
-SELECT e.ClassId,
-       e.ClassName,
-       COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0),
-       COALESCE(sp.Paid, 0),
-       COALESCE(sc.CarryOver, 0)
-FROM Enrollments e
-LEFT JOIN StudentTuition st ON st.ClassId = e.ClassId
-LEFT JOIN StudentCarryOver sc ON sc.ClassId = e.ClassId
-LEFT JOIN StudentPaid sp ON sp.ClassId = e.ClassId
-ORDER BY e.ClassName;";
+SELECT p.ClassId,
+       COALESCE(SUM(p.Amount), 0) AS Paid
+FROM Payments p
+WHERE p.StudentId = @studentId
+  AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
+  AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
+GROUP BY p.ClassId;";
         command.Parameters.AddWithValue("@studentId", studentId);
         command.Parameters.AddWithValue("@month", month);
         command.Parameters.AddWithValue("@year", year);
 
-        var results = new List<StudentClassTuitionRow>();
+        var paidByClass = new Dictionary<int, decimal>();
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var due = ReadDecimal(reader, 2);
-            var paid = ReadDecimal(reader, 3);
-            results.Add(new StudentClassTuitionRow
-            {
-                ClassId = reader.GetInt32(0),
-                ClassName = reader.GetString(1),
-                TotalDue = due,
-                Paid = paid,
-                Remaining = Math.Max(0, due - paid),
-                CarryOver = ReadDecimal(reader, 4)
-            });
+            paidByClass[reader.GetInt32(0)] = ReadDecimal(reader, 1);
         }
 
-        return results;
+        return paidByClass;
     }
 
     private static PaymentHistoryRow MapPaymentHistoryRow(DbDataReader reader, bool includeClassName = false)
@@ -615,86 +777,52 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
 
     public ClassPaymentSummary GetClassPaymentSummary(int classId, int month, int year)
     {
+        var studentIds = GetStudentIdsForPaymentSummary(classId);
+        var summary = new ClassPaymentSummary();
+
+        foreach (var studentId in studentIds)
+        {
+            var breakdown = GetStudentTuitionBreakdownByClassMonthYear(studentId, month, year);
+            foreach (var row in breakdown)
+            {
+                if (classId > 0 && row.ClassId != classId)
+                {
+                    continue;
+                }
+
+                summary.TotalDue += row.TotalDue;
+                summary.TotalPaid += row.Paid;
+                summary.TotalRemaining += row.Remaining;
+                summary.TotalCarryOver += row.CarryOver;
+                summary.TotalAttendanceDue += row.NetAttendance;
+            }
+        }
+
+        return summary;
+    }
+
+    private List<int> GetStudentIdsForPaymentSummary(int classId)
+    {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-WITH Enrollments AS (
-    SELECT cs.StudentId, cs.ClassId
-    FROM ClassStudents cs
-    WHERE @classId = 0 OR cs.ClassId = @classId
-),
-StudentTuition AS (
-    SELECT ar.StudentId,
-           ats.ClassId,
-           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
-    FROM AttendanceRecords ar
-    INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-    INNER JOIN Classes c ON c.Id = ats.ClassId
-    INNER JOIN Courses co ON co.Id = c.CourseId
-    WHERE ar.Status = 'C'
-      AND (@classId = 0 OR ats.ClassId = @classId)
-      AND EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric
-      AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-    GROUP BY ar.StudentId, ats.ClassId
-),
-StudentCarryOver AS (
-    SELECT StudentId,
-           ClassId,
-           COALESCE(SUM(Amount), 0) AS CarryOver
-    FROM PaymentCarryOvers
-    WHERE (@classId = 0 OR ClassId = @classId)
-      AND ToMonth = @month
-      AND ToYear = @year
-    GROUP BY StudentId, ClassId
-),
-StudentPaid AS (
-    SELECT p.StudentId,
-           p.ClassId,
-           COALESCE(SUM(p.Amount), 0) AS Paid
-    FROM Payments p
-    WHERE (@classId = 0 OR p.ClassId = @classId)
-      AND EXTRACT(MONTH FROM CAST(p.PaymentDate AS timestamp)) = @month::numeric
-      AND EXTRACT(YEAR FROM CAST(p.PaymentDate AS timestamp)) = @year::numeric
-    GROUP BY p.StudentId, p.ClassId
-),
-PerClass AS (
-    SELECT e.StudentId,
-           e.ClassId,
-           COALESCE(st.AttendanceTuition, 0) AS AttendanceDue,
-           COALESCE(sc.CarryOver, 0) AS CarryOverDue,
-           COALESCE(st.AttendanceTuition, 0) + COALESCE(sc.CarryOver, 0) AS Due,
-           COALESCE(sp.Paid, 0) AS Paid
-    FROM Enrollments e
-    LEFT JOIN StudentTuition st ON st.StudentId = e.StudentId AND st.ClassId = e.ClassId
-    LEFT JOIN StudentCarryOver sc ON sc.StudentId = e.StudentId AND sc.ClassId = e.ClassId
-    LEFT JOIN StudentPaid sp ON sp.StudentId = e.StudentId AND sp.ClassId = e.ClassId
-)
-SELECT COALESCE(SUM(Due), 0),
-       COALESCE(SUM(Paid), 0),
-       COALESCE(SUM(GREATEST(0, Due - Paid)), 0),
-       COALESCE(SUM(CarryOverDue), 0),
-       COALESCE(SUM(AttendanceDue), 0)
-FROM PerClass;";
-        command.Parameters.AddWithValue("@classId", classId);
-        command.Parameters.AddWithValue("@month", month);
-        command.Parameters.AddWithValue("@year", year);
-
-        using var reader = command.ExecuteReader();
-        if (reader.Read())
+        command.CommandText = classId == 0
+            ? @"SELECT DISTINCT cs.StudentId FROM ClassStudents cs ORDER BY cs.StudentId;"
+            : @"SELECT DISTINCT cs.StudentId FROM ClassStudents cs WHERE cs.ClassId = @classId ORDER BY cs.StudentId;";
+        if (classId > 0)
         {
-            return new ClassPaymentSummary
-            {
-                TotalDue = ReadDecimal(reader, 0),
-                TotalPaid = ReadDecimal(reader, 1),
-                TotalRemaining = ReadDecimal(reader, 2),
-                TotalCarryOver = ReadDecimal(reader, 3),
-                TotalAttendanceDue = ReadDecimal(reader, 4)
-            };
+            command.Parameters.AddWithValue("@classId", classId);
         }
 
-        return new ClassPaymentSummary();
+        var studentIds = new List<int>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            studentIds.Add(reader.GetInt32(0));
+        }
+
+        return studentIds;
     }
 
     public bool IsFinalized(int classId, int month, int year)
@@ -978,6 +1106,9 @@ public class StudentClassTuitionRow
 {
     public int ClassId { get; set; }
     public string ClassName { get; set; } = "";
+    public decimal GrossAttendance { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal NetAttendance => Math.Max(0, GrossAttendance - DiscountAmount);
     public decimal TotalDue { get; set; }
     public decimal Paid { get; set; }
     public decimal Remaining { get; set; }
