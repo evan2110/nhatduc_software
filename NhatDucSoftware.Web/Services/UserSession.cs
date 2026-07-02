@@ -78,6 +78,8 @@ public class UserSession
 
     public bool CanManageWeeklySchedule => AdminPermissions.CanManageWeeklySchedule(CurrentUser);
 
+    public bool CanManageTuitionDiscount => AdminPermissions.CanManageTuitionDiscount(CurrentUser);
+
     public void SetCachedUser(AuthenticatedUser user) => _cachedUser = user;
 
     public void ClearCache() => _cachedUser = null;

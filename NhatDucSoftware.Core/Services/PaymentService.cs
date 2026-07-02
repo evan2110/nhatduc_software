@@ -1,5 +1,7 @@
 using System.Data.Common;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
+using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
 
@@ -185,6 +187,8 @@ WHERE cs.StudentId = @studentId;";
             throw new InvalidOperationException("Vui lòng nhập ghi chú lý do giảm phí.");
         }
 
+        EnsureCanManageTuitionDiscount(createdBy);
+
         if (IsStudentTuitionDiscountLocked(studentId, month, year))
         {
             throw new InvalidOperationException("Tháng này đã được chốt số liệu ở ít nhất một lớp, không thể sửa giảm phí.");
@@ -227,6 +231,34 @@ DO UPDATE SET DiscountPercent = EXCLUDED.DiscountPercent,
         command.Parameters.AddWithValue("@createdBy", createdBy);
         command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
         command.ExecuteNonQuery();
+    }
+
+    private static void EnsureCanManageTuitionDiscount(int userId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Username, Role FROM Users WHERE Id = @userId LIMIT 1;";
+        command.Parameters.AddWithValue("@userId", userId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản thực hiện thao tác.");
+        }
+
+        var user = new AuthenticatedUser
+        {
+            Id = userId,
+            Username = reader.GetString(0),
+            Role = reader.GetString(1)
+        };
+
+        if (!AdminPermissions.CanManageTuitionDiscount(user))
+        {
+            throw new InvalidOperationException("Bạn không có quyền giảm phí học viên.");
+        }
     }
 
     private List<TuitionClassGrossRow> GetStudentTuitionGrossRows(int studentId, int month, int year)

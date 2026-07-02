@@ -107,7 +107,10 @@ else
                             <td>@row.NguoiThu</td>
                             <td>
                                 <div class="table-actions">
-                                    <button class="btn btn-success btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDiscountModal(row)">Giảm phí</button>
+                                    @if (Session.CanManageTuitionDiscount)
+                                    {
+                                        <button class="btn btn-success btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDiscountModal(row)">Giảm phí</button>
+                                    }
                                     <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
                                     @if (_classId > 0)
                                     {
@@ -519,6 +522,13 @@ else
 
     private void OpenDiscountModal(PaymentClassListRow row)
     {
+        if (!Session.CanManageTuitionDiscount)
+        {
+            _message = "Bạn không có quyền giảm phí học viên.";
+            _isError = true;
+            return;
+        }
+
         _discountStudentId = row.StudentId;
         _discountStudentName = row.HoVaTen;
         var currentDiscount = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
@@ -575,6 +585,13 @@ else
     {
         if (_discountStudentId <= 0)
         {
+            return;
+        }
+
+        if (!Session.CanManageTuitionDiscount)
+        {
+            _message = "Bạn không có quyền giảm phí học viên.";
+            _isError = true;
             return;
         }
 

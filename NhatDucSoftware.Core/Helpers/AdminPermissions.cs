@@ -41,4 +41,7 @@ public static class AdminPermissions
 
     public static bool CanManageWeeklySchedule(AuthenticatedUser? user) =>
         IsAdmin(user) && !IsRestrictedAdmin(user);
+
+    public static bool CanManageTuitionDiscount(AuthenticatedUser? user) =>
+        IsAdmin(user) && !IsRestrictedAdmin(user);
 }
