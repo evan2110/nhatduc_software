@@ -1,0 +1,379 @@
+@page "/admin/attendance"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject StudentService StudentService
+@inject ClassService ClassService
+@inject AttendanceService AttendanceService
+@inject NavigationManager Nav
+
+<PageTitle>Điểm danh</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Điểm danh học viên</h1>
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Lớp</label>
+            <select @bind="_classId" @bind:after="OnFilterChanged">
+                <option value="0">Tất cả</option>
+                @foreach (var c in _classes)
+                {
+                    <option value="@c.Id">@c.ClassName</option>
+                }
+            </select>
+            <label>Tháng</label>
+            <select @bind="_month" @bind:after="OnFilterChanged">
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
+            </select>
+            <label>Năm</label>
+            <select @bind="_year" @bind:after="OnFilterChanged">
+                @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
+            </select>
+        </div>
+
+        <div class="list-toolbar">
+            <div class="search-box">
+                <input type="search"
+                       placeholder="Tìm theo tên, SĐT, lớp..."
+                       value="@_studentSearchText"
+                       @oninput="OnStudentSearchChanged" />
+            </div>
+            <div class="list-meta">
+                <span>@StudentFilteredCount học viên</span>
+                <label>
+                    Hiển thị
+                    <select @bind="_studentPageSize" @bind:after="OnStudentPageSizeChanged">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                    / trang
+                </label>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>SĐT</th></tr>
+                </thead>
+                <tbody>
+                    @if (PagedStudents.Count == 0)
+                    {
+                        <tr class="empty-row">
+                            <td colspan="4">Không tìm thấy học viên phù hợp.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @for (var i = 0; i < PagedStudents.Count; i++)
+                        {
+                            var student = PagedStudents[i];
+                            var rowIndex = (_studentCurrentPage - 1) * _studentPageSize + i + 1;
+                            <tr class="@(_selectedStudentId == student.Id ? "selected" : "")"
+                                @onclick="() => SelectStudent(student)">
+                                <td>@rowIndex</td>
+                                <td>@student.FullName</td>
+                                <td>@student.ClassName</td>
+                                <td>@student.Phone</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (StudentTotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="btn btn-secondary" @onclick="() => GoToStudentPage(1)" disabled="@(_studentCurrentPage <= 1)">«</button>
+                <button class="btn btn-secondary" @onclick="() => GoToStudentPage(_studentCurrentPage - 1)" disabled="@(_studentCurrentPage <= 1)">‹</button>
+                @foreach (var p in VisibleStudentPages)
+                {
+                    <button class="btn btn-secondary @(p == _studentCurrentPage ? "active" : "")" @onclick="() => GoToStudentPage(p)">@p</button>
+                }
+                <button class="btn btn-secondary" @onclick="() => GoToStudentPage(_studentCurrentPage + 1)" disabled="@(_studentCurrentPage >= StudentTotalPages)">›</button>
+                <button class="btn btn-secondary" @onclick="() => GoToStudentPage(StudentTotalPages)" disabled="@(_studentCurrentPage >= StudentTotalPages)">»</button>
+                <span class="pagination-info">Trang @_studentCurrentPage / @StudentTotalPages</span>
+            </div>
+        }
+    </div>
+
+    @if (_selectedStudentId > 0)
+    {
+        <div class="card">
+            <div class="summary-panel student-summary">
+                <div class="summary-panel-title">Chi tiết điểm danh: @_selectedStudentName — Tháng @_month/@_year</div>
+                <div class="summary-box">
+                    <span>Tổng ca: @_totalSessions</span>
+                    <span>Có mặt: @_attended</span>
+                    <span>Vắng: @_absent</span>
+                </div>
+            </div>
+
+            <div class="list-toolbar">
+                <div class="search-box">
+                    <input type="search"
+                           placeholder="Tìm theo ngày, lớp, ca, trạng thái..."
+                           value="@_detailSearchText"
+                           @oninput="OnDetailSearchChanged" />
+                </div>
+                <div class="list-meta">
+                    <span>@DetailFilteredCount ca</span>
+                    <label>
+                        Hiển thị
+                        <select @bind="_detailPageSize" @bind:after="OnDetailPageSizeChanged">
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                        / trang
+                    </label>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>TT</th><th>Ngày</th><th>Lớp</th><th>Ca</th><th>Trạng thái</th></tr>
+                    </thead>
+                    <tbody>
+                        @if (PagedDetails.Count == 0)
+                        {
+                            <tr class="empty-row">
+                                <td colspan="5">Không có ca học nào trong tháng này.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @for (var i = 0; i < PagedDetails.Count; i++)
+                            {
+                                var row = PagedDetails[i];
+                                var rowIndex = (_detailCurrentPage - 1) * _detailPageSize + i + 1;
+                                <tr>
+                                    <td>@rowIndex</td>
+                                    <td>@FormatDate(row.Ngay)</td>
+                                    <td>@row.Lop</td>
+                                    <td>@TeacherTimesheet.GetShiftDescription(row.Ca)</td>
+                                    <td>
+                                        <span class="@GetStatusClass(row.TrangThai)">@row.TrangThai</span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (DetailTotalPages > 1)
+            {
+                <div class="pagination-bar">
+                    <button class="btn btn-secondary" @onclick="() => GoToDetailPage(1)" disabled="@(_detailCurrentPage <= 1)">«</button>
+                    <button class="btn btn-secondary" @onclick="() => GoToDetailPage(_detailCurrentPage - 1)" disabled="@(_detailCurrentPage <= 1)">‹</button>
+                    @foreach (var p in VisibleDetailPages)
+                    {
+                        <button class="btn btn-secondary @(p == _detailCurrentPage ? "active" : "")" @onclick="() => GoToDetailPage(p)">@p</button>
+                    }
+                    <button class="btn btn-secondary" @onclick="() => GoToDetailPage(_detailCurrentPage + 1)" disabled="@(_detailCurrentPage >= DetailTotalPages)">›</button>
+                    <button class="btn btn-secondary" @onclick="() => GoToDetailPage(DetailTotalPages)" disabled="@(_detailCurrentPage >= DetailTotalPages)">»</button>
+                    <span class="pagination-info">Trang @_detailCurrentPage / @DetailTotalPages</span>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<ClassInfo> _classes = new();
+    private List<Student> _allStudents = new();
+    private List<AttendanceDetailRow> _allDetails = new();
+
+    private int _classId;
+    private int _month = DateTime.Now.Month;
+    private int _year = DateTime.Now.Year;
+
+    private string _studentSearchText = "";
+    private int _studentCurrentPage = 1;
+    private int _studentPageSize = 15;
+
+    private int _selectedStudentId;
+    private string _selectedStudentName = "";
+    private int _totalSessions;
+    private int _attended;
+    private int _absent;
+
+    private string _detailSearchText = "";
+    private int _detailCurrentPage = 1;
+    private int _detailPageSize = 15;
+
+    private IEnumerable<Student> FilteredStudents =>
+        string.IsNullOrWhiteSpace(_studentSearchText)
+            ? _allStudents
+            : _allStudents.Where(MatchesStudentSearch);
+
+    private int StudentFilteredCount => FilteredStudents.Count();
+
+    private int StudentTotalPages => PaginationHelper.GetTotalPages(StudentFilteredCount, _studentPageSize);
+
+    private List<Student> PagedStudents =>
+        PaginationHelper.GetPage(FilteredStudents.ToList(), _studentCurrentPage, _studentPageSize);
+
+    private IEnumerable<int> VisibleStudentPages => GetVisiblePages(_studentCurrentPage, StudentTotalPages);
+
+    private IEnumerable<AttendanceDetailRow> FilteredDetails =>
+        string.IsNullOrWhiteSpace(_detailSearchText)
+            ? _allDetails
+            : _allDetails.Where(MatchesDetailSearch);
+
+    private int DetailFilteredCount => FilteredDetails.Count();
+
+    private int DetailTotalPages => PaginationHelper.GetTotalPages(DetailFilteredCount, _detailPageSize);
+
+    private List<AttendanceDetailRow> PagedDetails =>
+        PaginationHelper.GetPage(FilteredDetails.ToList(), _detailCurrentPage, _detailPageSize);
+
+    private IEnumerable<int> VisibleDetailPages => GetVisiblePages(_detailCurrentPage, DetailTotalPages);
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
+        _classes = ClassService.GetAll();
+        LoadStudents();
+    }
+
+    private void LoadStudents()
+    {
+        if (_classId > 0)
+        {
+            var ids = ClassService.GetStudentsInClass(_classId)
+                .Select(x => x.StudentId)
+                .ToHashSet();
+            _allStudents = StudentService.GetAll()
+                .Where(s => ids.Contains(s.Id))
+                .ToList();
+        }
+        else
+        {
+            _allStudents = StudentService.GetAll();
+        }
+
+        _studentCurrentPage = Math.Clamp(_studentCurrentPage, 1, StudentTotalPages);
+
+        var selectedStillVisible = _selectedStudentId > 0 && FilteredStudents.Any(s => s.Id == _selectedStudentId);
+        if (selectedStillVisible)
+        {
+            SelectStudent(FilteredStudents.First(s => s.Id == _selectedStudentId));
+        }
+        else
+        {
+            var first = FilteredStudents.FirstOrDefault();
+            if (first is not null)
+            {
+                SelectStudent(first);
+            }
+            else
+            {
+                _selectedStudentId = 0;
+                _selectedStudentName = "";
+                _allDetails.Clear();
+                _totalSessions = 0;
+                _attended = 0;
+                _absent = 0;
+            }
+        }
+    }
+
+    private void SelectStudent(Student student)
+    {
+        _selectedStudentId = student.Id;
+        _selectedStudentName = student.FullName;
+        _detailSearchText = "";
+        _detailCurrentPage = 1;
+
+        (_totalSessions, _attended, _absent) =
+            AttendanceService.GetStudentAttendanceSummary(student.Id, _year, _month);
+        _allDetails = AttendanceService.GetStudentAttendanceDetails(student.Id, _year, _month);
+        _detailCurrentPage = Math.Clamp(_detailCurrentPage, 1, DetailTotalPages);
+    }
+
+    private bool MatchesStudentSearch(Student student)
+    {
+        var q = _studentSearchText.Trim();
+        return student.FullName.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || student.ClassName.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || student.Phone.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || student.Id.ToString().Contains(q, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesDetailSearch(AttendanceDetailRow row)
+    {
+        var q = _detailSearchText.Trim();
+        var shiftText = TeacherTimesheet.GetShiftDescription(row.Ca);
+        return row.Ngay.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || row.Lop.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || row.TrangThai.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || row.Ca.ToString().Contains(q, StringComparison.OrdinalIgnoreCase)
+            || shiftText.Contains(q, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnFilterChanged()
+    {
+        _studentCurrentPage = 1;
+        LoadStudents();
+    }
+
+    private void OnStudentSearchChanged(ChangeEventArgs e)
+    {
+        _studentSearchText = e.Value?.ToString() ?? "";
+        _studentCurrentPage = 1;
+    }
+
+    private void OnStudentPageSizeChanged() => _studentCurrentPage = 1;
+
+    private void GoToStudentPage(int page) =>
+        _studentCurrentPage = Math.Clamp(page, 1, StudentTotalPages);
+
+    private void OnDetailSearchChanged(ChangeEventArgs e)
+    {
+        _detailSearchText = e.Value?.ToString() ?? "";
+        _detailCurrentPage = 1;
+    }
+
+    private void OnDetailPageSizeChanged() => _detailCurrentPage = 1;
+
+    private void GoToDetailPage(int page) =>
+        _detailCurrentPage = Math.Clamp(page, 1, DetailTotalPages);
+
+    private static IEnumerable<int> GetVisiblePages(int currentPage, int totalPages)
+    {
+        var pages = new List<int>();
+        var start = Math.Max(1, currentPage - 2);
+        var end = Math.Min(totalPages, currentPage + 2);
+        for (var p = start; p <= end; p++)
+        {
+            pages.Add(p);
+        }
+        return pages;
+    }
+
+    private static string FormatDate(string dateText)
+    {
+        if (DateTime.TryParse(dateText, out var date))
+        {
+            return date.ToString("dd/MM/yyyy");
+        }
+        return dateText;
+    }
+
+    private static string GetStatusClass(string status) =>
+        status.Equals("Có mặt", StringComparison.OrdinalIgnoreCase) ? "status-ok"
+        : status.Equals("Vắng", StringComparison.OrdinalIgnoreCase) ? "status-missing"
+        : "";
+}

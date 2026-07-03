@@ -217,4 +217,70 @@ ORDER BY ats.SessionDate, c.ClassName, ats.ShiftNumber, s.FullName;";
 
         return result;
     }
+
+    public (int TotalSessions, int Attended, int Absent) GetStudentAttendanceSummary(int studentId, int year, int month)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(*) AS Total,
+       COALESCE(SUM(CASE WHEN ar.Status = 'C' THEN 1 ELSE 0 END), 0) AS Attended,
+       COALESCE(SUM(CASE WHEN ar.Status = 'V' THEN 1 ELSE 0 END), 0) AS Absent
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+WHERE ar.StudentId = @studentId
+  AND EXTRACT(YEAR FROM ats.SessionDate::date) = @year
+  AND EXTRACT(MONTH FROM ats.SessionDate::date) = @month;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        if (reader.Read())
+        {
+            return (reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2));
+        }
+
+        return (0, 0, 0);
+    }
+
+    public List<AttendanceDetailRow> GetStudentAttendanceDetails(int studentId, int year, int month)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT ats.SessionDate, c.ClassName, ats.ShiftNumber, ar.Status
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+WHERE ar.StudentId = @studentId
+  AND EXTRACT(YEAR FROM ats.SessionDate::date) = @year
+  AND EXTRACT(MONTH FROM ats.SessionDate::date) = @month
+ORDER BY ats.SessionDate DESC, ats.ShiftNumber;";
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        var results = new List<AttendanceDetailRow>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var status = reader.IsDBNull(3) ? "" : reader.GetString(3);
+            results.Add(new AttendanceDetailRow
+            {
+                Ngay = reader.GetString(0),
+                Lop = reader.GetString(1),
+                Ca = reader.GetInt32(2),
+                TrangThai = status.Equals("C", StringComparison.OrdinalIgnoreCase) ? "Có mặt"
+                    : status.Equals("V", StringComparison.OrdinalIgnoreCase) ? "Vắng"
+                    : status
+            });
+        }
+
+        return results;
+    }
 }
