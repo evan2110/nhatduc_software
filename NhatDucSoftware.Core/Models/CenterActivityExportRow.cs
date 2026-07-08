@@ -2,6 +2,7 @@ namespace NhatDucSoftware.Core.Models;
 
 public class CenterAttendanceExportRow
 {
+    public int ClassId { get; set; }
     public DateTime SessionDate { get; set; }
     public string ClassName { get; set; } = "";
     public int ShiftNumber { get; set; }

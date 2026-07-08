@@ -275,4 +275,29 @@ app.MapGet("/api/export/center-activity", (string from, string to, ExcelExportSe
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 });
 
+app.MapGet("/api/export/teacher-payroll-attendance", (
+    int teacherId,
+    int year,
+    int month,
+    TeacherService teachers,
+    TeacherTimesheetNotificationService payrollEmail) =>
+{
+    if (teacherId <= 0 || month is < 1 or > 12 || year < 2000)
+    {
+        return Results.BadRequest("Tham số không hợp lệ.");
+    }
+
+    var teacher = teachers.GetAll().FirstOrDefault(t => t.Id == teacherId);
+    if (teacher is null)
+    {
+        return Results.NotFound("Không tìm thấy giáo viên.");
+    }
+
+    var attachment = payrollEmail.BuildPayrollAttachment(teacher, year, month);
+    return Results.File(
+        attachment.Bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        attachment.FileName);
+});
+
 app.Run();

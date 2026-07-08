@@ -65,6 +65,29 @@ ORDER BY c.Id ASC;";
             .ToList();
     }
 
+    public List<ClassInfo> GetClassesByTeacherForMonth(int teacherId, int year, int month)
+    {
+        var classes = GetClassesByTeacherInternal(teacherId);
+        var fromDate = new DateTime(year, month, 1);
+        var toDate = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+
+        return classes
+            .Where(c =>
+            {
+                for (var date = fromDate; date <= toDate; date = date.AddDays(1))
+                {
+                    if (ClassVisibility.IsVisibleForDate(c, date))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            .OrderBy(c => c.ClassName)
+            .ToList();
+    }
+
     private List<ClassInfo> GetClassesByTeacherInternal(int teacherId)
     {
         var result = new List<ClassInfo>();

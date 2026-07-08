@@ -23,6 +23,20 @@ public class TeacherTimesheetNotificationService
     private const string LeaderName = "Nguyễn Thị Duyến";
     private const string PreparedByName = "Đỗ Nhật Đức";
 
+    private readonly AttendanceService _attendanceService;
+    private readonly ClassService _classService;
+    private readonly ExcelExportService _excelExportService;
+
+    public TeacherTimesheetNotificationService(
+        AttendanceService attendanceService,
+        ClassService classService,
+        ExcelExportService excelExportService)
+    {
+        _attendanceService = attendanceService;
+        _classService = classService;
+        _excelExportService = excelExportService;
+    }
+
     public bool TrySendTimesheetEmail(
         Teacher teacher,
         string username,
@@ -81,7 +95,8 @@ public class TeacherTimesheetNotificationService
 
         try
         {
-            var message = BuildPayrollMessage(teacher, payroll, config);
+            var attachment = BuildPayrollAttachment(teacher, payroll.Year, payroll.Month);
+            var message = BuildPayrollMessage(teacher, payroll, config, attachment.FileName, attachment.Bytes);
             await SendMessageAsync(message, config, cancellationToken);
             return (true, string.Empty);
         }
@@ -98,12 +113,53 @@ public class TeacherTimesheetNotificationService
             throw new InvalidOperationException($"Giáo viên {teacher.FullName} chưa có email.");
         }
 
+        var attachment = BuildPayrollAttachment(teacher, payroll.Year, payroll.Month);
+
         return new TeacherPayrollEmailPreview
         {
             ToEmail = teacher.Email.Trim(),
             Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}",
-            HtmlBody = BuildPayrollEmailHtml(teacher, payroll)
+            HtmlBody = BuildPayrollEmailHtml(teacher, payroll),
+            AttachmentFileName = attachment.FileName,
+            AttachmentBytes = attachment.Bytes,
+            AttendanceSheets = attachment.Sheets
         };
+    }
+
+    public TeacherPayrollAttachmentData BuildPayrollAttachment(Teacher teacher, int year, int month)
+    {
+        var classes = _classService.GetClassesByTeacherForMonth(teacher.Id, year, month);
+        var attendanceRows = _attendanceService.GetTeacherClassAttendanceForMonth(teacher.Id, year, month);
+        var bytes = _excelExportService.BuildTeacherClassAttendanceWorkbook(year, month, classes, attendanceRows);
+        var fileName = BuildPayrollAttachmentFileName(teacher.FullName, month, year);
+        var sheets = classes
+            .Select(classInfo => new TeacherPayrollAttendanceSheetPreview
+            {
+                ClassName = classInfo.ClassName,
+                Rows = attendanceRows
+                    .Where(row => row.ClassId == classInfo.Id)
+                    .ToList()
+            })
+            .ToList();
+
+        return new TeacherPayrollAttachmentData
+        {
+            FileName = fileName,
+            Bytes = bytes,
+            Sheets = sheets
+        };
+    }
+
+    private static string BuildPayrollAttachmentFileName(string teacherName, int month, int year)
+    {
+        var safeName = string.Concat(teacherName
+            .Normalize(NormalizationForm.FormD)
+            .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark))
+            .Replace(' ', '_')
+            .Replace('\\', '_')
+            .Replace('/', '_');
+
+        return $"Diem_danh_{safeName}_{month:D2}_{year}.xlsx";
     }
 
     private static MimeMessage BuildTimesheetMessage(
@@ -127,16 +183,29 @@ public class TeacherTimesheetNotificationService
     private static MimeMessage BuildPayrollMessage(
         Teacher teacher,
         TeacherPayrollEmailData payroll,
-        EmailConfig config)
+        EmailConfig config,
+        string attachmentFileName,
+        byte[] attachmentBytes)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(CompanyName, config.FromEmail));
         message.To.Add(MailboxAddress.Parse(teacher.Email!.Trim()));
         message.Subject = $"PHIẾU LƯƠNG Tháng {payroll.Month:D2}/{payroll.Year} - {teacher.FullName}";
-        message.Body = new BodyBuilder
+
+        var builder = new BodyBuilder
         {
             HtmlBody = BuildPayrollEmailHtml(teacher, payroll)
-        }.ToMessageBody();
+        };
+
+        if (attachmentBytes.Length > 0)
+        {
+            builder.Attachments.Add(
+                attachmentFileName,
+                attachmentBytes,
+                ContentType.Parse("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        }
+
+        message.Body = builder.ToMessageBody();
         return message;
     }
 
@@ -508,4 +577,20 @@ public sealed class TeacherPayrollEmailPreview
     public string ToEmail { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public string HtmlBody { get; set; } = string.Empty;
+    public string AttachmentFileName { get; set; } = string.Empty;
+    public byte[] AttachmentBytes { get; set; } = Array.Empty<byte>();
+    public List<TeacherPayrollAttendanceSheetPreview> AttendanceSheets { get; set; } = new();
+}
+
+public sealed class TeacherPayrollAttachmentData
+{
+    public string FileName { get; set; } = string.Empty;
+    public byte[] Bytes { get; set; } = Array.Empty<byte>();
+    public List<TeacherPayrollAttendanceSheetPreview> Sheets { get; set; } = new();
+}
+
+public sealed class TeacherPayrollAttendanceSheetPreview
+{
+    public string ClassName { get; set; } = string.Empty;
+    public List<CenterAttendanceExportRow> Rows { get; set; } = new();
 }

@@ -181,7 +181,8 @@ ON CONFLICT(SessionId, StudentId) DO UPDATE SET Status = EXCLUDED.Status;";
 
         using var command = connection.CreateCommand();
         command.CommandText = @"
-SELECT ats.SessionDate,
+SELECT c.Id,
+       ats.SessionDate,
        c.ClassName,
        ats.ShiftNumber,
        s.FullName,
@@ -201,17 +202,65 @@ ORDER BY ats.SessionDate, c.ClassName, ats.ShiftNumber, s.FullName;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var status = reader.IsDBNull(4) ? "" : reader.GetString(4);
+            var status = reader.IsDBNull(5) ? "" : reader.GetString(5);
             result.Add(new CenterAttendanceExportRow
             {
-                SessionDate = DateTime.Parse(reader.GetString(0)),
-                ClassName = reader.GetString(1),
-                ShiftNumber = reader.GetInt32(2),
-                StudentName = reader.GetString(3),
+                ClassId = reader.GetInt32(0),
+                SessionDate = DateTime.Parse(reader.GetString(1)),
+                ClassName = reader.GetString(2),
+                ShiftNumber = reader.GetInt32(3),
+                StudentName = reader.GetString(4),
                 Status = status.Equals("C", StringComparison.OrdinalIgnoreCase) ? "Có mặt"
                     : status.Equals("V", StringComparison.OrdinalIgnoreCase) ? "Vắng"
                     : status,
-                TeacherName = reader.GetString(5)
+                TeacherName = reader.GetString(6)
+            });
+        }
+
+        return result;
+    }
+
+    public List<CenterAttendanceExportRow> GetTeacherClassAttendanceForMonth(int teacherId, int year, int month)
+    {
+        var result = new List<CenterAttendanceExportRow>();
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT c.Id,
+       ats.SessionDate,
+       c.ClassName,
+       ats.ShiftNumber,
+       s.FullName,
+       ar.Status
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Students s ON s.Id = ar.StudentId
+WHERE c.TeacherId = @teacherId
+  AND EXTRACT(YEAR FROM ats.SessionDate::date) = @year
+  AND EXTRACT(MONTH FROM ats.SessionDate::date) = @month
+ORDER BY c.ClassName, ats.SessionDate, ats.ShiftNumber, s.FullName;";
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var status = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            result.Add(new CenterAttendanceExportRow
+            {
+                ClassId = reader.GetInt32(0),
+                SessionDate = DateTime.Parse(reader.GetString(1)),
+                ClassName = reader.GetString(2),
+                ShiftNumber = reader.GetInt32(3),
+                StudentName = reader.GetString(4),
+                Status = status.Equals("C", StringComparison.OrdinalIgnoreCase) ? "Có mặt"
+                    : status.Equals("V", StringComparison.OrdinalIgnoreCase) ? "Vắng"
+                    : status
             });
         }
 

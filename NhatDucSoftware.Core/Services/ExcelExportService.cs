@@ -1,3 +1,4 @@
+using System.IO;
 using ClosedXML.Excel;
 using NhatDucSoftware.Core.Models;
 
@@ -440,5 +441,132 @@ public class ExcelExportService
         timesheetSheet.Column(6).Width = 28;
 
         workbook.SaveAs(filePath);
+    }
+
+    public byte[] BuildTeacherClassAttendanceWorkbook(
+        int year,
+        int month,
+        IReadOnlyList<ClassInfo> classes,
+        IReadOnlyList<CenterAttendanceExportRow> attendanceRows)
+    {
+        using var workbook = new XLWorkbook();
+        var monthText = $"Tháng {month:D2}/{year}";
+        var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (classes.Count == 0)
+        {
+            var emptySheet = workbook.Worksheets.Add("Diem danh");
+            emptySheet.Cell(1, 1).Value = "Không có lớp học trong tháng này.";
+            emptySheet.Cell(1, 1).Style.Font.Bold = true;
+        }
+        else
+        {
+            foreach (var classInfo in classes.OrderBy(c => c.ClassName))
+            {
+                var sheetName = GetUniqueSheetName(classInfo.ClassName, usedSheetNames);
+                var worksheet = workbook.Worksheets.Add(sheetName);
+                WriteClassAttendanceSheet(worksheet, classInfo.ClassName, monthText, attendanceRows.Where(r => r.ClassId == classInfo.Id));
+            }
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public void ExportTeacherClassAttendanceForMonth(
+        int year,
+        int month,
+        IReadOnlyList<ClassInfo> classes,
+        IReadOnlyList<CenterAttendanceExportRow> attendanceRows,
+        string filePath)
+    {
+        var bytes = BuildTeacherClassAttendanceWorkbook(year, month, classes, attendanceRows);
+        File.WriteAllBytes(filePath, bytes);
+    }
+
+    private static void WriteClassAttendanceSheet(
+        IXLWorksheet worksheet,
+        string className,
+        string monthText,
+        IEnumerable<CenterAttendanceExportRow> rows)
+    {
+        worksheet.Cell(1, 1).Value = $"Điểm danh - {className}";
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 14;
+        worksheet.Range(1, 1, 1, 4).Merge();
+        worksheet.Cell(2, 1).Value = monthText;
+        worksheet.Cell(2, 1).Style.Font.Bold = true;
+
+        worksheet.Cell(4, 1).Value = "Ngày";
+        worksheet.Cell(4, 2).Value = "Ca";
+        worksheet.Cell(4, 3).Value = "Học viên";
+        worksheet.Cell(4, 4).Value = "Trạng thái";
+        worksheet.Range(4, 1, 4, 4).Style.Font.Bold = true;
+        worksheet.Range(4, 1, 4, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var row = 5;
+        foreach (var item in rows)
+        {
+            worksheet.Cell(row, 1).Value = item.SessionDate.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 2).Value = item.ShiftNumber;
+            worksheet.Cell(row, 3).Value = item.StudentName;
+            worksheet.Cell(row, 4).Value = item.Status;
+            row++;
+        }
+
+        worksheet.Column(1).Width = 14;
+        worksheet.Column(2).Width = 8;
+        worksheet.Column(3).Width = 28;
+        worksheet.Column(4).Width = 14;
+    }
+
+    private static string GetUniqueSheetName(string className, ISet<string> usedSheetNames)
+    {
+        var baseName = SanitizeSheetName(className);
+        if (usedSheetNames.Add(baseName))
+        {
+            return baseName;
+        }
+
+        for (var index = 2; index < 100; index++)
+        {
+            var suffix = $"_{index}";
+            var trimmedBase = baseName;
+            if (trimmedBase.Length + suffix.Length > 31)
+            {
+                trimmedBase = trimmedBase[..(31 - suffix.Length)];
+            }
+
+            var candidate = $"{trimmedBase}{suffix}";
+            if (usedSheetNames.Add(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        var fallback = $"Lop_{usedSheetNames.Count + 1}";
+        usedSheetNames.Add(fallback);
+        return fallback;
+    }
+
+    private static string SanitizeSheetName(string name)
+    {
+        var sanitized = name
+            .Replace('\\', '_')
+            .Replace('/', '_')
+            .Replace('*', '_')
+            .Replace('?', '_')
+            .Replace(':', '_')
+            .Replace('[', '_')
+            .Replace(']', '_')
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            sanitized = "Lop";
+        }
+
+        return sanitized.Length > 31 ? sanitized[..31] : sanitized;
     }
 }
