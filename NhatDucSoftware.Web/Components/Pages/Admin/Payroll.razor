@@ -518,28 +518,30 @@ else
                             }
                         }
 
-                        @if (!string.IsNullOrEmpty(_payrollEmailPreviewAttachmentName) && _payrollEmailPreviewRow is not null)
-                        {
-                            <a class="btn btn-success btn-sm payroll-preview-download"
-                               href="@GetPayrollAttachmentPreviewUrl(_payrollEmailPreviewRow.TeacherId)"
-                               target="_blank">
-                                Tải file Excel xem trước
-                            </a>
-                        }
                     </div>
                 }
 
-                <div class="payroll-preview-actions">
-                    <button class="btn btn-primary"
-                            @onclick="ConfirmSendPayrollEmail"
-                            disabled="@(_sendingPayrollTeacherId is not null)">
-                        @(_sendingPayrollTeacherId is not null ? "Đang gửi..." : "Gửi")
-                    </button>
-                    <button class="btn btn-secondary"
-                            @onclick="ClosePayrollEmailPreview"
-                            disabled="@(_sendingPayrollTeacherId is not null)">
-                        Hủy
-                    </button>
+                <div class="payroll-preview-footer">
+                    @if (!string.IsNullOrEmpty(_payrollEmailPreviewAttachmentName) && _payrollEmailPreviewRow is not null)
+                    {
+                        <a class="btn btn-success btn-sm payroll-preview-download"
+                           href="@GetPayrollAttachmentPreviewUrl(_payrollEmailPreviewRow.TeacherId)"
+                           target="_blank">
+                            Tải file Excel xem trước
+                        </a>
+                    }
+                    <div class="payroll-preview-actions">
+                        <button class="btn btn-primary"
+                                @onclick="ConfirmSendPayrollEmail"
+                                disabled="@(_sendingPayrollTeacherId is not null)">
+                            @(_sendingPayrollTeacherId is not null ? "Đang gửi..." : "Gửi")
+                        </button>
+                        <button class="btn btn-secondary"
+                                @onclick="ClosePayrollEmailPreview"
+                                disabled="@(_sendingPayrollTeacherId is not null)">
+                            Hủy
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
