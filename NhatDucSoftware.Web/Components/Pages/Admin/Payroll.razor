@@ -529,16 +529,18 @@ else
                     </div>
                 }
 
-                <button class="btn btn-primary"
-                        @onclick="ConfirmSendPayrollEmail"
-                        disabled="@(_sendingPayrollTeacherId is not null)">
-                    @(_sendingPayrollTeacherId is not null ? "Đang gửi..." : "Gửi")
-                </button>
-                <button class="btn btn-secondary"
-                        @onclick="ClosePayrollEmailPreview"
-                        disabled="@(_sendingPayrollTeacherId is not null)">
-                    Hủy
-                </button>
+                <div class="payroll-preview-actions">
+                    <button class="btn btn-primary"
+                            @onclick="ConfirmSendPayrollEmail"
+                            disabled="@(_sendingPayrollTeacherId is not null)">
+                        @(_sendingPayrollTeacherId is not null ? "Đang gửi..." : "Gửi")
+                    </button>
+                    <button class="btn btn-secondary"
+                            @onclick="ClosePayrollEmailPreview"
+                            disabled="@(_sendingPayrollTeacherId is not null)">
+                        Hủy
+                    </button>
+                </div>
             </div>
         </div>
     }
