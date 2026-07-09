@@ -91,7 +91,7 @@ public class ExcelExportService
     {
         using var workbook = new XLWorkbook();
         var monthlySheet = workbook.Worksheets.Add($"Chi tháng {year}");
-        WriteMonthlyAmountSheet(monthlySheet, $"Tổng chi lương giáo viên năm {year}", "Tổng chi", monthly);
+        WriteMonthlyAmountSheet(monthlySheet, $"Tổng chi lương giáo viên (sau điều chỉnh) năm {year}", "Tổng chi", monthly);
 
         var detailSheet = workbook.Worksheets.Add("Chi tiết giáo viên");
         detailSheet.Cell(1, 1).Value = $"Chi tiết chi lương giáo viên năm {year}";
@@ -124,7 +124,7 @@ public class ExcelExportService
     {
         using var workbook = new XLWorkbook();
         var monthlySheet = workbook.Worksheets.Add($"Thu tháng {year}");
-        WriteMonthlyAmountSheet(monthlySheet, $"Tổng thu học phí điểm danh năm {year}", "Tổng thu", monthly);
+        WriteMonthlyAmountSheet(monthlySheet, $"Tổng thu học phí điểm danh (sau giảm) năm {year}", "Tổng thu", monthly);
 
         var detailSheet = workbook.Worksheets.Add("Chi tiết lớp");
         detailSheet.Cell(1, 1).Value = $"Chi tiết thu học phí theo lớp năm {year}";

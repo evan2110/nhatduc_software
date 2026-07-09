@@ -8,6 +8,7 @@ public class ReportService
 {
     private readonly TeacherTimesheetService _timesheetService = new();
     private readonly TeacherService _teacherService = new();
+    private readonly PaymentService _paymentService = new();
 
     public ReportSummary GetSummary()
     {
@@ -163,70 +164,18 @@ ORDER BY Month;";
     {
         var result = CreateEmptyMonthlyAmounts();
 
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT CAST(EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) AS INTEGER) AS Month,
-       COALESCE(SUM(co.TuitionFee), 0) AS TotalAmount
-FROM AttendanceRecords ar
-INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-INNER JOIN Classes c ON c.Id = ats.ClassId
-INNER JOIN Courses co ON co.Id = c.CourseId
-WHERE ar.Status = 'C'
-  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-GROUP BY EXTRACT(MONTH FROM CAST(ats.SessionDate AS date))
-ORDER BY Month;";
-        command.Parameters.AddWithValue("@year", year);
-
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        for (var month = 1; month <= 12; month++)
         {
-            var month = Convert.ToInt32(reader.GetValue(0));
-            result[month - 1].Amount = ReadDecimal(reader, 1);
+            result[month - 1].Amount = _paymentService
+                .GetClassPaymentSummary(0, month, year)
+                .TotalAttendanceDue;
         }
 
         return result;
     }
 
-    public List<ClassTuitionDetailStat> GetClassTuitionDetail(int year, int? month = null)
-    {
-        using var connection = DbContext.CreateConnection();
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT c.Id,
-       c.ClassName,
-       COALESCE(SUM(co.TuitionFee), 0) AS TotalAmount
-FROM AttendanceRecords ar
-INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-INNER JOIN Classes c ON c.Id = ats.ClassId
-INNER JOIN Courses co ON co.Id = c.CourseId
-WHERE ar.Status = 'C'
-  AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric
-  AND (@month = 0 OR EXTRACT(MONTH FROM CAST(ats.SessionDate AS date)) = @month::numeric)
-GROUP BY c.Id, c.ClassName
-HAVING COALESCE(SUM(co.TuitionFee), 0) > 0
-ORDER BY TotalAmount DESC, c.ClassName ASC;";
-        command.Parameters.AddWithValue("@year", year);
-        command.Parameters.AddWithValue("@month", month ?? 0);
-
-        var result = new List<ClassTuitionDetailStat>();
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            result.Add(new ClassTuitionDetailStat
-            {
-                ClassId = Convert.ToInt32(reader.GetValue(0)),
-                ClassName = reader.GetString(1),
-                TotalAmount = ReadDecimal(reader, 2)
-            });
-        }
-
-        return result;
-    }
+    public List<ClassTuitionDetailStat> GetClassTuitionDetail(int year, int? month = null) =>
+        _paymentService.GetClassTuitionAfterDiscountDetail(year, month);
 
     public List<MonthlyEnrollmentStat> GetEnrollmentByMonth(int year)
     {

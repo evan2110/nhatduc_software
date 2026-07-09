@@ -88,7 +88,7 @@ else
 
     <div class="card report-section">
         <div class="report-section-header">
-            <h3>Tổng chi — Lương giáo viên năm @_selectedYear</h3>
+            <h3>Tổng chi — Lương giáo viên (sau điều chỉnh) năm @_selectedYear</h3>
             <div class="report-actions">
                 <button class="btn btn-secondary btn-sm" @onclick="() => ShowExpenseDetail(null)">Chi tiết giáo viên</button>
                 <a class="btn btn-success btn-sm" href="@($"/api/export/expense-month/{_selectedYear}")" target="_blank">Xuất Excel</a>
@@ -100,7 +100,7 @@ else
 
     <div class="card report-section">
         <div class="report-section-header">
-            <h3>Tổng thu — Học phí từ điểm danh năm @_selectedYear</h3>
+            <h3>Tổng thu — Học phí từ điểm danh (sau giảm) năm @_selectedYear</h3>
             <div class="report-actions">
                 <button class="btn btn-secondary btn-sm" @onclick="() => ShowTuitionDetail(null)">Chi tiết lớp</button>
                 <a class="btn btn-success btn-sm" href="@($"/api/export/tuition-earned/{_selectedYear}")" target="_blank">Xuất Excel</a>

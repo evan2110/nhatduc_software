@@ -1080,6 +1080,51 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
         return summary;
     }
 
+    public List<ClassTuitionDetailStat> GetClassTuitionAfterDiscountDetail(int year, int? month = null)
+    {
+        var months = month is >= 1 and <= 12
+            ? new[] { month.Value }
+            : Enumerable.Range(1, 12).ToArray();
+
+        var classTotals = new Dictionary<int, (string Name, decimal Amount)>();
+        var studentIds = GetStudentIdsForPaymentSummary(0);
+
+        foreach (var m in months)
+        {
+            foreach (var studentId in studentIds)
+            {
+                foreach (var row in GetStudentTuitionBreakdownByClassMonthYear(studentId, m, year))
+                {
+                    if (row.NetAttendance <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (!classTotals.TryGetValue(row.ClassId, out var current))
+                    {
+                        classTotals[row.ClassId] = (row.ClassName, row.NetAttendance);
+                    }
+                    else
+                    {
+                        classTotals[row.ClassId] = (current.Name, current.Amount + row.NetAttendance);
+                    }
+                }
+            }
+        }
+
+        return classTotals
+            .Select(kv => new ClassTuitionDetailStat
+            {
+                ClassId = kv.Key,
+                ClassName = kv.Value.Name,
+                TotalAmount = kv.Value.Amount
+            })
+            .Where(x => x.TotalAmount > 0)
+            .OrderByDescending(x => x.TotalAmount)
+            .ThenBy(x => x.ClassName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private List<int> GetStudentIdsForPaymentSummary(int classId)
     {
         using var connection = DbContext.CreateConnection();
