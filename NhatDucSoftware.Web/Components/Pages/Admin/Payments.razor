@@ -112,10 +112,6 @@ else
                                         <button class="btn btn-success btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDiscountModal(row)">Giảm phí</button>
                                     }
                                     <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
-                                    @if (_classId == 0)
-                                    {
-                                        <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@(!CanCollectForRow(row))">Thanh toán</button>
-                                    }
                                 </div>
                             </td>
                         </tr>
@@ -174,36 +170,6 @@ else
                 </div>
                 <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(!CanCollectPayment)">Thu học phí</button>
                 <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(!CanPayFromBalance)">Thanh toán từ số dư</button>
-            }
-            @if (VisibleTuitionBreakdown.Any())
-            {
-                <div class="table-responsive" style="margin-top: 1rem;">
-                    <h3>Chi tiết theo lớp</h3>
-                    <table class="data-table compact">
-                        <thead>
-                            <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in VisibleTuitionBreakdown)
-                            {
-                                <tr class="@(_classId == item.ClassId ? "selected" : "")">
-                                    <td>@item.ClassName</td>
-                                    <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
-                                    <td>@MoneyHelper.FormatCurrency(item.DiscountAmount)</td>
-                                    <td>
-                                        @MoneyHelper.FormatCurrency(item.TotalDue)
-                                        @if (item.CarryOver > 0)
-                                        {
-                                            <span class="text-muted"> (nợ chuyển từ tháng trước: @MoneyHelper.FormatCurrency(item.CarryOver))</span>
-                                        }
-                                    </td>
-                                    <td>@MoneyHelper.FormatCurrency(item.Paid)</td>
-                                    <td>@MoneyHelper.FormatCurrency(item.Remaining)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
             }
         </div>
     }
@@ -391,7 +357,6 @@ else
     private string _discountNote = "";
     private StudentTuitionDiscountPreview? _discountPreview;
     private List<PaymentHistoryRow> _detailHistory = new();
-    private List<StudentClassTuitionRow> _classTuitionBreakdown = new();
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
     private decimal _collectibleRemaining;
     private ClassPaymentSummary _summary = new();
@@ -400,9 +365,6 @@ else
     private bool CanCollectForSelectedMonth => _classId == 0 && IsCurrentMonth && _collectibleRemaining > 0;
     private bool CanCollectPayment => CanCollectForSelectedMonth && _selectedStudentId > 0;
     private bool CanPayFromBalance => CanCollectPayment && _balance > 0;
-
-    private IEnumerable<StudentClassTuitionRow> VisibleTuitionBreakdown =>
-        _classTuitionBreakdown.Where(HasTuitionActivity);
 
     private IEnumerable<StudentClassTuitionRow> VisibleDetailBreakdown =>
         _detailClassBreakdown.Where(HasTuitionActivity);
@@ -462,14 +424,9 @@ else
         {
             var first = FilteredPaymentRows.FirstOrDefault();
             if (first is not null) SelectPaymentRow(first);
-            else { _selectedStudentId = 0; _classTuitionBreakdown.Clear(); }
+            else { _selectedStudentId = 0; }
         }
     }
-
-    private bool CanCollectForRow(PaymentClassListRow row) =>
-        _classId == 0
-        && IsCurrentMonth
-        && PaymentService.GetStudentCollectibleRemaining(row.StudentId, _month, _year) > 0;
 
     private bool MatchesSearch(PaymentClassListRow row) =>
         row.HoVaTen.Contains(_searchText.Trim(), StringComparison.OrdinalIgnoreCase)
@@ -520,7 +477,6 @@ else
             _needText += ")";
         }
         if (carryOver > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
-        _classTuitionBreakdown = PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
     }
 
     private void OpenDiscountModal(PaymentClassListRow row)
@@ -675,12 +631,6 @@ else
             LoadGrid();
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }
-    }
-
-    private void PayFromBalance(PaymentClassListRow row)
-    {
-        SelectPaymentRow(row);
-        PayFromBalanceSelected();
     }
 
     private void PayFromBalanceSelected()
