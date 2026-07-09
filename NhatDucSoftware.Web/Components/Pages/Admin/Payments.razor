@@ -112,9 +112,9 @@ else
                                         <button class="btn btn-success btn-sm" @onclick:stopPropagation="true" @onclick="() => OpenDiscountModal(row)">Giảm phí</button>
                                     }
                                     <button class="btn btn-secondary btn-sm" @onclick:stopPropagation="true" @onclick="() => ShowDetail(row)">Chi tiết</button>
-                                    @if (_classId > 0)
+                                    @if (_classId == 0)
                                     {
-                                        <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@_isFinalized">Thanh toán</button>
+                                        <button class="btn btn-primary btn-sm" @onclick:stopPropagation="true" @onclick="() => PayFromBalance(row)" disabled="@(!CanCollectForRow(row))">Thanh toán</button>
                                     }
                                 </div>
                             </td>
@@ -160,7 +160,7 @@ else
                     <span>Số dư: @MoneyHelper.FormatCurrency(_balance)</span>
                 </div>
             </div>
-            @if (_classId > 0)
+            @if (_classId == 0)
             {
                 <div class="form-grid">
                     <div class="form-group">
@@ -172,8 +172,8 @@ else
                         <input @bind="_note" />
                     </div>
                 </div>
-                <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(_remaining <= 0 || _isFinalized)">Thu học phí</button>
-                <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(_remaining <= 0 || _balance <= 0 || _isFinalized)">Thanh toán từ số dư</button>
+                <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(!CanCollectPayment)">Thu học phí</button>
+                <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(!CanPayFromBalance)">Thanh toán từ số dư</button>
             }
             @if (VisibleTuitionBreakdown.Any())
             {
@@ -219,12 +219,11 @@ else
                         <h3>Còn lại theo lớp</h3>
                         <table class="data-table compact">
                             <thead>
-                                <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th><th></th></tr>
+                                <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Cần đóng</th><th>Đã đóng</th><th>Còn lại</th></tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in VisibleDetailBreakdown)
                                 {
-                                    var classFinalized = PaymentService.IsFinalized(item.ClassId, _month, _year);
                                     <tr class="@(_classId == item.ClassId ? "selected" : "")">
                                         <td>@item.ClassName</td>
                                         <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
@@ -238,16 +237,6 @@ else
                                         </td>
                                         <td>@MoneyHelper.FormatCurrency(item.Paid)</td>
                                         <td>@MoneyHelper.FormatCurrency(item.Remaining)</td>
-                                        <td>
-                                            @if (_classId <= 0)
-                                            {
-                                                <button class="btn btn-primary btn-sm"
-                                                        disabled="@(item.Remaining <= 0 || classFinalized)"
-                                                        @onclick="() => PayNowFromDetail(item)">
-                                                    Thanh toán ngay
-                                                </button>
-                                            }
-                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -267,7 +256,7 @@ else
                                 <td>@h.NguoiThu</td>
                                 <td>@h.GhiChu</td>
                                 <td>
-                                    @if (!_isFinalized && Session.CanDeletePaymentHistory)
+                                    @if (Session.CanDeletePaymentHistory)
                                     {
                                         <button class="btn btn-danger btn-sm" @onclick="() => DeleteHistory(h.PaymentId)">Xóa</button>
                                     }
@@ -315,6 +304,7 @@ else
                         <span>Tổng học phí gốc: @MoneyHelper.FormatCurrency(_discountPreview.TotalGrossAttendance)</span>
                         <span>Được giảm (@FormatPercent(_discountPreview.DiscountPercent)): @MoneyHelper.FormatCurrency(_discountPreview.TotalDiscountAmount)</span>
                         <span>Còn phải đóng: @MoneyHelper.FormatCurrency(_discountPreview.TotalDueAfterDiscount)</span>
+                        <span>Còn lại: @MoneyHelper.FormatCurrency(_discountPreview.TotalRemainingAfterDiscount)</span>
                     </div>
 
                     @if (_discountPreview.ClassAllocations.Any(a => a.GrossAttendance > 0 || a.CarryOver > 0))
@@ -402,7 +392,13 @@ else
     private List<PaymentHistoryRow> _detailHistory = new();
     private List<StudentClassTuitionRow> _classTuitionBreakdown = new();
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
+    private decimal _collectibleRemaining;
     private ClassPaymentSummary _summary = new();
+
+    private bool IsCurrentMonth => _month == DateTime.Now.Month && _year == DateTime.Now.Year;
+    private bool CanCollectForSelectedMonth => _classId == 0 && IsCurrentMonth && _collectibleRemaining > 0;
+    private bool CanCollectPayment => CanCollectForSelectedMonth && _selectedStudentId > 0;
+    private bool CanPayFromBalance => CanCollectPayment && _balance > 0;
 
     private IEnumerable<StudentClassTuitionRow> VisibleTuitionBreakdown =>
         _classTuitionBreakdown.Where(HasTuitionActivity);
@@ -469,6 +465,11 @@ else
         }
     }
 
+    private bool CanCollectForRow(PaymentClassListRow row) =>
+        _classId == 0
+        && IsCurrentMonth
+        && PaymentService.GetStudentCollectibleRemaining(row.StudentId, _month, _year) > 0;
+
     private bool MatchesSearch(PaymentClassListRow row) =>
         row.HoVaTen.Contains(_searchText.Trim(), StringComparison.OrdinalIgnoreCase)
         || row.Lop.Contains(_searchText.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -503,6 +504,7 @@ else
         var total = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
         _paid = PaymentService.GetPaidAmountByStudentMonthYear(row.StudentId, _month, _year, _classId);
         _remaining = Math.Max(0, total - _paid);
+        _collectibleRemaining = PaymentService.GetStudentCollectibleRemaining(row.StudentId, _month, _year);
         _balance = PaymentService.GetStudentBalance(row.StudentId);
         var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
         var discount = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
@@ -640,14 +642,7 @@ else
 
     private void CollectPayment()
     {
-        if (_selectedStudentId <= 0) return;
-
-        if (_month != DateTime.Now.Month || _year != DateTime.Now.Year)
-        {
-            _message = "Chỉ được phép thu học phí của tháng hiện tại.";
-            _isError = true;
-            return;
-        }
+        if (_selectedStudentId <= 0 || _classId != 0) return;
 
         if (!MoneyHelper.TryParseMoney(_amountText, out var amount) || amount <= 0)
         {
@@ -656,16 +651,22 @@ else
             return;
         }
 
-        if (amount > _remaining)
+        if (amount > _collectibleRemaining)
         {
-            _message = $"Số tiền thu không được lớn hơn số còn lại ({MoneyHelper.FormatCurrency(_remaining)}).";
+            _message = $"Số tiền thu không được lớn hơn số còn lại ({MoneyHelper.FormatCurrency(_collectibleRemaining)}).";
             _isError = true;
             return;
         }
 
         try
         {
-            PaymentService.Collect(_selectedStudentId, amount, Session.CurrentUser!.Id, _note.Trim(), _classId);
+            PaymentService.CollectForStudentMonth(
+                _selectedStudentId,
+                _month,
+                _year,
+                amount,
+                Session.CurrentUser!.Id,
+                _note.Trim());
             _message = "Đã thu học phí.";
             _isError = false;
             _amountText = "";
@@ -683,14 +684,7 @@ else
 
     private void PayFromBalanceSelected()
     {
-        if (_selectedStudentId <= 0) return;
-
-        if (_month != DateTime.Now.Month || _year != DateTime.Now.Year)
-        {
-            _message = "Chỉ được phép thanh toán học phí của tháng hiện tại.";
-            _isError = true;
-            return;
-        }
+        if (_selectedStudentId <= 0 || _classId != 0) return;
 
         if (_balance <= 0)
         {
@@ -699,7 +693,7 @@ else
             return;
         }
 
-        if (_remaining <= 0)
+        if (_collectibleRemaining <= 0)
         {
             _message = "Học viên không còn học phí cần đóng.";
             _isError = true;
@@ -708,7 +702,11 @@ else
 
         try
         {
-            var amount = PaymentService.PayFromBalance(_selectedStudentId, _classId, _month, _year, Session.CurrentUser!.Id);
+            var amount = PaymentService.PayFromBalanceForStudentMonth(
+                _selectedStudentId,
+                _month,
+                _year,
+                Session.CurrentUser!.Id);
             _message = $"Đã thanh toán {MoneyHelper.FormatCurrency(amount)} từ số dư.";
             _isError = false;
             LoadGrid();
@@ -769,35 +767,6 @@ else
             LoadGrid();
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }
-    }
-
-    private void PayNowFromDetail(StudentClassTuitionRow item)
-    {
-        if (item.Remaining <= 0) return;
-        if (PaymentService.IsFinalized(item.ClassId, _month, _year)) return;
-
-        var studentId = _detailStudentId;
-        _showDetail = false;
-        _searchText = "";
-        _classId = item.ClassId;
-
-        _isFinalized = PaymentService.IsFinalized(_classId, _month, _year);
-        _summary = PaymentService.GetClassPaymentSummary(_classId, _month, _year);
-        _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
-
-        var filtered = FilteredPaymentRows.ToList();
-        var index = filtered.FindIndex(x => x.StudentId == studentId);
-        if (index >= 0)
-        {
-            _currentPage = (index / _pageSize) + 1;
-            SelectPaymentRow(filtered[index]);
-        }
-        else
-        {
-            _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
-            _selectedStudentId = 0;
-            _classTuitionBreakdown.Clear();
-        }
     }
 
     private void ShowDetail(PaymentClassListRow row)

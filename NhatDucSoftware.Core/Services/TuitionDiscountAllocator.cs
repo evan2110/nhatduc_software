@@ -101,6 +101,8 @@ public sealed class StudentTuitionDiscountPreview
     public decimal TotalGrossAttendance { get; set; }
     public decimal TotalDiscountAmount { get; set; }
     public decimal TotalDueAfterDiscount { get; set; }
+    public decimal TotalPaid { get; set; }
+    public decimal TotalRemainingAfterDiscount { get; set; }
     public List<TuitionClassAllocation> ClassAllocations { get; set; } = new();
     public bool IsLocked { get; set; }
 }

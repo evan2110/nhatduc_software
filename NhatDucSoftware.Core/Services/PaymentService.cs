@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Npgsql;
 using NhatDucSoftware.Core.Data;
 using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
@@ -153,6 +154,8 @@ WHERE cs.StudentId = @studentId;";
         var allocations = TuitionDiscountAllocator.Allocate(grossRows, percent);
         var totalGross = grossRows.Sum(r => r.GrossAttendance);
         var totalDiscount = allocations.Sum(a => a.DiscountAllocated);
+        var totalDue = allocations.Sum(a => a.TotalDue);
+        var totalPaid = GetPaidAmountByStudentMonthYear(studentId, month, year, 0);
 
         return new StudentTuitionDiscountPreview
         {
@@ -163,7 +166,9 @@ WHERE cs.StudentId = @studentId;";
             Note = note ?? storedDiscount.Note,
             TotalGrossAttendance = totalGross,
             TotalDiscountAmount = totalDiscount,
-            TotalDueAfterDiscount = allocations.Sum(a => a.TotalDue),
+            TotalDueAfterDiscount = totalDue,
+            TotalPaid = totalPaid,
+            TotalRemainingAfterDiscount = Math.Max(0, totalDue - totalPaid),
             ClassAllocations = allocations,
             IsLocked = IsStudentTuitionDiscountLocked(studentId, month, year)
         };
@@ -344,6 +349,173 @@ WHERE StudentId = @studentId AND (@classId = 0 OR ClassId = @classId)
         cmd.Parameters.AddWithValue("@month", month);
         cmd.Parameters.AddWithValue("@year", year);
         return Convert.ToDecimal(cmd.ExecuteScalar());
+    }
+
+    public decimal GetStudentCollectibleRemaining(int studentId, int month, int year) =>
+        GetStudentClassCollectibleRows(studentId, month, year)
+            .Where(r => !r.IsFinalized && r.Remaining > 0)
+            .Sum(r => r.Remaining);
+
+    public List<ClassCollectibleRow> GetStudentClassCollectibleRows(int studentId, int month, int year) =>
+        GetStudentTuitionBreakdownByClassMonthYear(studentId, month, year)
+            .Select(row => new ClassCollectibleRow
+            {
+                ClassId = row.ClassId,
+                ClassName = row.ClassName,
+                Remaining = row.Remaining,
+                IsFinalized = IsFinalized(row.ClassId, month, year)
+            })
+            .ToList();
+
+    public void CollectForStudentMonth(
+        int studentId,
+        int month,
+        int year,
+        decimal amount,
+        int createdBy,
+        string? note)
+    {
+        EnsureCurrentMonth(month, year);
+
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException("Số tiền thu bắt buộc phải lớn hơn 0.");
+        }
+
+        var collectible = GetStudentCollectibleRemaining(studentId, month, year);
+        if (collectible <= 0)
+        {
+            throw new InvalidOperationException("Học viên không còn học phí cần thu trong tháng này.");
+        }
+
+        if (amount > collectible)
+        {
+            throw new InvalidOperationException(
+                $"Số tiền thu không được lớn hơn số còn lại ({collectible:N0}đ).");
+        }
+
+        var slices = BuildPaymentSlices(studentId, month, year, amount);
+        InsertAllocatedPayments(studentId, slices, createdBy, note);
+    }
+
+    public decimal PayFromBalanceForStudentMonth(int studentId, int month, int year, int createdBy)
+    {
+        EnsureCurrentMonth(month, year);
+
+        var balance = GetStudentBalance(studentId);
+        if (balance <= 0)
+        {
+            throw new InvalidOperationException("Học viên không có số dư để thanh toán.");
+        }
+
+        var collectible = GetStudentCollectibleRemaining(studentId, month, year);
+        if (collectible <= 0)
+        {
+            throw new InvalidOperationException("Học viên không còn học phí cần đóng trong tháng này.");
+        }
+
+        var amount = Math.Min(balance, collectible);
+        var slices = BuildPaymentSlices(studentId, month, year, amount);
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var balanceCmd = connection.CreateCommand())
+        {
+            balanceCmd.Transaction = transaction;
+            balanceCmd.CommandText = @"UPDATE Students
+SET Balance = Balance - @amount
+WHERE Id = @studentId AND Balance >= @amount;";
+            balanceCmd.Parameters.AddWithValue("@amount", amount);
+            balanceCmd.Parameters.AddWithValue("@studentId", studentId);
+            if (balanceCmd.ExecuteNonQuery() == 0)
+            {
+                throw new InvalidOperationException("Không thể trừ số dư. Vui lòng kiểm tra lại.");
+            }
+        }
+
+        InsertAllocatedPayments(studentId, slices, createdBy, BalancePaymentNote, connection, transaction);
+        transaction.Commit();
+        return amount;
+    }
+
+    private static void EnsureCurrentMonth(int month, int year)
+    {
+        var today = DateTime.Today;
+        if (month != today.Month || year != today.Year)
+        {
+            throw new InvalidOperationException("Chỉ được phép thu học phí của tháng hiện tại.");
+        }
+    }
+
+    private List<PaymentClassSlice> BuildPaymentSlices(int studentId, int month, int year, decimal amount)
+    {
+        var rows = GetStudentClassCollectibleRows(studentId, month, year);
+        var slices = PaymentAllocator.Allocate(amount, rows);
+        if (slices.Count == 0)
+        {
+            throw new InvalidOperationException("Không thể phân bổ khoản thu. Vui lòng kiểm tra lại trạng thái chốt số liệu.");
+        }
+
+        return slices;
+    }
+
+    private void InsertAllocatedPayments(
+        int studentId,
+        IReadOnlyList<PaymentClassSlice> slices,
+        int createdBy,
+        string? note)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        InsertAllocatedPayments(studentId, slices, createdBy, note, connection, transaction);
+        transaction.Commit();
+    }
+
+    private static void InsertAllocatedPayments(
+        int studentId,
+        IReadOnlyList<PaymentClassSlice> slices,
+        int createdBy,
+        string? note,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction)
+    {
+        var paymentDate = DateTime.UtcNow.ToString("o");
+
+        foreach (var slice in slices)
+        {
+            if (slice.Amount <= 0)
+            {
+                continue;
+            }
+
+            long paymentId;
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = @"INSERT INTO Payments(StudentId, ClassId, Amount, PaymentDate, Note, CreatedBy)
+VALUES(@studentId, @classId, @amount, @date, @note, @createdBy)
+RETURNING Id;";
+                command.Parameters.AddWithValue("@studentId", studentId);
+                command.Parameters.AddWithValue("@classId", slice.ClassId);
+                command.Parameters.AddWithValue("@amount", slice.Amount);
+                command.Parameters.AddWithValue("@date", paymentDate);
+                command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+                command.Parameters.AddWithValue("@createdBy", createdBy);
+                paymentId = Convert.ToInt64(command.ExecuteScalar());
+            }
+
+            using (var ledgerCmd = connection.CreateCommand())
+            {
+                ledgerCmd.Transaction = transaction;
+                ledgerCmd.CommandText = @"INSERT INTO RevenueLedger(SourcePaymentId, Amount, PaymentDate)
+SELECT Id, Amount, PaymentDate FROM Payments WHERE Id = @paymentId;";
+                ledgerCmd.Parameters.AddWithValue("@paymentId", paymentId);
+                ledgerCmd.ExecuteNonQuery();
+            }
+        }
     }
 
     public decimal GetRemainingAmount(int studentId)
@@ -605,7 +777,7 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         var allocations = BuildStudentTuitionAllocations(studentId, month, year);
         var paidByClass = GetStudentPaidByClass(studentId, month, year);
 
-        return allocations
+        var rows = allocations
             .Select(allocation =>
             {
                 var paid = paidByClass.GetValueOrDefault(allocation.ClassId);
@@ -623,6 +795,38 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
                 };
             })
             .ToList();
+
+        var totalPaid = GetPaidAmountByStudentMonthYear(studentId, month, year, 0);
+        var allocatedPaid = paidByClass.Values.Sum();
+        var unallocatedPaid = totalPaid - allocatedPaid;
+        if (unallocatedPaid > 0)
+        {
+            ApplyUnallocatedPayments(rows, unallocatedPaid);
+        }
+
+        return rows;
+    }
+
+    private static void ApplyUnallocatedPayments(List<StudentClassTuitionRow> rows, decimal unallocatedPaid)
+    {
+        var collectibleRows = rows
+            .Where(r => r.Remaining > 0)
+            .Select(r => new ClassCollectibleRow
+            {
+                ClassId = r.ClassId,
+                ClassName = r.ClassName,
+                Remaining = r.Remaining,
+                IsFinalized = false
+            })
+            .ToList();
+
+        var slices = PaymentAllocator.Allocate(unallocatedPaid, collectibleRows);
+        foreach (var slice in slices)
+        {
+            var row = rows.First(r => r.ClassId == slice.ClassId);
+            row.Paid += slice.Amount;
+            row.Remaining = Math.Max(0, row.TotalDue - row.Paid);
+        }
     }
 
     private Dictionary<int, decimal> GetStudentPaidByClass(int studentId, int month, int year)
@@ -647,6 +851,11 @@ GROUP BY p.ClassId;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
+            if (reader.IsDBNull(0))
+            {
+                continue;
+            }
+
             paidByClass[reader.GetInt32(0)] = ReadDecimal(reader, 1);
         }
 
