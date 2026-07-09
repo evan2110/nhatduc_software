@@ -2,45 +2,36 @@ namespace NhatDucSoftware.Core.Services;
 
 public static class TuitionDiscountAllocator
 {
-    public static decimal CalculateDiscountAmount(decimal totalGrossAttendance, decimal discountPercent)
+    public static decimal CalculateDiscountAmount(decimal totalDiscountable, decimal discountPercent)
     {
-        if (totalGrossAttendance <= 0 || discountPercent <= 0)
+        if (totalDiscountable <= 0 || discountPercent <= 0)
         {
             return 0;
         }
 
         var percent = Math.Clamp(discountPercent, 0, 100);
-        return Math.Round(totalGrossAttendance * percent / 100m, 0, MidpointRounding.AwayFromZero);
+        return Math.Round(totalDiscountable * percent / 100m, 0, MidpointRounding.AwayFromZero);
     }
 
     public static List<TuitionClassAllocation> Allocate(
         IReadOnlyList<TuitionClassGrossRow> classRows,
         decimal discountPercent)
     {
-        var rowsWithAttendance = classRows
-            .Where(r => r.GrossAttendance > 0)
+        var rowsWithBalance = classRows
+            .Where(r => r.GrossAttendance + r.CarryOver > 0)
             .OrderBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(r => r.ClassId)
             .ToList();
 
-        var totalGross = rowsWithAttendance.Sum(r => r.GrossAttendance);
-        var totalDiscount = CalculateDiscountAmount(totalGross, discountPercent);
+        var totalDiscountable = rowsWithBalance.Sum(r => r.GrossAttendance + r.CarryOver);
+        var totalDiscount = CalculateDiscountAmount(totalDiscountable, discountPercent);
         var remainingDiscount = totalDiscount;
 
         var allocationByClassId = new Dictionary<int, decimal>();
-        for (var i = 0; i < rowsWithAttendance.Count; i++)
+        foreach (var row in rowsWithBalance)
         {
-            var row = rowsWithAttendance[i];
-            decimal allocated;
-            if (i == rowsWithAttendance.Count - 1)
-            {
-                allocated = Math.Min(remainingDiscount, row.GrossAttendance);
-            }
-            else
-            {
-                allocated = Math.Min(remainingDiscount, row.GrossAttendance);
-            }
-
+            var discountableBase = row.GrossAttendance + row.CarryOver;
+            var allocated = Math.Min(remainingDiscount, discountableBase);
             allocationByClassId[row.ClassId] = allocated;
             remainingDiscount -= allocated;
         }
@@ -51,7 +42,8 @@ public static class TuitionDiscountAllocator
             .Select(row =>
             {
                 var discountAllocated = allocationByClassId.GetValueOrDefault(row.ClassId);
-                var netAttendance = Math.Max(0, row.GrossAttendance - discountAllocated);
+                var discountableBase = row.GrossAttendance + row.CarryOver;
+                var netAttendance = Math.Max(0, row.GrossAttendance - Math.Min(discountAllocated, row.GrossAttendance));
                 return new TuitionClassAllocation
                 {
                     ClassId = row.ClassId,
@@ -72,6 +64,7 @@ public sealed class TuitionClassGrossRow
     public string ClassName { get; set; } = string.Empty;
     public decimal GrossAttendance { get; set; }
     public decimal CarryOver { get; set; }
+    public decimal DiscountableBase => GrossAttendance + CarryOver;
 }
 
 public sealed class TuitionClassAllocation
@@ -82,7 +75,8 @@ public sealed class TuitionClassAllocation
     public decimal DiscountAllocated { get; set; }
     public decimal NetAttendance { get; set; }
     public decimal CarryOver { get; set; }
-    public decimal TotalDue => NetAttendance + CarryOver;
+    public decimal DiscountableBase => GrossAttendance + CarryOver;
+    public decimal TotalDue => Math.Max(0, DiscountableBase - DiscountAllocated);
 }
 
 public sealed class StudentTuitionDiscountInfo
@@ -99,6 +93,8 @@ public sealed class StudentTuitionDiscountPreview
     public decimal DiscountPercent { get; set; }
     public string Note { get; set; } = string.Empty;
     public decimal TotalGrossAttendance { get; set; }
+    public decimal TotalCarryOver { get; set; }
+    public decimal TotalDiscountableBase { get; set; }
     public decimal TotalDiscountAmount { get; set; }
     public decimal TotalDueAfterDiscount { get; set; }
     public decimal TotalPaid { get; set; }

@@ -301,25 +301,26 @@ else
                     </div>
 
                     <div class="summary-box" style="margin-bottom: 1rem;">
-                        <span>Tổng học phí gốc: @MoneyHelper.FormatCurrency(_discountPreview.TotalGrossAttendance)</span>
+                        <span>Tổng trước giảm: @MoneyHelper.FormatCurrency(_discountPreview.TotalDiscountableBase)</span>
+                        <span class="text-muted">(học phí tháng: @MoneyHelper.FormatCurrency(_discountPreview.TotalGrossAttendance), nợ chuyển: @MoneyHelper.FormatCurrency(_discountPreview.TotalCarryOver))</span>
                         <span>Được giảm (@FormatPercent(_discountPreview.DiscountPercent)): @MoneyHelper.FormatCurrency(_discountPreview.TotalDiscountAmount)</span>
                         <span>Còn phải đóng: @MoneyHelper.FormatCurrency(_discountPreview.TotalDueAfterDiscount)</span>
                         <span>Còn lại: @MoneyHelper.FormatCurrency(_discountPreview.TotalRemainingAfterDiscount)</span>
                     </div>
 
-                    @if (_discountPreview.ClassAllocations.Any(a => a.GrossAttendance > 0 || a.CarryOver > 0))
+                    @if (_discountPreview.ClassAllocations.Any(a => a.DiscountableBase > 0))
                     {
                         <div class="table-responsive" style="margin-bottom: 1rem;">
                             <table class="data-table compact">
                                 <thead>
-                                    <tr><th>Lớp</th><th>Học phí gốc</th><th>Giảm</th><th>Còn đóng</th></tr>
+                                    <tr><th>Lớp</th><th>Tổng trước giảm</th><th>Giảm</th><th>Cần đóng</th></tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var item in _discountPreview.ClassAllocations.Where(a => a.GrossAttendance > 0 || a.CarryOver > 0))
+                                    @foreach (var item in _discountPreview.ClassAllocations.Where(a => a.DiscountableBase > 0))
                                     {
                                         <tr>
                                             <td>@item.ClassName</td>
-                                            <td>@MoneyHelper.FormatCurrency(item.GrossAttendance)</td>
+                                            <td>@MoneyHelper.FormatCurrency(item.DiscountableBase)</td>
                                             <td>@MoneyHelper.FormatCurrency(item.DiscountAllocated)</td>
                                             <td>@MoneyHelper.FormatCurrency(item.TotalDue)</td>
                                         </tr>

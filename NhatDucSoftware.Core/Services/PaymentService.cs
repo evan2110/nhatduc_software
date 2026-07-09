@@ -153,6 +153,8 @@ WHERE cs.StudentId = @studentId;";
         var percent = discountPercent ?? storedDiscount.DiscountPercent;
         var allocations = TuitionDiscountAllocator.Allocate(grossRows, percent);
         var totalGross = grossRows.Sum(r => r.GrossAttendance);
+        var totalCarryOver = grossRows.Sum(r => r.CarryOver);
+        var totalDiscountable = grossRows.Sum(r => r.DiscountableBase);
         var totalDiscount = allocations.Sum(a => a.DiscountAllocated);
         var totalDue = allocations.Sum(a => a.TotalDue);
         var totalPaid = GetPaidAmountByStudentMonthYear(studentId, month, year, 0);
@@ -165,6 +167,8 @@ WHERE cs.StudentId = @studentId;";
             DiscountPercent = percent,
             Note = note ?? storedDiscount.Note,
             TotalGrossAttendance = totalGross,
+            TotalCarryOver = totalCarryOver,
+            TotalDiscountableBase = totalDiscountable,
             TotalDiscountAmount = totalDiscount,
             TotalDueAfterDiscount = totalDue,
             TotalPaid = totalPaid,
@@ -804,7 +808,41 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
             ApplyUnallocatedPayments(rows, unallocatedPaid);
         }
 
+        ApplyOverpaymentCredit(rows);
         return rows;
+    }
+
+    private static void ApplyOverpaymentCredit(List<StudentClassTuitionRow> rows)
+    {
+        var credit = rows.Sum(r => Math.Max(0, r.Paid - r.TotalDue));
+        if (credit <= 0)
+        {
+            foreach (var row in rows)
+            {
+                row.Remaining = Math.Max(0, row.TotalDue - row.Paid);
+            }
+
+            return;
+        }
+
+        foreach (var row in rows.OrderBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.ClassId))
+        {
+            var baseRemaining = Math.Max(0, row.TotalDue - row.Paid);
+            if (credit <= 0)
+            {
+                row.Remaining = baseRemaining;
+                continue;
+            }
+
+            var reduction = Math.Min(credit, baseRemaining);
+            row.Remaining = baseRemaining - reduction;
+            credit -= reduction;
+        }
+
+        foreach (var row in rows.Where(r => r.Paid > r.TotalDue))
+        {
+            row.Remaining = 0;
+        }
     }
 
     private static void ApplyUnallocatedPayments(List<StudentClassTuitionRow> rows, decimal unallocatedPaid)
@@ -1349,7 +1387,7 @@ public class StudentClassTuitionRow
     public string ClassName { get; set; } = "";
     public decimal GrossAttendance { get; set; }
     public decimal DiscountAmount { get; set; }
-    public decimal NetAttendance => Math.Max(0, GrossAttendance - DiscountAmount);
+    public decimal NetAttendance => Math.Max(0, GrossAttendance - Math.Min(DiscountAmount, GrossAttendance));
     public decimal TotalDue { get; set; }
     public decimal Paid { get; set; }
     public decimal Remaining { get; set; }

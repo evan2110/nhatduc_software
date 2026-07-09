@@ -29,6 +29,7 @@ foreach (var row in rows)
     var breakdown = paymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, month, year);
     var breakdownRemaining = breakdown.Sum(b => b.Remaining);
     var discount = paymentService.GetStudentTuitionDiscount(row.StudentId, month, year);
+    var preview = paymentService.GetStudentTuitionDiscountPreview(row.StudentId, month, year);
 
     var ok = remaining == breakdownRemaining;
     if (!ok)
@@ -39,6 +40,10 @@ foreach (var row in rows)
     Console.WriteLine($"--- {row.HoVaTen} (id={row.StudentId}) {(ok ? "OK" : "MISMATCH")} ---");
     Console.WriteLine($"  Cần đóng: {total:N0} | Đã đóng: {paid:N0} | Còn lại: {remaining:N0} | Thu được: {collectible:N0}");
     Console.WriteLine($"  Σ breakdown còn lại: {breakdownRemaining:N0} | Giảm: {discount.DiscountPercent}%");
+    if (preview.TotalDiscountableBase > 0)
+    {
+        Console.WriteLine($"  Tổng trước giảm: {preview.TotalDiscountableBase:N0} (gốc {preview.TotalGrossAttendance:N0} + nợ {preview.TotalCarryOver:N0}) -> giảm {preview.TotalDiscountAmount:N0} -> cần {preview.TotalDueAfterDiscount:N0}");
+    }
     foreach (var item in breakdown.Where(b => b.TotalDue > 0 || b.Paid > 0 || b.Remaining > 0))
     {
         Console.WriteLine($"    {item.ClassName}: gốc={item.GrossAttendance:N0} giảm={item.DiscountAmount:N0} cần={item.TotalDue:N0} đã={item.Paid:N0} còn={item.Remaining:N0}");
