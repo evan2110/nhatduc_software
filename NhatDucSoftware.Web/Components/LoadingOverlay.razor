@@ -1,0 +1,36 @@
+@rendermode InteractiveServer
+@inject LoadingService Loading
+@implements IDisposable
+
+@if (Loading.IsLoading)
+{
+    <div class="page-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+        <p class="page-loading-text">@Loading.Message</p>
+        <div class="page-loading-spinner" aria-hidden="true">
+            <svg viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="pageLoadingArc" gradientUnits="userSpaceOnUse" x1="25" y1="5" x2="45" y2="40">
+                        <stop offset="0%" stop-color="#1e293b" stop-opacity="0" />
+                        <stop offset="55%" stop-color="#1e293b" stop-opacity="0.35" />
+                        <stop offset="100%" stop-color="#1e293b" stop-opacity="1" />
+                    </linearGradient>
+                </defs>
+                <circle cx="25" cy="25" r="20" fill="none" stroke="url(#pageLoadingArc)" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="72 154" />
+            </svg>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Loading.OnChange += HandleLoadingChanged;
+    }
+
+    private void HandleLoadingChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Loading.OnChange -= HandleLoadingChanged;
+    }
+}

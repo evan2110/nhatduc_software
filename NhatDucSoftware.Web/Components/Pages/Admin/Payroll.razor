@@ -9,6 +9,7 @@
 @inject PaymentService PaymentService
 @inject TeacherTimesheetNotificationService PayrollEmailService
 @inject NavigationManager Nav
+@inject LoadingService Loading
 @using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Core.Services
@@ -741,6 +742,7 @@ else
 
         _sendingPayrollTeacherId = _payrollEmailPreviewRow.TeacherId;
         _payrollEmailPreviewMessage = null;
+        Loading.Show();
 
         try
         {
@@ -760,6 +762,7 @@ else
         }
         finally
         {
+            Loading.Hide();
             _sendingPayrollTeacherId = null;
         }
     }

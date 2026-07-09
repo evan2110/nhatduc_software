@@ -64,6 +64,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserSession>();
+builder.Services.AddScoped<LoadingService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<StudentService>();
 builder.Services.AddScoped<CourseService>();

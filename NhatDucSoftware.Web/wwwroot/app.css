@@ -1142,6 +1142,43 @@ a { color: var(--primary); }
     cursor: default !important;
 }
 
+/* ── Full-page loading overlay ── */
+.page-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    background: #ffffff;
+}
+
+.page-loading-text {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #334155;
+    letter-spacing: 0.01em;
+}
+
+.page-loading-spinner {
+    width: 52px;
+    height: 52px;
+    animation: page-loading-spin 0.85s linear infinite;
+}
+
+.page-loading-spinner svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes page-loading-spin {
+    to { transform: rotate(360deg); }
+}
+
 #blazor-error-ui {
     background: lightyellow;
     bottom: 0;

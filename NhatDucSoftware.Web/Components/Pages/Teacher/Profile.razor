@@ -4,6 +4,7 @@
 @inject TeacherProfileService ProfileService
 @inject GoogleDriveService DriveService
 @inject NavigationManager Nav
+@inject LoadingService Loading
 
 <PageTitle>Hồ sơ GV</PageTitle>
 
@@ -287,6 +288,7 @@ else
         _uploadingSubject = subject;
         _message = null;
         _isError = false;
+        Loading.Show();
 
         try
         {
@@ -325,6 +327,7 @@ else
         }
         finally
         {
+            Loading.Hide();
             _uploadingSubject = null;
         }
     }
@@ -353,6 +356,7 @@ else
         _uploadingProfileCategory = category;
         _message = null;
         _isError = false;
+        Loading.Show();
 
         try
         {
@@ -388,6 +392,7 @@ else
         }
         finally
         {
+            Loading.Hide();
             _uploadingProfileCategory = null;
         }
     }
