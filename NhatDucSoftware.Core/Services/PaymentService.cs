@@ -805,67 +805,18 @@ ORDER BY p.PaymentDate DESC, p.Id DESC;";
         var unallocatedPaid = totalPaid - allocatedPaid;
         if (unallocatedPaid > 0)
         {
-            ApplyUnallocatedPayments(rows, unallocatedPaid);
+            PaymentServiceInternals.ApplyUnallocatedPayments(rows, unallocatedPaid);
         }
 
-        ApplyOverpaymentCredit(rows);
+        PaymentServiceInternals.ApplyOverpaymentCredit(rows);
         return rows;
     }
 
-    private static void ApplyOverpaymentCredit(List<StudentClassTuitionRow> rows)
-    {
-        var credit = rows.Sum(r => Math.Max(0, r.Paid - r.TotalDue));
-        if (credit <= 0)
-        {
-            foreach (var row in rows)
-            {
-                row.Remaining = Math.Max(0, row.TotalDue - row.Paid);
-            }
+    private static void ApplyOverpaymentCredit(List<StudentClassTuitionRow> rows) =>
+        PaymentServiceInternals.ApplyOverpaymentCredit(rows);
 
-            return;
-        }
-
-        foreach (var row in rows.OrderBy(r => r.ClassName, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.ClassId))
-        {
-            var baseRemaining = Math.Max(0, row.TotalDue - row.Paid);
-            if (credit <= 0)
-            {
-                row.Remaining = baseRemaining;
-                continue;
-            }
-
-            var reduction = Math.Min(credit, baseRemaining);
-            row.Remaining = baseRemaining - reduction;
-            credit -= reduction;
-        }
-
-        foreach (var row in rows.Where(r => r.Paid > r.TotalDue))
-        {
-            row.Remaining = 0;
-        }
-    }
-
-    private static void ApplyUnallocatedPayments(List<StudentClassTuitionRow> rows, decimal unallocatedPaid)
-    {
-        var collectibleRows = rows
-            .Where(r => r.Remaining > 0)
-            .Select(r => new ClassCollectibleRow
-            {
-                ClassId = r.ClassId,
-                ClassName = r.ClassName,
-                Remaining = r.Remaining,
-                IsFinalized = false
-            })
-            .ToList();
-
-        var slices = PaymentAllocator.Allocate(unallocatedPaid, collectibleRows);
-        foreach (var slice in slices)
-        {
-            var row = rows.First(r => r.ClassId == slice.ClassId);
-            row.Paid += slice.Amount;
-            row.Remaining = Math.Max(0, row.TotalDue - row.Paid);
-        }
-    }
+    private static void ApplyUnallocatedPayments(List<StudentClassTuitionRow> rows, decimal unallocatedPaid) =>
+        PaymentServiceInternals.ApplyUnallocatedPayments(rows, unallocatedPaid);
 
     private Dictionary<int, decimal> GetStudentPaidByClass(int studentId, int month, int year)
     {
@@ -1054,76 +1005,17 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
         return results;
     }
 
-    public ClassPaymentSummary GetClassPaymentSummary(int classId, int month, int year)
-    {
-        var studentIds = GetStudentIdsForPaymentSummary(classId);
-        var summary = new ClassPaymentSummary();
+    public ClassPaymentSummary GetClassPaymentSummary(int classId, int month, int year) =>
+        PaymentMonthBatch.Load(classId, month, year).Summary;
 
-        foreach (var studentId in studentIds)
-        {
-            var breakdown = GetStudentTuitionBreakdownByClassMonthYear(studentId, month, year);
-            foreach (var row in breakdown)
-            {
-                if (classId > 0 && row.ClassId != classId)
-                {
-                    continue;
-                }
+    public PaymentMonthBatch LoadMonthBatch(int classId, int month, int year) =>
+        PaymentMonthBatch.Load(classId, month, year);
 
-                summary.TotalDue += row.TotalDue;
-                summary.TotalPaid += row.Paid;
-                summary.TotalRemaining += row.Remaining;
-                summary.TotalCarryOver += row.CarryOver;
-                summary.TotalAttendanceDue += row.NetAttendance;
-            }
-        }
+    public TuitionYearReportData LoadTuitionYearReport(int year) =>
+        TuitionYearReportData.Load(year);
 
-        return summary;
-    }
-
-    public List<ClassTuitionDetailStat> GetClassTuitionAfterDiscountDetail(int year, int? month = null)
-    {
-        var months = month is >= 1 and <= 12
-            ? new[] { month.Value }
-            : Enumerable.Range(1, 12).ToArray();
-
-        var classTotals = new Dictionary<int, (string Name, decimal Amount)>();
-        var studentIds = GetStudentIdsForPaymentSummary(0);
-
-        foreach (var m in months)
-        {
-            foreach (var studentId in studentIds)
-            {
-                foreach (var row in GetStudentTuitionBreakdownByClassMonthYear(studentId, m, year))
-                {
-                    if (row.NetAttendance <= 0)
-                    {
-                        continue;
-                    }
-
-                    if (!classTotals.TryGetValue(row.ClassId, out var current))
-                    {
-                        classTotals[row.ClassId] = (row.ClassName, row.NetAttendance);
-                    }
-                    else
-                    {
-                        classTotals[row.ClassId] = (current.Name, current.Amount + row.NetAttendance);
-                    }
-                }
-            }
-        }
-
-        return classTotals
-            .Select(kv => new ClassTuitionDetailStat
-            {
-                ClassId = kv.Key,
-                ClassName = kv.Value.Name,
-                TotalAmount = kv.Value.Amount
-            })
-            .Where(x => x.TotalAmount > 0)
-            .OrderByDescending(x => x.TotalAmount)
-            .ThenBy(x => x.ClassName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
+    public List<ClassTuitionDetailStat> GetClassTuitionAfterDiscountDetail(int year, int? month = null) =>
+        TuitionYearReportData.Load(year).GetClassDetail(month);
 
     private List<int> GetStudentIdsForPaymentSummary(int classId)
     {

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ReportService ReportService
+@inject LoadingService Loading
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Web.Helpers
@@ -32,7 +33,7 @@ else
     <div class="card">
         <div class="toolbar">
             <label>Chọn năm</label>
-            <select @bind="_selectedYear" @bind:after="LoadAllReports">
+            <select @bind="_selectedYear" @bind:after="OnYearChanged">
                 @foreach (var y in _years)
                 {
                     <option value="@y">@y</option>
@@ -233,20 +234,25 @@ else
     private DetailType _detailType;
     private string _detailTitle = "";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
 
+        Loading.Show();
         try
         {
-            _summary = ReportService.GetSummary();
-            _revenueByYear = ReportService.GetRevenueByYear();
+            _summary = await Task.Run(ReportService.GetSummary);
+            _revenueByYear = await Task.Run(ReportService.GetRevenueByYear);
             BindYears();
-            LoadAllReports();
+            await LoadAllReportsAsync(showLoading: false);
         }
         catch (Exception ex)
         {
             _message = $"Không thể tải báo cáo: {ex.Message}";
+        }
+        finally
+        {
+            Loading.Hide();
         }
     }
 
@@ -258,15 +264,28 @@ else
         if (!_years.Contains(_selectedYear)) _selectedYear = _years.First();
     }
 
-    private void LoadAllReports()
+    private void OnYearChanged() => _ = LoadAllReportsAsync();
+
+    private async Task LoadAllReportsAsync(bool showLoading = true)
     {
+        if (showLoading)
+        {
+            Loading.Show();
+        }
+
         try
         {
-            _revenueByMonth = ReportService.GetRevenueByMonth(_selectedYear);
-            _expenseByMonth = ReportService.GetExpenseByMonth(_selectedYear);
-            _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(_selectedYear);
-            _enrollmentByMonth = ReportService.GetEnrollmentByMonth(_selectedYear);
-            LoadCommendations();
+            var year = _selectedYear;
+            var month = _selectedMonth;
+            await Task.Run(() =>
+            {
+                _revenueByMonth = ReportService.GetRevenueByMonth(year);
+                _expenseByMonth = ReportService.GetExpenseByMonth(year);
+                _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(year);
+                _enrollmentByMonth = ReportService.GetEnrollmentByMonth(year);
+                _mostDiligent = ReportService.GetMostDiligentStudent(year, month);
+                _topAchievement = ReportService.GetTopAchievementStudent(year, month);
+            });
             _message = null;
         }
         catch (Exception ex)
@@ -279,14 +298,26 @@ else
             _topAchievement = null;
             _message = $"Không thể tải báo cáo: {ex.Message}";
         }
+        finally
+        {
+            if (showLoading)
+            {
+                Loading.Hide();
+            }
+        }
     }
 
-    private void LoadCommendations()
+    private async Task LoadCommendations()
     {
         try
         {
-            _mostDiligent = ReportService.GetMostDiligentStudent(_selectedYear, _selectedMonth);
-            _topAchievement = ReportService.GetTopAchievementStudent(_selectedYear, _selectedMonth);
+            var year = _selectedYear;
+            var month = _selectedMonth;
+            await Task.Run(() =>
+            {
+                _mostDiligent = ReportService.GetMostDiligentStudent(year, month);
+                _topAchievement = ReportService.GetTopAchievementStudent(year, month);
+            });
         }
         catch (Exception ex)
         {

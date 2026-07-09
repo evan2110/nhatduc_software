@@ -6,9 +6,26 @@ namespace NhatDucSoftware.Core.Services;
 
 public class ReportService
 {
-    private readonly TeacherTimesheetService _timesheetService = new();
-    private readonly TeacherService _teacherService = new();
-    private readonly PaymentService _paymentService = new();
+    private readonly TeacherTimesheetService _timesheetService;
+    private readonly TeacherService _teacherService;
+    private readonly PaymentService _paymentService;
+    private TuitionYearReportData? _tuitionYearReportCache;
+    private int _tuitionYearReportCacheYear;
+
+    public ReportService()
+        : this(new TeacherTimesheetService(), new TeacherService(), new PaymentService())
+    {
+    }
+
+    public ReportService(
+        TeacherTimesheetService timesheetService,
+        TeacherService teacherService,
+        PaymentService paymentService)
+    {
+        _timesheetService = timesheetService;
+        _teacherService = teacherService;
+        _paymentService = paymentService;
+    }
 
     public ReportSummary GetSummary()
     {
@@ -112,14 +129,13 @@ ORDER BY Month;";
     public List<MonthlyAmountStat> GetExpenseByMonth(int year)
     {
         var teachers = _teacherService.GetAll();
+        var teacherIds = teachers.Select(t => t.Id).ToList();
+        var monthlyTotals = _timesheetService.CalculateExpenseByMonthForYear(year, teacherIds);
         var result = CreateEmptyMonthlyAmounts();
 
-        foreach (var teacher in teachers)
+        for (var month = 1; month <= 12; month++)
         {
-            for (var month = 1; month <= 12; month++)
-            {
-                result[month - 1].Amount += _timesheetService.CalculateMonthlyPay(teacher.Id, year, month);
-            }
+            result[month - 1].Amount = monthlyTotals[month - 1];
         }
 
         return result;
@@ -128,54 +144,45 @@ ORDER BY Month;";
     public List<TeacherExpenseDetailStat> GetTeacherExpenseDetail(int year, int? month = null)
     {
         var teachers = _teacherService.GetAll();
+        var teacherIds = teachers.Select(t => t.Id).ToList();
+        var totalsByTeacher = _timesheetService.CalculateTeacherExpenseByTeacherForYear(year, teacherIds, month);
         var result = new List<TeacherExpenseDetailStat>();
 
         foreach (var teacher in teachers)
         {
-            decimal total;
-            if (month is >= 1 and <= 12)
+            if (!totalsByTeacher.TryGetValue(teacher.Id, out var total) || total <= 0)
             {
-                total = _timesheetService.CalculateMonthlyPay(teacher.Id, year, month.Value);
-            }
-            else
-            {
-                total = 0;
-                for (var m = 1; m <= 12; m++)
-                {
-                    total += _timesheetService.CalculateMonthlyPay(teacher.Id, year, m);
-                }
+                continue;
             }
 
-            if (total > 0)
+            result.Add(new TeacherExpenseDetailStat
             {
-                result.Add(new TeacherExpenseDetailStat
-                {
-                    TeacherId = teacher.Id,
-                    TeacherName = teacher.FullName,
-                    TotalAmount = total
-                });
-            }
+                TeacherId = teacher.Id,
+                TeacherName = teacher.FullName,
+                TotalAmount = total
+            });
         }
 
         return result.OrderByDescending(x => x.TotalAmount).ToList();
     }
 
-    public List<MonthlyAmountStat> GetTuitionEarnedByMonth(int year)
-    {
-        var result = CreateEmptyMonthlyAmounts();
-
-        for (var month = 1; month <= 12; month++)
-        {
-            result[month - 1].Amount = _paymentService
-                .GetClassPaymentSummary(0, month, year)
-                .TotalAttendanceDue;
-        }
-
-        return result;
-    }
+    public List<MonthlyAmountStat> GetTuitionEarnedByMonth(int year) =>
+        GetTuitionYearReport(year).GetMonthlyAmounts();
 
     public List<ClassTuitionDetailStat> GetClassTuitionDetail(int year, int? month = null) =>
-        _paymentService.GetClassTuitionAfterDiscountDetail(year, month);
+        GetTuitionYearReport(year).GetClassDetail(month);
+
+    private TuitionYearReportData GetTuitionYearReport(int year)
+    {
+        if (_tuitionYearReportCacheYear == year && _tuitionYearReportCache is not null)
+        {
+            return _tuitionYearReportCache;
+        }
+
+        _tuitionYearReportCache = _paymentService.LoadTuitionYearReport(year);
+        _tuitionYearReportCacheYear = year;
+        return _tuitionYearReportCache;
+    }
 
     public List<MonthlyEnrollmentStat> GetEnrollmentByMonth(int year)
     {

@@ -658,17 +658,17 @@ else
 
     private void LoadPayroll()
     {
-        _payrollRows = _teachers.Select(t =>
+        var teacherIds = _teachers.Select(t => t.Id).ToList();
+        var shiftCounts = TimesheetService.GetTotalShiftsInMonthForTeachers(_year, _month, teacherIds);
+        var payByTeacher = TimesheetService.CalculateMonthlyPayForTeachers(_year, _month, teacherIds);
+
+        _payrollRows = _teachers.Select(t => new PayrollRow
         {
-            var shifts = TimesheetService.GetTotalShiftsInMonth(t.Id, _year, _month);
-            return new PayrollRow
-            {
-                TeacherId = t.Id,
-                Name = t.FullName,
-                Email = t.Email,
-                TotalShifts = shifts,
-                Pay = TimesheetService.CalculateMonthlyPay(t.Id, _year, _month)
-            };
+            TeacherId = t.Id,
+            Name = t.FullName,
+            Email = t.Email,
+            TotalShifts = shiftCounts.GetValueOrDefault(t.Id),
+            Pay = payByTeacher.GetValueOrDefault(t.Id)
         }).ToList();
     }
 
@@ -686,7 +686,7 @@ else
                 .ToList()
         };
 
-    private void OpenPayrollEmailPreview(PayrollRow row)
+    private async Task OpenPayrollEmailPreview(PayrollRow row)
     {
         var teacher = _teachers.FirstOrDefault(t => t.Id == row.TeacherId);
         if (teacher is null)
@@ -695,10 +695,13 @@ else
             return;
         }
 
+        Loading.Show();
+        _message = null;
+
         try
         {
             var payroll = BuildPayrollEmailData(row);
-            var preview = PayrollEmailService.BuildPayrollEmailPreview(teacher, payroll);
+            var preview = await Task.Run(() => PayrollEmailService.BuildPayrollEmailPreview(teacher, payroll));
             _payrollEmailPreviewRow = row;
             _payrollEmailPreviewTeacher = teacher;
             _payrollEmailPreviewTo = preview.ToEmail;
@@ -715,6 +718,10 @@ else
         catch (Exception ex)
         {
             _message = ex.Message;
+        }
+        finally
+        {
+            Loading.Hide();
         }
     }
 

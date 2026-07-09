@@ -3,6 +3,7 @@
 @inject UserSession Session
 @inject PaymentService PaymentService
 @inject ClassService ClassService
+@inject LoadingService Loading
 @inject NavigationManager Nav
 
 <PageTitle>Học phí</PageTitle>
@@ -360,6 +361,7 @@ else
     private List<StudentClassTuitionRow> _detailClassBreakdown = new();
     private decimal _collectibleRemaining;
     private ClassPaymentSummary _summary = new();
+    private PaymentMonthBatch? _monthBatch;
 
     private bool IsCurrentMonth => _month == DateTime.Now.Month && _year == DateTime.Now.Year;
     private bool CanCollectForSelectedMonth => _classId == 0 && IsCurrentMonth && _collectibleRemaining > 0;
@@ -401,17 +403,27 @@ else
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!Session.IsAdmin) { Nav.NavigateTo("/login"); return; }
-        _classes = ClassService.GetAll();
-        LoadGrid();
+
+        Loading.Show();
+        try
+        {
+            _classes = await Task.Run(ClassService.GetAll);
+            await Task.Run(LoadGrid);
+        }
+        finally
+        {
+            Loading.Hide();
+        }
     }
 
     private void LoadGrid()
     {
         _isFinalized = _classId > 0 && PaymentService.IsFinalized(_classId, _month, _year);
-        _summary = PaymentService.GetClassPaymentSummary(_classId, _month, _year);
+        _monthBatch = PaymentService.LoadMonthBatch(_classId, _month, _year);
+        _summary = _monthBatch.Summary;
         _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
         _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
 
@@ -459,24 +471,48 @@ else
         if (row.StudentId <= 0) return;
         _selectedStudentId = row.StudentId;
         _selectedStudentName = row.HoVaTen;
-        var total = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
+
+        if (_monthBatch is not null)
+        {
+            var total = _monthBatch.GetTotalDue(row.StudentId, _classId);
+            _paid = _monthBatch.GetPaidAmount(row.StudentId, _classId);
+            _remaining = Math.Max(0, total - _paid);
+            _collectibleRemaining = _monthBatch.GetCollectibleRemaining(row.StudentId);
+            var carryOver = _monthBatch.GetCarryOverAmount(row.StudentId, _classId);
+            var discount = _monthBatch.GetDiscount(row.StudentId);
+            _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
+            if (discount.DiscountPercent > 0)
+            {
+                _needText += $" (đã giảm {FormatPercent(discount.DiscountPercent)}";
+                if (!string.IsNullOrWhiteSpace(discount.Note))
+                {
+                    _needText += $" - {discount.Note.Trim()}";
+                }
+                _needText += ")";
+            }
+            if (carryOver > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
+            _balance = PaymentService.GetStudentBalance(row.StudentId);
+            return;
+        }
+
+        var totalFallback = PaymentService.GetTotalTuitionByStudentInClassMonthYear(row.StudentId, _classId, _month, _year);
         _paid = PaymentService.GetPaidAmountByStudentMonthYear(row.StudentId, _month, _year, _classId);
-        _remaining = Math.Max(0, total - _paid);
+        _remaining = Math.Max(0, totalFallback - _paid);
         _collectibleRemaining = PaymentService.GetStudentCollectibleRemaining(row.StudentId, _month, _year);
         _balance = PaymentService.GetStudentBalance(row.StudentId);
-        var carryOver = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
-        var discount = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
-        _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(total)}";
-        if (discount.DiscountPercent > 0)
+        var carryOverFallback = PaymentService.GetCarryOverAmount(row.StudentId, _classId, _month, _year);
+        var discountFallback = PaymentService.GetStudentTuitionDiscount(row.StudentId, _month, _year);
+        _needText = $"Cần đóng: {MoneyHelper.FormatCurrency(totalFallback)}";
+        if (discountFallback.DiscountPercent > 0)
         {
-            _needText += $" (đã giảm {FormatPercent(discount.DiscountPercent)}";
-            if (!string.IsNullOrWhiteSpace(discount.Note))
+            _needText += $" (đã giảm {FormatPercent(discountFallback.DiscountPercent)}";
+            if (!string.IsNullOrWhiteSpace(discountFallback.Note))
             {
-                _needText += $" - {discount.Note.Trim()}";
+                _needText += $" - {discountFallback.Note.Trim()}";
             }
             _needText += ")";
         }
-        if (carryOver > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOver)})";
+        if (carryOverFallback > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOverFallback)})";
     }
 
     private void OpenDiscountModal(PaymentClassListRow row)
@@ -727,7 +763,8 @@ else
             _detailStudentId = row.StudentId;
             _detailStudentName = row.HoVaTen;
             _detailHistory = PaymentService.GetPaymentHistoryByClassMonthYear(row.StudentId, _classId, _month, _year);
-            _detailClassBreakdown = PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
+            _detailClassBreakdown = _monthBatch?.GetStudentBreakdown(row.StudentId)
+                ?? PaymentService.GetStudentTuitionBreakdownByClassMonthYear(row.StudentId, _month, _year);
             _showDetail = true;
             _isError = false;
         }

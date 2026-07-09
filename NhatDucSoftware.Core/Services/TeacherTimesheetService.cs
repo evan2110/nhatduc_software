@@ -287,6 +287,291 @@ DO UPDATE SET PayPerShift = EXCLUDED.PayPerShift;";
         return CalculatePayFromAdjustments(presentShifts.Count, adjustments, defaultRate);
     }
 
+    public decimal[] CalculateExpenseByMonthForYear(int year, IReadOnlyList<int> teacherIds)
+    {
+        var totals = new decimal[12];
+        if (teacherIds.Count == 0)
+        {
+            return totals;
+        }
+
+        var shiftCounts = LoadPresentShiftCountsByTeacherMonth(year, teacherIds);
+        var defaultRates = LoadDefaultPayRates(teacherIds);
+        var adjustments = LoadPayAdjustmentsByTeacherMonth(year, teacherIds);
+
+        foreach (var teacherId in teacherIds)
+        {
+            var defaultRate = defaultRates.GetValueOrDefault(teacherId, TeacherTimesheet.DefaultPayPerShift);
+            for (var month = 1; month <= 12; month++)
+            {
+                var shiftCount = shiftCounts.GetValueOrDefault((teacherId, month));
+                if (shiftCount <= 0)
+                {
+                    continue;
+                }
+
+                var monthAdjustments = adjustments.GetValueOrDefault((teacherId, month)) ?? new List<TeacherPayAdjustment>();
+                totals[month - 1] += CalculatePayFromAdjustments(shiftCount, monthAdjustments, defaultRate);
+            }
+        }
+
+        return totals;
+    }
+
+    public decimal CalculateTeacherExpense(int teacherId, int year, int? month = null)
+    {
+        if (month is >= 1 and <= 12)
+        {
+            return CalculateMonthlyPay(teacherId, year, month.Value);
+        }
+
+        decimal total = 0;
+        for (var m = 1; m <= 12; m++)
+        {
+            total += CalculateMonthlyPay(teacherId, year, m);
+        }
+
+        return total;
+    }
+
+    public Dictionary<int, decimal> CalculateTeacherExpenseByTeacherForYear(int year, IReadOnlyList<int> teacherIds, int? month = null)
+    {
+        var result = new Dictionary<int, decimal>();
+        if (teacherIds.Count == 0)
+        {
+            return result;
+        }
+
+        if (month is >= 1 and <= 12)
+        {
+            var shiftCounts = LoadPresentShiftCountsByTeacherMonth(year, teacherIds, month.Value);
+            var defaultRates = LoadDefaultPayRates(teacherIds);
+            var adjustments = LoadPayAdjustmentsByTeacherMonth(year, teacherIds, month.Value);
+
+            foreach (var teacherId in teacherIds)
+            {
+                var shiftCount = shiftCounts.GetValueOrDefault((teacherId, month.Value));
+                if (shiftCount <= 0)
+                {
+                    continue;
+                }
+
+                var defaultRate = defaultRates.GetValueOrDefault(teacherId, TeacherTimesheet.DefaultPayPerShift);
+                var monthAdjustments = adjustments.GetValueOrDefault((teacherId, month.Value)) ?? new List<TeacherPayAdjustment>();
+                var pay = CalculatePayFromAdjustments(shiftCount, monthAdjustments, defaultRate);
+                if (pay > 0)
+                {
+                    result[teacherId] = pay;
+                }
+            }
+
+            return result;
+        }
+
+        var yearlyShiftCounts = LoadPresentShiftCountsByTeacherMonth(year, teacherIds);
+        var yearlyDefaultRates = LoadDefaultPayRates(teacherIds);
+        var yearlyAdjustments = LoadPayAdjustmentsByTeacherMonth(year, teacherIds);
+
+        foreach (var teacherId in teacherIds)
+        {
+            var defaultRate = yearlyDefaultRates.GetValueOrDefault(teacherId, TeacherTimesheet.DefaultPayPerShift);
+            decimal total = 0;
+            for (var m = 1; m <= 12; m++)
+            {
+                var shiftCount = yearlyShiftCounts.GetValueOrDefault((teacherId, m));
+                if (shiftCount <= 0)
+                {
+                    continue;
+                }
+
+                var monthAdjustments = yearlyAdjustments.GetValueOrDefault((teacherId, m)) ?? new List<TeacherPayAdjustment>();
+                total += CalculatePayFromAdjustments(shiftCount, monthAdjustments, defaultRate);
+            }
+
+            if (total > 0)
+            {
+                result[teacherId] = total;
+            }
+        }
+
+        return result;
+    }
+
+    public Dictionary<int, decimal> CalculateMonthlyPayForTeachers(int year, int month, IReadOnlyList<int> teacherIds)
+    {
+        var result = new Dictionary<int, decimal>();
+        if (teacherIds.Count == 0)
+        {
+            return result;
+        }
+
+        var shiftCounts = LoadPresentShiftCountsByTeacherMonth(year, teacherIds, month);
+        var defaultRates = LoadDefaultPayRates(teacherIds);
+        var adjustments = LoadPayAdjustmentsByTeacherMonth(year, teacherIds, month);
+
+        foreach (var teacherId in teacherIds)
+        {
+            var shiftCount = shiftCounts.GetValueOrDefault((teacherId, month));
+            if (shiftCount <= 0)
+            {
+                result[teacherId] = 0;
+                continue;
+            }
+
+            var defaultRate = defaultRates.GetValueOrDefault(teacherId, TeacherTimesheet.DefaultPayPerShift);
+            var monthAdjustments = adjustments.GetValueOrDefault((teacherId, month)) ?? new List<TeacherPayAdjustment>();
+            result[teacherId] = CalculatePayFromAdjustments(shiftCount, monthAdjustments, defaultRate);
+        }
+
+        return result;
+    }
+
+    public Dictionary<int, int> GetTotalShiftsInMonthForTeachers(int year, int month, IReadOnlyList<int> teacherIds)
+    {
+        var shiftCounts = LoadPresentShiftCountsByTeacherMonth(year, teacherIds, month);
+        return teacherIds.ToDictionary(
+            teacherId => teacherId,
+            teacherId => shiftCounts.GetValueOrDefault((teacherId, month)));
+    }
+
+    private static Dictionary<int, decimal> LoadDefaultPayRates(IReadOnlyList<int> teacherIds)
+    {
+        var result = new Dictionary<int, decimal>();
+        if (teacherIds.Count == 0)
+        {
+            return result;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT TeacherId, COALESCE(MAX(PayPerShift), @defaultRate)
+FROM TeacherClassPayRates
+WHERE TeacherId = ANY(@teacherIds)
+GROUP BY TeacherId;";
+        command.Parameters.AddWithValue("@defaultRate", TeacherTimesheet.DefaultPayPerShift);
+        command.Parameters.AddWithValue("@teacherIds", teacherIds.ToArray());
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result[reader.GetInt32(0)] = Convert.ToDecimal(reader.GetValue(1));
+        }
+
+        return result;
+    }
+
+    private static Dictionary<(int TeacherId, int Month), int> LoadPresentShiftCountsByTeacherMonth(
+        int year,
+        IReadOnlyList<int> teacherIds,
+        int? month = null)
+    {
+        var result = new Dictionary<(int TeacherId, int Month), int>();
+        if (teacherIds.Count == 0)
+        {
+            return result;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = month is >= 1 and <= 12
+            ? @"
+SELECT TeacherId, COUNT(*) AS ShiftCount
+FROM TeacherTimesheets
+WHERE TeacherId = ANY(@teacherIds)
+  AND IsPresent = 1
+  AND EXTRACT(YEAR FROM WorkDate::date) = @year
+  AND EXTRACT(MONTH FROM WorkDate::date) = @month
+GROUP BY TeacherId;"
+            : @"
+SELECT TeacherId,
+       CAST(EXTRACT(MONTH FROM WorkDate::date) AS INTEGER) AS Month,
+       COUNT(*) AS ShiftCount
+FROM TeacherTimesheets
+WHERE TeacherId = ANY(@teacherIds)
+  AND IsPresent = 1
+  AND EXTRACT(YEAR FROM WorkDate::date) = @year
+GROUP BY TeacherId, EXTRACT(MONTH FROM WorkDate::date);";
+        command.Parameters.AddWithValue("@teacherIds", teacherIds.ToArray());
+        command.Parameters.AddWithValue("@year", year);
+        if (month is >= 1 and <= 12)
+        {
+            command.Parameters.AddWithValue("@month", month.Value);
+        }
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (month is >= 1 and <= 12)
+            {
+                result[(reader.GetInt32(0), month.Value)] = reader.GetInt32(1);
+            }
+            else
+            {
+                result[(reader.GetInt32(0), reader.GetInt32(1))] = reader.GetInt32(2);
+            }
+        }
+
+        return result;
+    }
+
+    private static Dictionary<(int TeacherId, int Month), List<TeacherPayAdjustment>> LoadPayAdjustmentsByTeacherMonth(
+        int year,
+        IReadOnlyList<int> teacherIds,
+        int? month = null)
+    {
+        var result = new Dictionary<(int TeacherId, int Month), List<TeacherPayAdjustment>>();
+        if (teacherIds.Count == 0)
+        {
+            return result;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = month is >= 1 and <= 12
+            ? @"
+SELECT Id, TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt
+FROM TeacherPayAdjustments
+WHERE TeacherId = ANY(@teacherIds)
+  AND Year = @year
+  AND Month = @month
+ORDER BY TeacherId, CreatedAt, Id;"
+            : @"
+SELECT Id, TeacherId, Year, Month, ShiftCount, PayPerShift, Note, CreatedByUserId, CreatedByUsername, CreatedAt
+FROM TeacherPayAdjustments
+WHERE TeacherId = ANY(@teacherIds)
+  AND Year = @year
+ORDER BY TeacherId, Month, CreatedAt, Id;";
+        command.Parameters.AddWithValue("@teacherIds", teacherIds.ToArray());
+        command.Parameters.AddWithValue("@year", year);
+        if (month is >= 1 and <= 12)
+        {
+            command.Parameters.AddWithValue("@month", month.Value);
+        }
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var adjustment = ReadPayAdjustment(reader);
+            var key = (adjustment.TeacherId, adjustment.Month);
+            if (!result.TryGetValue(key, out var list))
+            {
+                list = new List<TeacherPayAdjustment>();
+                result[key] = list;
+            }
+
+            list.Add(adjustment);
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// Ước tính lương tháng nếu thêm một lần điều chỉnh mới (chưa lưu).
     /// </summary>
