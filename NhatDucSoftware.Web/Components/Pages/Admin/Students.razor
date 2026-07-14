@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject StudentService StudentService
+@inject ClassService ClassService
 @inject EvaluationService EvaluationService
 @inject NavigationManager Nav
 @inject LoadingService Loading
@@ -69,7 +70,7 @@ else
                 <InputFile OnChange="ImportStudents" accept=".txt" />
             </label>
             <a class="btn btn-success" href="/api/export/students" target="_blank">Xuất Excel</a>
-            <button class="btn btn-secondary" @onclick="ShowEvaluations" disabled="@(_selectedId is null)">Xem điểm/NX</button>
+            <button class="btn btn-secondary" @onclick="ShowEvaluations">Xem điểm/NX</button>
             <button class="btn btn-secondary" @onclick="ShowBalanceHistory" disabled="@(_selectedId is null)">Lịch sử số dư</button>
         </div>
     </div>
@@ -157,9 +158,17 @@ else
     @if (_showEvalModal)
     {
         <div class="modal-backdrop" @onclick="CloseEvalModal">
-            <div class="modal-content" @onclick:stopPropagation="true">
-                <h3>Điểm / Nhận xét - @_evalStudentName</h3>
+            <div class="modal-content modal-lg" @onclick:stopPropagation="true">
+                <h3>Điểm / Nhận xét theo lớp</h3>
                 <div class="toolbar">
+                    <label>Lớp</label>
+                    <select @bind="_evalClassId" @bind:after="LoadEvaluations">
+                        <option value="0">-- Chọn lớp --</option>
+                        @foreach (var c in _evalClasses)
+                        {
+                            <option value="@c.Id">@c.ClassName</option>
+                        }
+                    </select>
                     <label>Tháng</label>
                     <select @bind="_evalMonth" @bind:after="LoadEvaluations">
                         @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
@@ -168,22 +177,53 @@ else
                     <select @bind="_evalYear" @bind:after="LoadEvaluations">
                         @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
                     </select>
-                    <a class="btn btn-success" href="@($"/api/export/evaluations/{_selectedId}/{_evalYear}/{_evalMonth}")" target="_blank">Xuất Excel</a>
                     <button class="btn btn-secondary" @onclick="CloseEvalModal">Đóng</button>
+                </div>
+                <div class="list-toolbar" style="margin-top:0.5rem;">
+                    <div class="search-box">
+                        <input type="search"
+                               placeholder="Tìm nhanh theo tên học sinh..."
+                               value="@_evalSearchText"
+                               @oninput="OnEvalSearchChanged" />
+                    </div>
+                    <div class="list-meta">
+                        <span>@FilteredEvalRows.Count() học viên</span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                 <table class="data-table compact">
-                    <thead><tr><th>Lớp</th><th>Giáo viên</th><th>Điểm</th><th>Nhận xét</th><th>Ngày</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Họ tên</th>
+                            <th>Điểm</th>
+                            <th>NX</th>
+                            <th>Giáo viên</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        @foreach (var e in _evaluations)
+                        @if (_evalClassId <= 0)
                         {
-                            <tr>
-                                <td>@e.Lop</td>
-                                <td>@e.GiaoVien</td>
-                                <td>@e.Diem</td>
-                                <td>@e.NhanXet</td>
-                                <td>@e.Ngay</td>
+                            <tr class="empty-row">
+                                <td colspan="4">Vui lòng chọn lớp để xem điểm/NX.</td>
                             </tr>
+                        }
+                        else if (!FilteredEvalRows.Any())
+                        {
+                            <tr class="empty-row">
+                                <td colspan="4">Không tìm thấy học viên phù hợp.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var e in FilteredEvalRows)
+                            {
+                                <tr>
+                                    <td>@e.FullName</td>
+                                    <td>@(string.IsNullOrEmpty(e.Diem) ? "—" : e.Diem)</td>
+                                    <td>@(string.IsNullOrEmpty(e.NhanXet) ? "—" : e.NhanXet)</td>
+                                    <td>@(string.IsNullOrEmpty(e.GiaoVien) ? "—" : e.GiaoVien)</td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -246,10 +286,12 @@ else
     private int? _selectedId;
     private string? _message;
     private bool _showEvalModal;
-    private string _evalStudentName = "";
+    private List<ClassInfo> _evalClasses = new();
+    private int _evalClassId;
     private int _evalMonth = DateTime.Now.Month;
     private int _evalYear = DateTime.Now.Year;
-    private List<StudentEvaluationRow> _evaluations = new();
+    private string _evalSearchText = "";
+    private List<ClassStudentEvaluationRow> _evaluations = new();
     private bool _showBalanceHistoryModal;
     private string _balanceHistoryStudentName = "";
     private List<StudentBalanceHistory> _balanceHistory = new();
@@ -528,29 +570,45 @@ else
         }
     }
 
+    private IEnumerable<ClassStudentEvaluationRow> FilteredEvalRows =>
+        string.IsNullOrWhiteSpace(_evalSearchText)
+            ? _evaluations
+            : _evaluations.Where(e => e.FullName.Contains(_evalSearchText.Trim(), StringComparison.OrdinalIgnoreCase));
+
     private void ShowEvaluations()
     {
-        if (_selectedId is null) return;
+        _evalClasses = ClassService.GetAll();
+        _evalSearchText = "";
+        _evalMonth = DateTime.Now.Month;
+        _evalYear = DateTime.Now.Year;
 
-        var student = _students.FirstOrDefault(s => s.Id == _selectedId);
-        if (student is null)
+        if (_evalClasses.Count > 0)
         {
-            _message = "Không tìm thấy học viên đã chọn.";
-            return;
+            if (_evalClassId <= 0 || !_evalClasses.Any(c => c.Id == _evalClassId))
+            {
+                _evalClassId = _evalClasses[0].Id;
+            }
+        }
+        else
+        {
+            _evalClassId = 0;
         }
 
-        _evalStudentName = student.FullName;
         _showEvalModal = true;
         LoadEvaluations();
     }
 
     private void LoadEvaluations()
     {
-        if (_selectedId is null || _evalMonth is < 1 or > 12) return;
+        if (_evalClassId <= 0 || _evalMonth is < 1 or > 12)
+        {
+            _evaluations = new();
+            return;
+        }
 
         try
         {
-            _evaluations = EvaluationService.GetByStudentInMonth(_selectedId.Value, _evalYear, _evalMonth);
+            _evaluations = EvaluationService.GetByClassInMonth(_evalClassId, _evalYear, _evalMonth);
         }
         catch (Exception ex)
         {
@@ -559,7 +617,16 @@ else
         }
     }
 
-    private void CloseEvalModal() => _showEvalModal = false;
+    private void OnEvalSearchChanged(ChangeEventArgs e)
+    {
+        _evalSearchText = e.Value?.ToString() ?? "";
+    }
+
+    private void CloseEvalModal()
+    {
+        _showEvalModal = false;
+        _evalSearchText = "";
+    }
 
     private void ShowBalanceHistory()
     {

@@ -95,6 +95,60 @@ ORDER BY se.CreatedAt DESC;";
         return results;
     }
 
+    public List<ClassStudentEvaluationRow> GetByClassInMonth(int classId, int year, int month)
+    {
+        if (classId <= 0 || month is < 1 or > 12)
+        {
+            return new List<ClassStudentEvaluationRow>();
+        }
+
+        var results = new List<ClassStudentEvaluationRow>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT s.Id,
+       s.FullName,
+       e.Score,
+       e.Comment,
+       COALESCE(t.FullName, ''),
+       e.CreatedAt
+FROM ClassStudents cs
+INNER JOIN Students s ON s.Id = cs.StudentId
+LEFT JOIN LATERAL (
+    SELECT se.Score, se.Comment, se.TeacherId, se.CreatedAt
+    FROM StudentEvaluations se
+    WHERE se.StudentId = cs.StudentId
+      AND se.ClassId = cs.ClassId
+      AND LEFT(se.CreatedAt::text, 7) = @yearMonth
+    ORDER BY se.CreatedAt DESC, se.Id DESC
+    LIMIT 1
+) e ON true
+LEFT JOIN Teachers t ON t.Id = e.TeacherId
+WHERE cs.ClassId = @classId
+ORDER BY s.FullName ASC, s.Id ASC;";
+
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@yearMonth", $"{year}-{month:D2}");
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            results.Add(new ClassStudentEvaluationRow
+            {
+                StudentId = Convert.ToInt32(reader.GetValue(0)),
+                FullName = ReadString(reader, 1),
+                Diem = ReadScore(reader, 2),
+                NhanXet = ReadString(reader, 3),
+                GiaoVien = ReadString(reader, 4),
+                Ngay = reader.IsDBNull(5) ? "" : ReadDate(reader, 5)
+            });
+        }
+
+        return results;
+    }
+
     private static StudentEvaluationRow MapRow(DbDataReader reader)
     {
         return new StudentEvaluationRow
@@ -164,5 +218,15 @@ public class StudentEvaluationRow
     public string GiaoVien { get; set; } = "";
     public string Diem { get; set; } = "";
     public string NhanXet { get; set; } = "";
+    public string Ngay { get; set; } = "";
+}
+
+public class ClassStudentEvaluationRow
+{
+    public int StudentId { get; set; }
+    public string FullName { get; set; } = "";
+    public string Diem { get; set; } = "";
+    public string NhanXet { get; set; } = "";
+    public string GiaoVien { get; set; } = "";
     public string Ngay { get; set; } = "";
 }
