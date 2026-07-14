@@ -571,8 +571,22 @@ a { color: var(--primary); }
     margin-top: 1rem;
 }
 
-.login-card .form-group:last-of-type {
-    margin-bottom: 1.5rem;
+.login-card .form-group.remember-me {
+    margin-top: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.login-card .remember-me .checkbox-inline {
+    cursor: pointer;
+    color: #334155;
+    font-size: 0.95rem;
+    user-select: none;
+}
+
+.login-card .remember-me input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    accent-color: var(--primary);
 }
 
 /* ── Report stat cards ── */
