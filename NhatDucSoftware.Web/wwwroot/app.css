@@ -577,15 +577,27 @@ a { color: var(--primary); }
 }
 
 .login-card .remember-me .checkbox-inline {
-    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
     color: #334155;
-    font-size: 0.95rem;
+    cursor: pointer;
     user-select: none;
 }
 
 .login-card .remember-me input[type="checkbox"] {
-    width: auto;
+    width: 1rem;
+    height: 1rem;
+    min-height: 0;
+    min-width: 0;
     margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    flex-shrink: 0;
     accent-color: var(--primary);
 }
 
