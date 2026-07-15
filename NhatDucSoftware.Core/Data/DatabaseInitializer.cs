@@ -62,6 +62,19 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateTeacherProfileColumns(connection);
         MigrateTeacherPayAdjustmentsTable(connection);
         MigrateStudentTuitionDiscountsTable(connection);
+        MigrateDataProtectionKeysTable(connection);
+    }
+
+    private static void MigrateDataProtectionKeysTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS DataProtectionKeys (
+    Id BIGSERIAL PRIMARY KEY,
+    FriendlyName TEXT NULL,
+    Xml TEXT NOT NULL
+);";
+        createTable.ExecuteNonQuery();
     }
 
     private static void MigrateStudentTuitionDiscountsTable(System.Data.Common.DbConnection connection)

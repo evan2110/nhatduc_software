@@ -13,6 +13,8 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://+:8080
+      - key: DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE
+        value: "false"
       - key: SUPABASE_DB_PASSWORD
         sync: false
       - key: GOOGLE_DRIVE_ROOT_FOLDER_ID

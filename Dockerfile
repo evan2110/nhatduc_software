@@ -13,6 +13,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+# Disable appsettings FileSystemWatcher before CreateBuilder (avoids inotify limit on Render).
+ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
 COPY --from=build /app/publish .
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "NhatDucSoftware.Web.dll"]

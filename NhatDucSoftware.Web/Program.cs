@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using NhatDucSoftware.Core.Data;
 using NhatDucSoftware.Core.Services;
@@ -9,7 +11,9 @@ using NhatDucSoftware.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: true);
+// Production: avoid FileSystemWatcher/inotify (Render Linux limit). Dev keeps hot-reload.
+var reloadConfigOnChange = builder.Environment.IsDevelopment();
+builder.Configuration.AddJsonFile("appsettings.Secrets.json", optional: true, reloadOnChange: reloadConfigOnChange);
 
 static void SetEnvIfEmpty(string key, string? value)
 {
@@ -35,6 +39,14 @@ DbContext.Configure(
 DatabaseInitializer.Initialize();
 
 SetEnvIfEmpty("NHATDUC_GMAIL_REFRESH_TOKEN", AppSettingsService.Get("NHATDUC_GMAIL_REFRESH_TOKEN"));
+
+// Persist DP keys in Postgres so auth/antiforgery cookies survive Render restarts.
+builder.Services.AddDataProtection()
+    .SetApplicationName("NhatDucSoftware");
+builder.Services.Configure<KeyManagementOptions>(options =>
+{
+    options.XmlRepository = new PostgresXmlRepository();
+});
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
