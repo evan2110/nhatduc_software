@@ -1053,6 +1053,54 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
         return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 
+    public List<int> GetPendingFinalizeClassIds(int month, int year)
+    {
+        var classIds = new ClassService().GetAll().Select(c => c.Id).ToList();
+        if (classIds.Count == 0)
+        {
+            return new List<int>();
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT ClassId
+FROM PaymentFinalizations
+WHERE Month = @month AND Year = @year;";
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        var finalized = new HashSet<int>();
+        using (var reader = command.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                finalized.Add(reader.GetInt32(0));
+            }
+        }
+
+        return classIds.Where(id => !finalized.Contains(id)).ToList();
+    }
+
+    public FinalizeAllResult FinalizeAllPayments(int month, int year, int finalizedBy)
+    {
+        var allClassIds = new ClassService().GetAll().Select(c => c.Id).ToList();
+        var pending = GetPendingFinalizeClassIds(month, year);
+        var result = new FinalizeAllResult
+        {
+            SkippedAlreadyFinalized = allClassIds.Count - pending.Count
+        };
+
+        foreach (var classId in pending)
+        {
+            FinalizePayment(classId, month, year, finalizedBy);
+            result.FinalizedCount++;
+        }
+
+        return result;
+    }
+
     public void FinalizePayment(int classId, int month, int year, int finalizedBy)
     {
         if (IsFinalized(classId, month, year))
@@ -1084,9 +1132,8 @@ WHERE cs.ClassId = @classId;";
 
             foreach (var studentId in studentIds)
             {
-                var total = GetTotalTuitionByStudentInClassMonthYear(studentId, classId, month, year);
-                var paid = GetPaidAmountByStudentMonthYear(studentId, month, year, classId);
-                var remaining = total - paid;
+                var breakdown = GetStudentTuitionBreakdownByClassMonthYear(studentId, month, year);
+                var remaining = PaymentServiceInternals.GetCarryAmountForClass(breakdown, classId);
                 if (remaining > 0)
                 {
                     studentsWithRemaining.Add((studentId, remaining));
@@ -1326,6 +1373,12 @@ public class ClassPaymentSummary
     public decimal TotalRemaining { get; set; }
     public decimal TotalCarryOver { get; set; }
     public decimal TotalAttendanceDue { get; set; }
+}
+
+public sealed class FinalizeAllResult
+{
+    public int FinalizedCount { get; set; }
+    public int SkippedAlreadyFinalized { get; set; }
 }
 
 public class PaymentClassListRow

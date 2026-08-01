@@ -40,7 +40,9 @@ else
                 @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
             <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
-            <button class="btn btn-primary" @onclick="OpenFinalizeConfirm" disabled="@(_isFinalized || _classId <= 0)">Chốt số liệu</button>
+            <button class="btn btn-primary" @onclick="OpenFinalizeConfirm" disabled="@IsFinalizeButtonDisabled">
+                @(_classId <= 0 ? "Chốt hàng loạt" : "Chốt số liệu")
+            </button>
         </div>
 
         <div class="summary-panel class-summary">
@@ -313,8 +315,15 @@ else
     {
         <div class="modal-backdrop" @onclick="CloseFinalizeConfirm">
             <div class="modal-content" @onclick:stopPropagation="true">
-                <h3>Xác nhận chốt số liệu</h3>
-                <p>Bạn có chắc muốn chốt số liệu tháng @_month:D2/@_year cho lớp đang chọn?</p>
+                <h3>@(_classId <= 0 ? "Xác nhận chốt hàng loạt" : "Xác nhận chốt số liệu")</h3>
+                @if (_classId <= 0)
+                {
+                    <p>Bạn có chắc muốn chốt hàng loạt tháng @_month:D2/@_year cho toàn bộ @_pendingFinalizeCount lớp chưa chốt?</p>
+                }
+                else
+                {
+                    <p>Bạn có chắc muốn chốt số liệu tháng @_month:D2/@_year cho lớp đang chọn?</p>
+                }
                 <p class="text-muted">Sau khi chốt:</p>
                 <ul class="text-muted">
                     <li>Không thể thu học phí, sửa hoặc xóa lịch sử thu của tháng này.</li>
@@ -347,6 +356,7 @@ else
     private string? _message;
     private bool _isError;
     private bool _isFinalized;
+    private int _pendingFinalizeCount;
     private bool _showDetail;
     private bool _showDiscountModal;
     private bool _showFinalizeConfirm;
@@ -364,6 +374,8 @@ else
     private PaymentMonthBatch? _monthBatch;
 
     private bool IsCurrentMonth => _month == DateTime.Now.Month && _year == DateTime.Now.Year;
+    private bool IsFinalizeButtonDisabled =>
+        _classId > 0 ? _isFinalized : _pendingFinalizeCount <= 0;
     private bool CanCollectForSelectedMonth => _classId == 0 && IsCurrentMonth && _collectibleRemaining > 0;
     private bool CanCollectPayment => CanCollectForSelectedMonth && _selectedStudentId > 0;
     private bool CanPayFromBalance => CanCollectPayment && _balance > 0;
@@ -422,6 +434,7 @@ else
     private void LoadGrid()
     {
         _isFinalized = _classId > 0 && PaymentService.IsFinalized(_classId, _month, _year);
+        _pendingFinalizeCount = PaymentService.GetPendingFinalizeClassIds(_month, _year).Count;
         _monthBatch = PaymentService.LoadMonthBatch(_classId, _month, _year);
         _summary = _monthBatch.Summary;
         _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
@@ -703,9 +716,18 @@ else
 
     private void OpenFinalizeConfirm()
     {
-        if (_classId <= 0)
+        if (_classId > 0)
         {
-            _message = "Vui lòng chọn một lớp cụ thể.";
+            if (_isFinalized)
+            {
+                _message = "Tháng này đã được chốt số liệu rồi.";
+                _isError = true;
+                return;
+            }
+        }
+        else if (_pendingFinalizeCount <= 0)
+        {
+            _message = "Tất cả các lớp đã được chốt số liệu cho tháng này.";
             _isError = true;
             return;
         }
@@ -724,17 +746,21 @@ else
 
     private void FinalizeMonth()
     {
-        if (_classId <= 0)
-        {
-            _message = "Vui lòng chọn một lớp cụ thể.";
-            _isError = true;
-            return;
-        }
-
         try
         {
-            PaymentService.FinalizePayment(_classId, _month, _year, Session.CurrentUser!.Id);
-            _message = $"Đã chốt số liệu tháng {_month:D2}/{_year}.";
+            if (_classId <= 0)
+            {
+                var result = PaymentService.FinalizeAllPayments(_month, _year, Session.CurrentUser!.Id);
+                _message = result.FinalizedCount > 0
+                    ? $"Đã chốt hàng loạt tháng {_month:D2}/{_year}: {result.FinalizedCount} lớp. Đã bỏ qua {result.SkippedAlreadyFinalized} lớp đã chốt trước đó."
+                    : "Tất cả các lớp đã được chốt số liệu cho tháng này.";
+            }
+            else
+            {
+                PaymentService.FinalizePayment(_classId, _month, _year, Session.CurrentUser!.Id);
+                _message = $"Đã chốt số liệu tháng {_month:D2}/{_year}.";
+            }
+
             _isError = false;
             LoadGrid();
         }

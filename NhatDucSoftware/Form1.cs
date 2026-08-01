@@ -2033,7 +2033,12 @@ namespace NhatDucSoftware
         {
             InitializePaymentMonthYearFilter();
 
-            var items = _classes.ToList();
+            var items = new List<ClassInfo>
+            {
+                new() { Id = 0, ClassName = "Tất cả" }
+            };
+            items.AddRange(_classes);
+
             cmbPaymentFilterClass.DataSource = null;
             cmbPaymentFilterClass.DataSource = items;
             cmbPaymentFilterClass.DisplayMember = nameof(ClassInfo.ClassName);
@@ -2041,6 +2046,7 @@ namespace NhatDucSoftware
 
             BindPaymentMonthYearFilter();
             LoadPaymentSummaryGrid();
+            UpdateFinalizeState();
         }
 
         private void cmbPaymentFilterClass_SelectedIndexChanged(object sender, EventArgs e)
@@ -2559,13 +2565,7 @@ namespace NhatDucSoftware
 
         private void btnFinalizePayment_Click(object sender, EventArgs e)
         {
-            // Get selected class
             var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
-            if (classId <= 0)
-            {
-                MessageBox.Show("Vui lòng chọn một lớp cụ thể để chốt số liệu.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
 
             // Get selected month/year
             if (tabAdminPayments.Controls["cmbPaymentMonth"] is not ComboBox cmbMonth || cmbMonth.SelectedItem is not int month)
@@ -2575,6 +2575,43 @@ namespace NhatDucSoftware
 
             if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
             {
+                return;
+            }
+
+            if (classId <= 0)
+            {
+                var pending = _paymentService.GetPendingFinalizeClassIds(month, year);
+                if (pending.Count == 0)
+                {
+                    MessageBox.Show("Tất cả các lớp đã được chốt số liệu cho tháng này.",
+                        "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                var confirmBulk = MessageBox.Show(
+                    $"Bạn có chắc muốn chốt hàng loạt tháng {month:D2}/{year} cho toàn bộ {pending.Count} lớp chưa chốt?\n\n" +
+                    "Sau khi chốt:\n" +
+                    "- Không thể thu học phí, chỉnh sửa hoặc xóa lịch sử thu của tháng này.\n" +
+                    "- Số tiền còn nợ sẽ được chuyển sang tháng sau.",
+                    "Xác nhận chốt hàng loạt", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirmBulk != DialogResult.Yes) return;
+
+                try
+                {
+                    var result = _paymentService.FinalizeAllPayments(month, year, _currentUser.Id);
+                    MessageBox.Show(
+                        $"Đã chốt hàng loạt tháng {month:D2}/{year}: {result.FinalizedCount} lớp.\n" +
+                        $"Đã bỏ qua {result.SkippedAlreadyFinalized} lớp đã chốt trước đó.\n" +
+                        "Số tiền còn nợ đã được chuyển sang tháng sau.",
+                        "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadPaymentSummaryGrid();
+                    UpdateFinalizeState();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+
                 return;
             }
 
@@ -2621,7 +2658,12 @@ namespace NhatDucSoftware
                 return;
             }
 
+            btnFinalizePayment.Text = classId <= 0 ? "Chốt hàng loạt" : "Chốt số liệu";
+
             var isFinalized = classId > 0 && _paymentService.IsFinalized(classId, month, year);
+            var canBulkFinalize = classId <= 0 && _paymentService.GetPendingFinalizeClassIds(month, year).Count > 0;
+            var canFinalize = classId > 0 ? !isFinalized : canBulkFinalize;
+
             txtPaymentAmount.Enabled = !isFinalized;
             btnCollectPayment.Enabled = !isFinalized && btnCollectPayment.Enabled;
             if (btnPayFromBalance is not null)
@@ -2630,7 +2672,7 @@ namespace NhatDucSoftware
             }
             btnEditPaymentHistory.Enabled = !isFinalized;
             btnDeletePaymentHistory.Enabled = !isFinalized;
-            btnFinalizePayment.Enabled = !isFinalized;
+            btnFinalizePayment.Enabled = canFinalize;
         }
 
         private void dgvAttendanceDetail_CellContentClick(object? sender, DataGridViewCellEventArgs e)

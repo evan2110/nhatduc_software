@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {}
+    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {}
   },
   "projects": {
-    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
+    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
+        "projectUniqueName": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
         "projectName": "NhatDucSoftware.Core",
-        "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
+        "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj",
         "packagesPath": "C:\\Users\\duc21\\.nuget\\packages\\",
-        "outputPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\obj\\",
+        "outputPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -91,14 +91,14 @@
         }
       }
     },
-    "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {
+    "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj": {
       "version": "1.1.2",
       "restore": {
-        "projectUniqueName": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
+        "projectUniqueName": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
         "projectName": "NhatDucSoftware",
-        "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
+        "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
         "packagesPath": "C:\\Users\\duc21\\.nuget\\packages\\",
-        "outputPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\obj\\",
+        "outputPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -119,8 +119,8 @@
           "net8.0-windows7.0": {
             "targetAlias": "net8.0-windows",
             "projectReferences": {
-              "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
-                "projectPath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj"
+              "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj": {
+                "projectPath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware.Core\\NhatDucSoftware.Core.csproj"
               }
             }
           }

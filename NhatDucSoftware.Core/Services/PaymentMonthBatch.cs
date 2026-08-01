@@ -415,6 +415,17 @@ WHERE Month = @month
 
 internal static class PaymentServiceInternals
 {
+    /// <summary>
+    /// Amount to carry forward for a class when finalizing.
+    /// Must match UI Remaining (after unallocated payments and overpayment credit),
+    /// not raw TotalDue - class Paid.
+    /// </summary>
+    internal static decimal GetCarryAmountForClass(IReadOnlyList<StudentClassTuitionRow> rows, int classId)
+    {
+        var row = rows.FirstOrDefault(r => r.ClassId == classId);
+        return row is null ? 0 : Math.Max(0, row.Remaining);
+    }
+
     internal static void ApplyUnallocatedPayments(List<StudentClassTuitionRow> rows, decimal unallocatedPaid)
     {
         var collectibleRows = rows
