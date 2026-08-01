@@ -703,21 +703,6 @@ else
 
     private void OpenFinalizeConfirm()
     {
-        var today = DateTime.Today;
-        if (today.Day != DateTime.DaysInMonth(today.Year, today.Month))
-        {
-            _message = $"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {DateTime.DaysInMonth(today.Year, today.Month)}).";
-            _isError = true;
-            return;
-        }
-
-        if (_month != today.Month || _year != today.Year)
-        {
-            _message = "Chỉ được chốt số liệu cho tháng hiện tại. Vui lòng chọn đúng tháng/năm trên bộ lọc.";
-            _isError = true;
-            return;
-        }
-
         if (_classId <= 0)
         {
             _message = "Vui lòng chọn một lớp cụ thể.";

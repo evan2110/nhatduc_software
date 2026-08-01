@@ -1055,18 +1055,6 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
 
     public void FinalizePayment(int classId, int month, int year, int finalizedBy)
     {
-        var today = DateTime.Today;
-        if (month != today.Month || year != today.Year)
-        {
-            throw new InvalidOperationException("Chỉ được chốt số liệu cho tháng hiện tại.");
-        }
-
-        if (today.Day != DateTime.DaysInMonth(today.Year, today.Month))
-        {
-            throw new InvalidOperationException(
-                $"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {DateTime.DaysInMonth(today.Year, today.Month)}).");
-        }
-
         if (IsFinalized(classId, month, year))
         {
             throw new InvalidOperationException("Tháng này đã được chốt số liệu rồi.");

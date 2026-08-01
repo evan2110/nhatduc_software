@@ -2559,16 +2559,6 @@ namespace NhatDucSoftware
 
         private void btnFinalizePayment_Click(object sender, EventArgs e)
         {
-            // Check if today is the last day of the month
-            var today = DateTime.Today;
-            var lastDayOfMonth = DateTime.DaysInMonth(today.Year, today.Month);
-            if (today.Day != lastDayOfMonth)
-            {
-                MessageBox.Show($"Chỉ có thể chốt số liệu vào ngày cuối cùng của tháng (ngày {lastDayOfMonth}).",
-                    "Không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             // Get selected class
             var classId = cmbPaymentFilterClass.SelectedValue is int id ? id : 0;
             if (classId <= 0)
@@ -2585,14 +2575,6 @@ namespace NhatDucSoftware
 
             if (tabAdminPayments.Controls["cmbPaymentYear"] is not ComboBox cmbYear || cmbYear.SelectedItem is not int year)
             {
-                return;
-            }
-
-            var today = DateTime.Today;
-            if (month != today.Month || year != today.Year)
-            {
-                MessageBox.Show("Chỉ được chốt số liệu cho tháng hiện tại. Vui lòng chọn đúng tháng/năm trên bộ lọc.",
-                    "Không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
