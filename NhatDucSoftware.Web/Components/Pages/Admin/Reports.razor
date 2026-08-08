@@ -26,6 +26,8 @@ else
         <div class="summary-box">
             <span>Tổng học viên: @_summary.TotalStudents</span>
             <span>Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)</span>
+            <span>Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
+            <span>Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)</span>
             <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
         </div>
     </div>
@@ -282,6 +284,7 @@ else
                 _revenueByMonth = ReportService.GetRevenueByMonth(year);
                 _expenseByMonth = ReportService.GetExpenseByMonth(year);
                 _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(year);
+                ReportService.FillYearFinancialTotals(_summary, _tuitionByMonth, _expenseByMonth);
                 _enrollmentByMonth = ReportService.GetEnrollmentByMonth(year);
                 _mostDiligent = ReportService.GetMostDiligentStudent(year, month);
                 _topAchievement = ReportService.GetTopAchievementStudent(year, month);
@@ -293,6 +296,8 @@ else
             _revenueByMonth = new();
             _expenseByMonth = new();
             _tuitionByMonth = new();
+            _summary.TotalTuitionEarned = 0;
+            _summary.TotalExpense = 0;
             _enrollmentByMonth = new();
             _mostDiligent = null;
             _topAchievement = null;

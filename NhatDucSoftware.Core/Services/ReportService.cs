@@ -49,6 +49,27 @@ public class ReportService
         return result;
     }
 
+    /// <summary>
+    /// Gán Tổng thu / Tổng chi theo năm từ dữ liệu tháng đã tải (cùng nguồn với biểu đồ).
+    /// </summary>
+    public void FillYearFinancialTotals(
+        ReportSummary summary,
+        IReadOnlyList<MonthlyAmountStat> tuitionByMonth,
+        IReadOnlyList<MonthlyAmountStat> expenseByMonth)
+    {
+        summary.TotalTuitionEarned = tuitionByMonth.Sum(x => x.Amount);
+        summary.TotalExpense = expenseByMonth.Sum(x => x.Amount);
+    }
+
+    public (decimal TotalTuitionEarned, decimal TotalExpense) GetYearFinancialTotals(int year)
+    {
+        var tuitionByMonth = GetTuitionEarnedByMonth(year);
+        var expenseByMonth = GetExpenseByMonth(year);
+        return (
+            tuitionByMonth.Sum(x => x.Amount),
+            expenseByMonth.Sum(x => x.Amount));
+    }
+
     public List<RevenueByYearStat> GetRevenueByYear()
     {
         var result = new List<RevenueByYearStat>();
