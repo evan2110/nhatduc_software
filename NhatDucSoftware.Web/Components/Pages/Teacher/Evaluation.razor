@@ -5,6 +5,8 @@
 @inject StudentService StudentService
 @inject EvaluationService EvaluationService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Nhận xét / Điểm</PageTitle>
 
@@ -18,7 +20,7 @@ else
 
     @if (!string.IsNullOrEmpty(_message))
     {
-        <div class="alert alert-success">@_message</div>
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
     }
 
     <div class="card">
@@ -43,13 +45,13 @@ else
             </div>
             <div class="form-group">
                 <label>Tháng</label>
-                <select @bind="_month" @bind:after="LoadClassesForPeriod">
+                <select @bind="_month" @bind:after="OnPeriodChanged">
                     @for (int m = 1; m <= 12; m++) { <option value="@m">@m</option> }
                 </select>
             </div>
             <div class="form-group">
                 <label>Năm</label>
-                <select @bind="_year" @bind:after="LoadClassesForPeriod">
+                <select @bind="_year" @bind:after="OnPeriodChanged">
                     @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
                 </select>
             </div>
@@ -64,25 +66,178 @@ else
         </div>
         <button class="btn btn-primary" @onclick="SaveEvaluation">Lưu nhận xét/điểm</button>
     </div>
+
+    <div class="card">
+        <div class="report-section-header">
+            <h3>Danh sách nhận xét / điểm — Tháng @_month/@_year</h3>
+            <span class="text-muted">Thiếu: @MissingCount / @FilteredRows.Count</span>
+        </div>
+
+        <div class="toolbar">
+            <label>Lớp</label>
+            <select @bind="_filterClassId" @bind:after="OnFilterChanged">
+                <option value="0">Tất cả</option>
+                @foreach (var c in _classes)
+                {
+                    <option value="@c.Id">@c.ClassName</option>
+                }
+            </select>
+            <label>Trạng thái</label>
+            <select @bind="_filterStatus" @bind:after="OnFilterChanged">
+                <option value="all">Tất cả</option>
+                <option value="missing">Thiếu nhận xét</option>
+                <option value="done">Đã có nhận xét</option>
+            </select>
+            <label>
+                Hiển thị
+                <select @bind="_pageSize" @bind:after="OnFilterChanged">
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+                / trang
+            </label>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        <th>Lớp</th>
+                        <th>Học viên</th>
+                        <th>Điểm</th>
+                        <th>Nhận xét</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (PagedRows.Count == 0)
+                    {
+                        <tr class="empty-row">
+                            <td colspan="5">Không có học viên phù hợp.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var row in PagedRows)
+                        {
+                            <tr class="@(_classId == row.ClassId && _studentId == row.StudentId ? "selected" : "")"
+                                style="cursor:pointer"
+                                @onclick="() => SelectReviewRow(row)">
+                                <td>@row.ClassName</td>
+                                <td>@row.FullName</td>
+                                <td>@(string.IsNullOrWhiteSpace(row.Diem) ? "—" : row.Diem)</td>
+                                <td>@(string.IsNullOrWhiteSpace(row.NhanXet) ? "—" : Truncate(row.NhanXet, 80))</td>
+                                <td class="@(row.HasComment ? "status-ok" : "status-missing")">
+                                    @(row.HasComment ? "Đã có" : "Thiếu nhận xét")
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="pagination-bar">
+                <button class="btn btn-secondary" @onclick="() => GoToPage(1)" disabled="@(_currentPage <= 1)">«</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage - 1)" disabled="@(_currentPage <= 1)">‹</button>
+                @foreach (var p in VisiblePages)
+                {
+                    <button class="btn btn-secondary @(p == _currentPage ? "active" : "")" @onclick="() => GoToPage(p)">@p</button>
+                }
+                <button class="btn btn-secondary" @onclick="() => GoToPage(_currentPage + 1)" disabled="@(_currentPage >= TotalPages)">›</button>
+                <button class="btn btn-secondary" @onclick="() => GoToPage(TotalPages)" disabled="@(_currentPage >= TotalPages)">»</button>
+                <span class="pagination-info">Trang @_currentPage / @TotalPages</span>
+            </div>
+        }
+
+        <p class="report-note">Bấm một dòng để điền vào form phía trên và bổ sung/cập nhật nhận xét.</p>
+    </div>
 }
 
 @code {
     private List<ClassInfo> _classes = new();
     private List<Student> _studentsInClass = new();
     private List<Student> _allStudents = new();
+    private List<ClassStudentEvaluationRow> _reviewRows = new();
     private int _classId;
     private int _studentId;
     private int _month = DateTime.Now.Month;
     private int _year = DateTime.Now.Year;
+    private int _filterClassId;
+    private string _filterStatus = "all";
+    private int _pageSize = 15;
+    private int _currentPage = 1;
     private string _scoreText = "";
     private string _comment = "";
     private string? _message;
+    private bool _isError;
+
+    private List<ClassStudentEvaluationRow> FilteredRows
+    {
+        get
+        {
+            IEnumerable<ClassStudentEvaluationRow> q = _reviewRows;
+            if (_filterClassId > 0)
+            {
+                q = q.Where(x => x.ClassId == _filterClassId);
+            }
+
+            q = _filterStatus switch
+            {
+                "missing" => q.Where(x => !x.HasComment),
+                "done" => q.Where(x => x.HasComment),
+                _ => q
+            };
+
+            return q.OrderBy(x => x.ClassName).ThenBy(x => x.FullName).ToList();
+        }
+    }
+
+    private int MissingCount => FilteredRows.Count(x => !x.HasComment);
+    private int TotalPages => PaginationHelper.GetTotalPages(FilteredRows.Count, _pageSize);
+    private List<ClassStudentEvaluationRow> PagedRows =>
+        PaginationHelper.GetPage(FilteredRows, _currentPage, _pageSize);
+
+    private IEnumerable<int> VisiblePages
+    {
+        get
+        {
+            var start = Math.Max(1, _currentPage - 2);
+            var end = Math.Min(TotalPages, _currentPage + 2);
+            for (var p = start; p <= end; p++)
+            {
+                yield return p;
+            }
+        }
+    }
 
     protected override void OnInitialized()
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
         _allStudents = StudentService.GetAll();
         LoadClassesForPeriod();
+        LoadReviewRows();
+    }
+
+    private void OnPeriodChanged()
+    {
+        LoadClassesForPeriod();
+        LoadReviewRows();
+        _currentPage = 1;
+    }
+
+    private void OnFilterChanged()
+    {
+        _currentPage = 1;
+    }
+
+    private void GoToPage(int page)
+    {
+        _currentPage = Math.Clamp(page, 1, TotalPages);
     }
 
     private void LoadClassesForPeriod()
@@ -94,7 +249,11 @@ else
         }
 
         var referenceDate = new DateTime(_year, _month, DateTime.DaysInMonth(_year, _month));
-        _classes = ClassService.GetClassesByTeacher(teacherId, referenceDate);
+        _classes = ClassService.GetClassesByTeacher(teacherId, referenceDate)
+            .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.ClassName)
+            .ToList();
+
         if (_classes.Count > 0)
         {
             if (!_classes.Any(c => c.Id == _classId))
@@ -102,11 +261,17 @@ else
                 _classId = _classes[0].Id;
             }
 
+            if (_filterClassId > 0 && !_classes.Any(c => c.Id == _filterClassId))
+            {
+                _filterClassId = 0;
+            }
+
             LoadStudentsInClass();
         }
         else
         {
             _classId = 0;
+            _filterClassId = 0;
             _studentsInClass = new();
         }
     }
@@ -115,22 +280,85 @@ else
     {
         var ids = ClassService.GetStudentsInClass(_classId).Select(s => s.StudentId).ToHashSet();
         _studentsInClass = _allStudents.Where(s => ids.Contains(s.Id)).ToList();
-        if (_studentsInClass.Count > 0) _studentId = _studentsInClass[0].Id;
+        if (_studentsInClass.Count > 0)
+        {
+            if (!_studentsInClass.Any(s => s.Id == _studentId))
+            {
+                _studentId = _studentsInClass[0].Id;
+            }
+        }
+        else
+        {
+            _studentId = 0;
+        }
+    }
+
+    private void LoadReviewRows()
+    {
+        _reviewRows = new();
+        foreach (var cls in _classes)
+        {
+            var rows = EvaluationService.GetByClassInMonth(cls.Id, _year, _month);
+            foreach (var row in rows)
+            {
+                row.ClassId = cls.Id;
+                row.ClassName = cls.ClassName;
+                _reviewRows.Add(row);
+            }
+        }
+    }
+
+    private void SelectReviewRow(ClassStudentEvaluationRow row)
+    {
+        _classId = row.ClassId;
+        LoadStudentsInClass();
+        _studentId = row.StudentId;
+        _scoreText = row.Diem ?? "";
+        _comment = row.NhanXet ?? "";
+        _message = $"Đã chọn {row.FullName} — {row.ClassName}. Chỉnh sửa rồi bấm Lưu.";
+        _isError = false;
     }
 
     private void SaveEvaluation()
     {
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
 
-        EvaluationService.Save(
-            _studentId,
-            _classId,
-            teacherId,
-            decimal.TryParse(_scoreText, out var score) ? score : null,
-            _comment.Trim(),
-            _year,
-            _month);
+        if (_studentId <= 0 || _classId <= 0)
+        {
+            _message = "Vui lòng chọn lớp và học viên.";
+            _isError = true;
+            return;
+        }
 
-        _message = "Đã lưu nhận xét/điểm.";
+        try
+        {
+            EvaluationService.Save(
+                _studentId,
+                _classId,
+                teacherId,
+                decimal.TryParse(_scoreText, out var score) ? score : null,
+                _comment.Trim(),
+                _year,
+                _month);
+
+            _message = "Đã lưu nhận xét/điểm.";
+            _isError = false;
+            LoadReviewRows();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private static string Truncate(string text, int max)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length <= max)
+        {
+            return text;
+        }
+
+        return text[..max] + "…";
     }
 }

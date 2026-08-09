@@ -225,8 +225,12 @@ public class ClassStudentEvaluationRow
 {
     public int StudentId { get; set; }
     public string FullName { get; set; } = "";
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
     public string Diem { get; set; } = "";
     public string NhanXet { get; set; } = "";
     public string GiaoVien { get; set; } = "";
     public string Ngay { get; set; } = "";
+
+    public bool HasComment => !string.IsNullOrWhiteSpace(NhanXet);
 }
