@@ -85,13 +85,13 @@ else
         <div class="table-responsive">
         <table class="data-table">
             <thead>
-                <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền</th><th>Người thu</th><th></th></tr>
+                <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền cần đóng</th><th>Số tiền đã thu</th><th>Người thu</th><th></th></tr>
             </thead>
             <tbody>
                 @if (PagedPaymentRows.Count == 0)
                 {
                     <tr class="empty-row">
-                        <td colspan="7">Không tìm thấy học viên phù hợp.</td>
+                        <td colspan="8">Không tìm thấy học viên phù hợp.</td>
                     </tr>
                 }
                 else
@@ -106,6 +106,7 @@ else
                             <td>@row.HoVaTen</td>
                             <td>@row.Lop</td>
                             <td>@row.NgayThu</td>
+                            <td>@MoneyHelper.FormatCurrency(row.SoTienCanDong)</td>
                             <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
                             <td>@row.NguoiThu</td>
                             <td>
@@ -123,6 +124,7 @@ else
                         <td></td>
                         <td>Tổng cộng</td>
                         <td colspan="2"></td>
+                        <td>@MoneyHelper.FormatCurrency(FilteredTotalDue)</td>
                         <td>@MoneyHelper.FormatCurrency(FilteredTotalPaid)</td>
                         <td colspan="2"></td>
                     </tr>
@@ -393,6 +395,8 @@ else
 
     private int FilteredCount => FilteredPaymentRows.Count();
 
+    private decimal FilteredTotalDue => FilteredPaymentRows.Sum(x => x.SoTienCanDong);
+
     private decimal FilteredTotalPaid => FilteredPaymentRows.Sum(x => x.SoTien);
 
     private int TotalPages => PaginationHelper.GetTotalPages(FilteredCount, _pageSize);
@@ -438,6 +442,10 @@ else
         _monthBatch = PaymentService.LoadMonthBatch(_classId, _month, _year);
         _summary = _monthBatch.Summary;
         _allPaymentRows = PaymentService.GetPaymentListByClassMonthYear(_classId, _month, _year);
+        foreach (var row in _allPaymentRows)
+        {
+            row.SoTienCanDong = _monthBatch.GetTotalDue(row.StudentId, _classId);
+        }
         _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
 
         var selectedStillVisible = _selectedStudentId > 0 && FilteredPaymentRows.Any(x => x.StudentId == _selectedStudentId);

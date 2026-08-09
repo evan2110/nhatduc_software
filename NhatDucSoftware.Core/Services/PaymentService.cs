@@ -1389,6 +1389,7 @@ public class PaymentClassListRow
     public string HoVaTen { get; set; } = "";
     public string Lop { get; set; } = "";
     public string NgayThu { get; set; } = "";
+    public decimal SoTienCanDong { get; set; }
     public decimal SoTien { get; set; }
     public string NguoiThu { get; set; } = "";
 }
