@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Web.Helpers
+@using Microsoft.AspNetCore.WebUtilities
 
 <PageTitle>Nhận xét / Điểm</PageTitle>
 
@@ -219,8 +220,93 @@ else
     {
         if (!Session.IsTeacher) { Nav.NavigateTo("/login"); return; }
         _allStudents = StudentService.GetAll();
+
+        var deepLink = ReadDeepLinkFromQuery();
+        if (deepLink is not null)
+        {
+            _month = deepLink.Value.Month;
+            _year = deepLink.Value.Year;
+        }
+
         LoadClassesForPeriod();
+
+        if (deepLink is not null)
+        {
+            ApplyDeepLink(deepLink.Value.ClassId, deepLink.Value.StudentId);
+        }
+
         LoadReviewRows();
+        if (deepLink is not null)
+        {
+            _filterClassId = deepLink.Value.ClassId;
+            _filterStatus = "missing";
+            _message = "Đã mở form theo học viên cần bổ sung nhận xét.";
+            _isError = false;
+        }
+    }
+
+    private (int ClassId, int StudentId, int Month, int Year)? ReadDeepLinkFromQuery()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (!query.TryGetValue("classId", out var classRaw)
+            || !int.TryParse(classRaw, out var classId)
+            || classId <= 0)
+        {
+            return null;
+        }
+
+        if (!query.TryGetValue("studentId", out var studentRaw)
+            || !int.TryParse(studentRaw, out var studentId)
+            || studentId <= 0)
+        {
+            return null;
+        }
+
+        var month = _month;
+        var year = _year;
+        if (query.TryGetValue("month", out var monthRaw) && int.TryParse(monthRaw, out var parsedMonth)
+            && parsedMonth is >= 1 and <= 12)
+        {
+            month = parsedMonth;
+        }
+
+        if (query.TryGetValue("year", out var yearRaw) && int.TryParse(yearRaw, out var parsedYear)
+            && parsedYear >= 2000)
+        {
+            year = parsedYear;
+        }
+
+        return (classId, studentId, month, year);
+    }
+
+    private void ApplyDeepLink(int classId, int studentId)
+    {
+        if (_classes.Any(c => c.Id == classId))
+        {
+            _classId = classId;
+        }
+
+        LoadStudentsInClass();
+
+        if (_studentsInClass.Any(s => s.Id == studentId))
+        {
+            _studentId = studentId;
+        }
+
+        var existing = EvaluationService.GetByClassInMonth(_classId, _year, _month)
+            .FirstOrDefault(x => x.StudentId == studentId);
+        if (existing is not null)
+        {
+            _scoreText = existing.Diem ?? "";
+            _comment = existing.NhanXet ?? "";
+        }
+        else
+        {
+            _scoreText = "";
+            _comment = "";
+        }
     }
 
     private void OnPeriodChanged()

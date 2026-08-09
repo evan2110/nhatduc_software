@@ -173,7 +173,7 @@ app.MapPost("/account/login", async (HttpContext context, AuthService auth) =>
             ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
         });
 
-    var redirectUrl = "/home";
+    var redirectUrl = "/notifications";
     return Results.LocalRedirect(redirectUrl);
 }).DisableAntiforgery();
 

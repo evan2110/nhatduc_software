@@ -1,3 +1,4 @@
+@page "/notifications"
 @page "/home"
 @rendermode InteractiveServer
 @inject UserSession Session
@@ -8,7 +9,7 @@
 @using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Web.Helpers
 
-<PageTitle>Trang chủ</PageTitle>
+<PageTitle>Thông báo</PageTitle>
 
 @if (!Session.IsAuthenticated)
 {
@@ -16,7 +17,7 @@
 }
 else
 {
-    <h1 class="page-title">Trang chủ</h1>
+    <h1 class="page-title">Thông báo</h1>
     <p class="home-subtitle">
         @(Session.IsAdmin
             ? "Thông báo tổng hợp toàn bộ giáo viên"
@@ -107,6 +108,7 @@ else
                                     @if (Session.IsAdmin) { <th>Giáo viên</th> }
                                     <th>Lớp</th>
                                     <th>Học viên</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,6 +118,15 @@ else
                                         @if (Session.IsAdmin) { <td>@row.TeacherName</td> }
                                         <td>@row.ClassName</td>
                                         <td>@row.StudentName</td>
+                                        <td>
+                                            @if (Session.IsTeacher)
+                                            {
+                                                <a class="btn btn-primary btn-sm"
+                                                   href="@GetEvaluationDeepLink(row)">
+                                                    Bổ sung ngay
+                                                </a>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -224,6 +235,9 @@ else
     {
         _evaluationPage = 1;
     }
+
+    private string GetEvaluationDeepLink(TeacherMissingEvaluationAlert row) =>
+        $"/teacher/evaluation?classId={row.ClassId}&studentId={row.StudentId}&month={_bundle.Month}&year={_bundle.Year}";
 
     private void OnPageSizeChanged()
     {

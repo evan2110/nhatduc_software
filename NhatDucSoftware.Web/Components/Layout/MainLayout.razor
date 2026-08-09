@@ -14,20 +14,21 @@ else
                 <span class="hamburger"></span>
             </label>
             <span class="mobile-header-title">
-                <a href="/home" class="brand-link">Nhat Duc Software</a>
+                <a href="/notifications" class="brand-link">Nhat Duc Software</a>
             </span>
             <span class="mobile-header-user">@Session.CurrentUser!.Username</span>
         </header>
         <label for="sidebar-toggle" class="sidebar-overlay" aria-label="Đóng menu"></label>
         <aside class="sidebar">
             <div class="sidebar-header">
-                <a href="/home" class="sidebar-brand brand-link">Nhat Duc Software</a>
+                <a href="/notifications" class="sidebar-brand brand-link">Nhat Duc Software</a>
                 <label for="sidebar-toggle" class="sidebar-close-btn" aria-label="Đóng menu">✕</label>
             </div>
             <div class="sidebar-user">@Session.CurrentUser!.Role: @Session.CurrentUser.Username</div>
             <nav>
                 @if (Session.IsAdmin)
                 {
+                    <NavLink href="/notifications" Match="NavLinkMatch.Prefix">Thông báo</NavLink>
                     <NavLink href="/admin/students" Match="NavLinkMatch.All">Học viên</NavLink>
                     <NavLink href="/admin/courses">Khóa học</NavLink>
                     <NavLink href="/admin/classes">Lớp học</NavLink>
@@ -41,6 +42,7 @@ else
                 }
                 @if (Session.IsTeacher)
                 {
+                    <NavLink href="/notifications" Match="NavLinkMatch.Prefix">Thông báo</NavLink>
                     <NavLink href="/teacher/profile">Hồ sơ GV</NavLink>
                     <NavLink href="/teacher/schedule">Lịch dạy / Lớp</NavLink>
                     <NavLink href="/teacher/attendance">Điểm danh</NavLink>
