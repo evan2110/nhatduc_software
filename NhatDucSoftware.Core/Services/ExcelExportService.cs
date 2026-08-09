@@ -447,7 +447,8 @@ public class ExcelExportService
         int year,
         int month,
         IReadOnlyList<ClassInfo> classes,
-        IReadOnlyList<CenterAttendanceExportRow> attendanceRows)
+        IReadOnlyList<CenterAttendanceExportRow> attendanceRows,
+        IReadOnlyDictionary<int, IReadOnlyList<ClassStudentEvaluationRow>>? evaluationsByClassId = null)
     {
         using var workbook = new XLWorkbook();
         var monthText = $"Tháng {month:D2}/{year}";
@@ -465,7 +466,14 @@ public class ExcelExportService
             {
                 var sheetName = GetUniqueSheetName(classInfo.ClassName, usedSheetNames);
                 var worksheet = workbook.Worksheets.Add(sheetName);
-                WriteClassAttendanceSheet(worksheet, classInfo.ClassName, monthText, attendanceRows.Where(r => r.ClassId == classInfo.Id));
+                IReadOnlyList<ClassStudentEvaluationRow>? evaluations = null;
+                evaluationsByClassId?.TryGetValue(classInfo.Id, out evaluations);
+                WriteClassAttendanceSheet(
+                    worksheet,
+                    classInfo.ClassName,
+                    monthText,
+                    attendanceRows.Where(r => r.ClassId == classInfo.Id),
+                    evaluations ?? Array.Empty<ClassStudentEvaluationRow>());
             }
         }
 
@@ -489,7 +497,8 @@ public class ExcelExportService
         IXLWorksheet worksheet,
         string className,
         string monthText,
-        IEnumerable<CenterAttendanceExportRow> rows)
+        IEnumerable<CenterAttendanceExportRow> rows,
+        IReadOnlyList<ClassStudentEvaluationRow> evaluations)
     {
         worksheet.Cell(1, 1).Value = $"Điểm danh - {className}";
         worksheet.Cell(1, 1).Style.Font.Bold = true;
@@ -515,10 +524,53 @@ public class ExcelExportService
             row++;
         }
 
-        worksheet.Column(1).Width = 14;
-        worksheet.Column(2).Width = 8;
-        worksheet.Column(3).Width = 28;
-        worksheet.Column(4).Width = 14;
+        row += 2;
+        worksheet.Cell(row, 1).Value = $"Nhận xét / Điểm - {className}";
+        worksheet.Cell(row, 1).Style.Font.Bold = true;
+        worksheet.Cell(row, 1).Style.Font.FontSize = 13;
+        worksheet.Range(row, 1, row, 4).Merge();
+        row++;
+
+        worksheet.Cell(row, 1).Value = monthText;
+        worksheet.Cell(row, 1).Style.Font.Bold = true;
+        row += 2;
+
+        worksheet.Cell(row, 1).Value = "Học viên";
+        worksheet.Cell(row, 2).Value = "Điểm";
+        worksheet.Cell(row, 3).Value = "Nhận xét";
+        worksheet.Cell(row, 4).Value = "Trạng thái";
+        worksheet.Range(row, 1, row, 4).Style.Font.Bold = true;
+        worksheet.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+        row++;
+
+        if (evaluations.Count == 0)
+        {
+            worksheet.Cell(row, 1).Value = "Chưa có dữ liệu nhận xét trong tháng này.";
+            worksheet.Range(row, 1, row, 4).Merge();
+            row++;
+        }
+        else
+        {
+            foreach (var item in evaluations.OrderBy(x => x.FullName))
+            {
+                var hasComment = !string.IsNullOrWhiteSpace(item.NhanXet);
+                worksheet.Cell(row, 1).Value = item.FullName;
+                worksheet.Cell(row, 2).Value = string.IsNullOrWhiteSpace(item.Diem) ? "—" : item.Diem;
+                worksheet.Cell(row, 3).Value = string.IsNullOrWhiteSpace(item.NhanXet) ? "—" : item.NhanXet;
+                worksheet.Cell(row, 4).Value = hasComment ? "Đã có nhận xét" : "Thiếu nhận xét";
+                if (!hasComment)
+                {
+                    worksheet.Cell(row, 4).Style.Font.FontColor = XLColor.Red;
+                }
+
+                row++;
+            }
+        }
+
+        worksheet.Column(1).Width = 28;
+        worksheet.Column(2).Width = 12;
+        worksheet.Column(3).Width = 50;
+        worksheet.Column(4).Width = 18;
     }
 
     private static string GetUniqueSheetName(string className, ISet<string> usedSheetNames)

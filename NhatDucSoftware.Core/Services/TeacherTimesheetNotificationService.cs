@@ -25,15 +25,18 @@ public class TeacherTimesheetNotificationService
 
     private readonly AttendanceService _attendanceService;
     private readonly ClassService _classService;
+    private readonly EvaluationService _evaluationService;
     private readonly ExcelExportService _excelExportService;
 
     public TeacherTimesheetNotificationService(
         AttendanceService attendanceService,
         ClassService classService,
+        EvaluationService evaluationService,
         ExcelExportService excelExportService)
     {
         _attendanceService = attendanceService;
         _classService = classService;
+        _evaluationService = evaluationService;
         _excelExportService = excelExportService;
     }
 
@@ -130,7 +133,20 @@ public class TeacherTimesheetNotificationService
     {
         var classes = _classService.GetClassesByTeacherForMonth(teacher.Id, year, month);
         var attendanceRows = _attendanceService.GetTeacherClassAttendanceForMonth(teacher.Id, year, month);
-        var bytes = _excelExportService.BuildTeacherClassAttendanceWorkbook(year, month, classes, attendanceRows);
+        var evaluationsByClass = classes.ToDictionary(
+            classInfo => classInfo.Id,
+            classInfo => (IReadOnlyList<ClassStudentEvaluationRow>)_evaluationService
+                .GetByClassInMonth(classInfo.Id, year, month)
+                .Select(row =>
+                {
+                    row.ClassId = classInfo.Id;
+                    row.ClassName = classInfo.ClassName;
+                    return row;
+                })
+                .ToList());
+
+        var bytes = _excelExportService.BuildTeacherClassAttendanceWorkbook(
+            year, month, classes, attendanceRows, evaluationsByClass);
         var fileName = BuildPayrollAttachmentFileName(teacher.FullName, month, year);
         var sheets = classes
             .Select(classInfo => new TeacherPayrollAttendanceSheetPreview
@@ -138,7 +154,10 @@ public class TeacherTimesheetNotificationService
                 ClassName = classInfo.ClassName,
                 Rows = attendanceRows
                     .Where(row => row.ClassId == classInfo.Id)
-                    .ToList()
+                    .ToList(),
+                Evaluations = evaluationsByClass.TryGetValue(classInfo.Id, out var evaluations)
+                    ? evaluations.ToList()
+                    : new List<ClassStudentEvaluationRow>()
             })
             .ToList();
 
@@ -593,4 +612,5 @@ public sealed class TeacherPayrollAttendanceSheetPreview
 {
     public string ClassName { get; set; } = string.Empty;
     public List<CenterAttendanceExportRow> Rows { get; set; } = new();
+    public List<ClassStudentEvaluationRow> Evaluations { get; set; } = new();
 }

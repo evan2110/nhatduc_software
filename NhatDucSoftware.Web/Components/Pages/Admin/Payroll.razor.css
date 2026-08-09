@@ -64,6 +64,17 @@
     max-width: 320px;
 }
 
+.attendance-preview-section-title {
+    margin: 1.25rem 0 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.attendance-preview-section-title:first-of-type {
+    margin-top: 0.5rem;
+}
+
 .payroll-preview-footer {
     display: flex;
     flex-direction: column;
