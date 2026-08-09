@@ -253,6 +253,10 @@ a { color: var(--primary); }
 .data-table tbody tr.selectable { cursor: pointer; }
 .data-table tr:hover { background: #f8fafc; }
 .data-table tr.total-row { font-weight: 700; background: #fef9c3; }
+.data-table td.amount-remaining {
+    color: #dc2626;
+    font-weight: 700;
+}
 
 .table-actions {
     display: flex;

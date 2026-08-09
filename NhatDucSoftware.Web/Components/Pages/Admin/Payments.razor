@@ -85,13 +85,13 @@ else
         <div class="table-responsive">
         <table class="data-table">
             <thead>
-                <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền cần đóng</th><th>Số tiền đã thu</th><th>Người thu</th><th></th></tr>
+                <tr><th>TT</th><th>Họ tên</th><th>Lớp</th><th>Ngày thu</th><th>Số tiền cần đóng</th><th>Số tiền đã thu</th><th>Số tiền còn lại</th><th>Người thu</th><th></th></tr>
             </thead>
             <tbody>
                 @if (PagedPaymentRows.Count == 0)
                 {
                     <tr class="empty-row">
-                        <td colspan="8">Không tìm thấy học viên phù hợp.</td>
+                        <td colspan="9">Không tìm thấy học viên phù hợp.</td>
                     </tr>
                 }
                 else
@@ -100,6 +100,7 @@ else
                     {
                         var row = PagedPaymentRows[i];
                         var rowIndex = (_currentPage - 1) * _pageSize + i + 1;
+                        var remaining = Math.Max(0, row.SoTienCanDong - row.SoTien);
                         <tr class="@(_selectedStudentId == row.StudentId ? "selected" : "")"
                             @onclick="() => SelectPaymentRow(row)">
                             <td>@rowIndex</td>
@@ -108,6 +109,7 @@ else
                             <td>@row.NgayThu</td>
                             <td>@MoneyHelper.FormatCurrency(row.SoTienCanDong)</td>
                             <td>@MoneyHelper.FormatCurrency(row.SoTien)</td>
+                            <td class="amount-remaining">@MoneyHelper.FormatCurrency(remaining)</td>
                             <td>@row.NguoiThu</td>
                             <td>
                                 <div class="table-actions">
@@ -126,6 +128,7 @@ else
                         <td colspan="2"></td>
                         <td>@MoneyHelper.FormatCurrency(FilteredTotalDue)</td>
                         <td>@MoneyHelper.FormatCurrency(FilteredTotalPaid)</td>
+                        <td class="amount-remaining">@MoneyHelper.FormatCurrency(FilteredTotalRemaining)</td>
                         <td colspan="2"></td>
                     </tr>
                 }
@@ -398,6 +401,9 @@ else
     private decimal FilteredTotalDue => FilteredPaymentRows.Sum(x => x.SoTienCanDong);
 
     private decimal FilteredTotalPaid => FilteredPaymentRows.Sum(x => x.SoTien);
+
+    private decimal FilteredTotalRemaining =>
+        FilteredPaymentRows.Sum(x => Math.Max(0, x.SoTienCanDong - x.SoTien));
 
     private int TotalPages => PaginationHelper.GetTotalPages(FilteredCount, _pageSize);
 
