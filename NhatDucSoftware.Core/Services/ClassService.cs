@@ -147,6 +147,12 @@ ORDER BY c.Id ASC;";
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
+        if (ClassNameExists(connection, className))
+        {
+            throw new InvalidOperationException(
+                $"Lớp với tên '{className.Trim()}' đã tồn tại. Không thể thêm trùng tên.");
+        }
+
         var nextId = GetNextAvailableId(connection);
 
         using var command = connection.CreateCommand();
@@ -458,5 +464,19 @@ ORDER BY s.Id ASC;";
         {
             throw new InvalidOperationException("Tên lớp không được để trống.");
         }
+    }
+
+    private static bool ClassNameExists(System.Data.Common.DbConnection connection, string className)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT COUNT(1)
+FROM Classes
+WHERE LOWER(TRIM(ClassName)) = LOWER(TRIM(@name));";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@name";
+        parameter.Value = className.Trim();
+        command.Parameters.Add(parameter);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 }

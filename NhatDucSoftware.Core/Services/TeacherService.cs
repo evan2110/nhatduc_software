@@ -105,6 +105,12 @@ WHERE TeacherId = @teacherId;";
 
         using var transaction = connection.BeginTransaction();
 
+        if (FullNameExists(connection, teacher.FullName, transaction))
+        {
+            throw new InvalidOperationException(
+                $"Giáo viên với họ tên '{teacher.FullName.Trim()}' đã tồn tại. Không thể thêm trùng tên.");
+        }
+
         var nextId = GetNextAvailableId(connection, transaction);
 
         // Insert teacher with explicit Id
@@ -250,6 +256,28 @@ WHERE Id = @id;";
         {
             throw new InvalidOperationException("Họ tên không được để trống.");
         }
+    }
+
+    private static bool FullNameExists(
+        System.Data.Common.DbConnection connection,
+        string fullName,
+        System.Data.Common.DbTransaction? transaction = null)
+    {
+        using var command = connection.CreateCommand();
+        if (transaction is not null)
+        {
+            command.Transaction = transaction;
+        }
+
+        command.CommandText = @"
+SELECT COUNT(1)
+FROM Teachers
+WHERE LOWER(TRIM(FullName)) = LOWER(TRIM(@name));";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@name";
+        parameter.Value = fullName.Trim();
+        command.Parameters.Add(parameter);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 }
 

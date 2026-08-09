@@ -71,6 +71,12 @@ ORDER BY s.Id ASC;";
 
         using var transaction = connection.BeginTransaction();
 
+        if (FullNameExists(connection, student.FullName, transaction))
+        {
+            throw new InvalidOperationException(
+                $"Học viên với họ tên '{student.FullName.Trim()}' đã tồn tại. Không thể thêm trùng tên.");
+        }
+
         var nextId = GetNextAvailableId(connection);
 
         using (var command = connection.CreateCommand())
@@ -260,5 +266,27 @@ VALUES(@studentId, @courseId, @date, 'Active');";
         {
             throw new InvalidOperationException("Họ tên không được để trống.");
         }
+    }
+
+    private static bool FullNameExists(
+        System.Data.Common.DbConnection connection,
+        string fullName,
+        System.Data.Common.DbTransaction? transaction = null)
+    {
+        using var command = connection.CreateCommand();
+        if (transaction is not null)
+        {
+            command.Transaction = transaction;
+        }
+
+        command.CommandText = @"
+SELECT COUNT(1)
+FROM Students
+WHERE LOWER(TRIM(FullName)) = LOWER(TRIM(@name));";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@name";
+        parameter.Value = fullName.Trim();
+        command.Parameters.Add(parameter);
+        return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 }
