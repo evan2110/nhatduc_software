@@ -107,6 +107,12 @@ public class TeacherHomeAlertService
 
                 foreach (var cls in activeClasses)
                 {
+                    // GV vắng: không yêu cầu điểm danh, không báo chênh lệch.
+                    if (shift.TimesheetPresent == false)
+                    {
+                        continue;
+                    }
+
                     if (!cls.AttendanceComplete)
                     {
                         bundle.MissingAttendances.Add(new TeacherScheduleGapAlert
@@ -127,7 +133,7 @@ public class TeacherHomeAlertService
                     if (shift.TimesheetRecorded != cls.AttendanceComplete)
                     {
                         var detailText = shift.TimesheetRecorded
-                            ? "Đã chấm công nhưng điểm danh chưa xong"
+                            ? "Đã chấm công (có mặt) nhưng điểm danh chưa xong"
                             : "Đã điểm danh nhưng chưa chấm công";
 
                         bundle.Discrepancies.Add(new TeacherScheduleGapAlert

@@ -342,7 +342,8 @@ WHERE TeacherId = @tid;";
             WorkDate = date.Date,
             Shifts = shiftDetails,
             AllTimesheetsComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.TimesheetRecorded),
-            AllAttendanceComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.Classes.All(c => c.AttendanceComplete))
+            AllAttendanceComplete = shiftDetails.Count > 0 && shiftDetails.All(s =>
+                s.TimesheetPresent == false || s.Classes.All(c => c.AttendanceComplete))
         };
     }
 
@@ -436,7 +437,10 @@ public class TeacherDailyScheduleDetail
     public int RequiredShiftCount => Shifts.Count;
     public int RecordedShiftCount => Shifts.Count(s => s.TimesheetRecorded);
     public int RequiredClassShiftCount => Shifts.Sum(s => s.Classes.Count);
-    public int CompletedClassShiftCount => Shifts.Sum(s => s.Classes.Count(c => c.AttendanceComplete));
+    public int CompletedClassShiftCount => Shifts.Sum(s =>
+        s.TimesheetPresent == false
+            ? s.Classes.Count
+            : s.Classes.Count(c => c.AttendanceComplete));
 }
 
 public class TeacherDailyShiftDetail

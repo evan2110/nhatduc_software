@@ -194,13 +194,22 @@ else
                                     {
                                         var classId = cls.ClassId;
                                         var isEditOpen = IsAttendanceEditOpen(classId, shiftNumber);
-                                        <tr class="@GetClassRowClass(cls, isEditOpen)"
+                                        var teacherAbsent = shift.TimesheetPresent == false;
+                                        var attendanceOk = teacherAbsent || cls.AttendanceComplete;
+                                        <tr class="@GetClassRowClass(attendanceOk, isEditOpen)"
                                             @onclick="() => OpenAttendanceEdit(cls, shiftNumber)">
                                             <td>@cls.ClassName</td>
                                             <td>@cls.RecordedStudents/@cls.TotalStudents học viên</td>
                                             <td>
-                                                <span class="@GetStatusClass(cls.AttendanceComplete)">
-                                                    @(cls.AttendanceComplete ? "Đủ — bấm để xem" : "Chưa đủ — bấm để bổ sung")
+                                                <span class="@GetStatusClass(attendanceOk)">
+                                                    @if (teacherAbsent)
+                                                    {
+                                                        @:Không yêu cầu — GV vắng
+                                                    }
+                                                    else
+                                                    {
+                                                        @(cls.AttendanceComplete ? "Đủ — bấm để xem" : "Chưa đủ — bấm để bổ sung")
+                                                    }
                                                 </span>
                                             </td>
                                         </tr>
@@ -526,9 +535,9 @@ else
 
     private static string GetStatusClass(bool ok) => ok ? "status-ok" : "status-missing";
 
-    private static string GetClassRowClass(TeacherDailyClassDetail cls, bool isEditOpen)
+    private static string GetClassRowClass(bool attendanceOk, bool isEditOpen)
     {
-        var baseClass = cls.AttendanceComplete ? "schedule-class-complete" : "schedule-class-missing";
+        var baseClass = attendanceOk ? "schedule-class-complete" : "schedule-class-missing";
         return isEditOpen ? $"{baseClass} selected" : baseClass;
     }
 
