@@ -40,10 +40,7 @@
     {
         if (Session.IsAuthenticated)
         {
-            if (Session.IsAdmin)
-                Nav.NavigateTo("/admin/students");
-            else if (Session.IsTeacher)
-                Nav.NavigateTo("/teacher/schedule");
+            Nav.NavigateTo("/home");
         }
 
         var uri = Nav.ToAbsoluteUri(Nav.Uri);

@@ -13,13 +13,15 @@ else
             <label for="sidebar-toggle" class="sidebar-toggle-btn" aria-label="Mở menu">
                 <span class="hamburger"></span>
             </label>
-            <span class="mobile-header-title">Nhat Duc Software</span>
+            <span class="mobile-header-title">
+                <a href="/home" class="brand-link">Nhat Duc Software</a>
+            </span>
             <span class="mobile-header-user">@Session.CurrentUser!.Username</span>
         </header>
         <label for="sidebar-toggle" class="sidebar-overlay" aria-label="Đóng menu"></label>
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-brand">Nhat Duc Software</div>
+                <a href="/home" class="sidebar-brand brand-link">Nhat Duc Software</a>
                 <label for="sidebar-toggle" class="sidebar-close-btn" aria-label="Đóng menu">✕</label>
             </div>
             <div class="sidebar-user">@Session.CurrentUser!.Role: @Session.CurrentUser.Username</div>

@@ -1,0 +1,208 @@
+@page "/home"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject TeacherHomeAlertService AlertService
+@inject TeacherService TeacherService
+@inject LoadingService Loading
+@inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
+
+<PageTitle>Trang chủ</PageTitle>
+
+@if (!Session.IsAuthenticated)
+{
+    <p>Vui lòng đăng nhập.</p>
+}
+else
+{
+    <h1 class="page-title">Trang chủ</h1>
+    <p class="home-subtitle">
+        @(Session.IsAdmin
+            ? "Thông báo tổng hợp toàn bộ giáo viên"
+            : "Thông báo công việc của bạn")
+        — @_bundle.FromDate.ToString("dd/MM/yyyy") → @_bundle.ToDate.ToString("dd/MM/yyyy")
+        (nhận xét: tháng @_bundle.Month/@_bundle.Year)
+    </p>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-danger">@_message</div>
+    }
+
+    @if (!_bundle.HasAny && string.IsNullOrEmpty(_message))
+    {
+        <div class="card home-ok-card">
+            <p>Không có mục nào cần xử lý trong kỳ hiện tại.</p>
+        </div>
+    }
+    else
+    {
+        @RenderAlertSection(
+            "Thiếu chấm công",
+            _bundle.MissingTimesheets.Count,
+            "home-alert--timesheet",
+            RenderTimesheetTable(_bundle.MissingTimesheets, showTeacher: Session.IsAdmin))
+
+        @RenderAlertSection(
+            "Thiếu điểm danh",
+            _bundle.MissingAttendances.Count,
+            "home-alert--attendance",
+            RenderAttendanceTable(_bundle.MissingAttendances, showTeacher: Session.IsAdmin))
+
+        @RenderAlertSection(
+            "Chênh lệch chấm công ↔ điểm danh",
+            _bundle.Discrepancies.Count,
+            "home-alert--discrepancy",
+            RenderDiscrepancyTable(_bundle.Discrepancies, showTeacher: Session.IsAdmin))
+
+        @RenderAlertSection(
+            $"Chưa có nhận xét (tháng {_bundle.Month}/{_bundle.Year})",
+            _bundle.MissingEvaluations.Count,
+            "home-alert--evaluation",
+            RenderEvaluationTable(_bundle.MissingEvaluations, showTeacher: Session.IsAdmin))
+    }
+}
+
+@code {
+    private TeacherHomeAlertBundle _bundle = new();
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        Loading.Show();
+        try
+        {
+            await Task.Run(LoadAlerts);
+        }
+        finally
+        {
+            Loading.Hide();
+        }
+    }
+
+    private void LoadAlerts()
+    {
+        try
+        {
+            if (Session.IsAdmin)
+            {
+                _bundle = AlertService.GetAlertsForAllTeachers();
+                _message = null;
+            }
+            else if (Session.IsTeacher && Session.CurrentUser?.TeacherId is int teacherId)
+            {
+                var teacherName = TeacherService.GetAll()
+                    .FirstOrDefault(t => t.Id == teacherId)?.FullName
+                    ?? Session.CurrentUser.Username;
+                _bundle = AlertService.GetAlertsForTeacher(teacherId, teacherName);
+                _message = null;
+            }
+            else
+            {
+                _message = "Không xác định được tài khoản giáo viên.";
+                _bundle = new TeacherHomeAlertBundle
+                {
+                    FromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1),
+                    ToDate = DateTime.Today,
+                    Year = DateTime.Now.Year,
+                    Month = DateTime.Now.Month
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Không tải được thông báo: {ex.Message}";
+            _bundle = new TeacherHomeAlertBundle
+            {
+                FromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1),
+                ToDate = DateTime.Today,
+                Year = DateTime.Now.Year,
+                Month = DateTime.Now.Month
+            };
+        }
+    }
+
+    private RenderFragment RenderAlertSection(string title, int count, string cssClass, RenderFragment body) => __builder =>
+    {
+        <div class="card home-alert-card @cssClass">
+            <div class="home-alert-header">
+                <h3>@title</h3>
+                <span class="home-alert-count">@count</span>
+            </div>
+            @if (count == 0)
+            {
+                <p class="home-alert-empty">Không có.</p>
+            }
+            else
+            {
+                @body
+            }
+        </div>
+    };
+
+    private RenderFragment RenderTimesheetTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) => __builder =>
+    {
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        @if (showTeacher) { <th>Giáo viên</th> }
+                        <th>Ngày</th>
+                        <th>Ca</th>
+                        <th>Lớp</th>
+                        <th>Chi tiết</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            @if (showTeacher) { <td>@row.TeacherName</td> }
+                            <td>@row.WorkDate.ToString("dd/MM/yyyy")</td>
+                            <td>Ca @row.ShiftNumber</td>
+                            <td>@row.ClassName</td>
+                            <td>@row.Detail</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+
+    private RenderFragment RenderAttendanceTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) =>
+        RenderTimesheetTable(rows, showTeacher);
+
+    private RenderFragment RenderDiscrepancyTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) =>
+        RenderTimesheetTable(rows, showTeacher);
+
+    private RenderFragment RenderEvaluationTable(List<TeacherMissingEvaluationAlert> rows, bool showTeacher) => __builder =>
+    {
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        @if (showTeacher) { <th>Giáo viên</th> }
+                        <th>Lớp</th>
+                        <th>Học viên</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            @if (showTeacher) { <td>@row.TeacherName</td> }
+                            <td>@row.ClassName</td>
+                            <td>@row.StudentName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+}

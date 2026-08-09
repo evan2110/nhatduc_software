@@ -92,6 +92,7 @@ builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<TeacherProfileService>();
 builder.Services.AddScoped<ExpenseService>();
+builder.Services.AddScoped<TeacherHomeAlertService>();
 builder.Services.AddScoped<GoogleDriveService>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
@@ -172,7 +173,7 @@ app.MapPost("/account/login", async (HttpContext context, AuthService auth) =>
             ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
         });
 
-    var redirectUrl = user.Role == "Admin" ? "/admin/students" : "/teacher/schedule";
+    var redirectUrl = "/home";
     return Results.LocalRedirect(redirectUrl);
 }).DisableAntiforgery();
 
