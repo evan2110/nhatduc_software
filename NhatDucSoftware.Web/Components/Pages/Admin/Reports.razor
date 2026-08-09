@@ -27,9 +27,13 @@ else
             <span>Tổng học viên: @_summary.TotalStudents</span>
             <span>Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)</span>
             <span>Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
-            <span>Chi lương (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalSalaryExpense)</span>
-            <span>Chi khác (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalManualExpense)</span>
-            <span>Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)</span>
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)
+                <span class="summary-tooltip" role="tooltip">
+                    <span>Chi lương: @MoneyHelper.FormatCurrency(_summary.TotalSalaryExpense)</span>
+                    <span>Chi khác: @MoneyHelper.FormatCurrency(_summary.TotalManualExpense)</span>
+                </span>
+            </span>
             <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
         </div>
     </div>

@@ -356,6 +356,43 @@ a { color: var(--primary); }
     min-width: min(100%, 200px);
 }
 
+.summary-tooltip-wrap {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dashed currentColor;
+    width: fit-content;
+    flex: 0 1 auto;
+}
+
+.summary-tooltip {
+    display: none;
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 0.4rem);
+    z-index: 20;
+    min-width: 12rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #f8fafc;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.45;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+    white-space: nowrap;
+}
+
+.summary-tooltip span {
+    display: block;
+    min-width: 0;
+    flex: none;
+}
+
+.summary-tooltip-wrap:hover .summary-tooltip,
+.summary-tooltip-wrap:focus-within .summary-tooltip {
+    display: block;
+}
+
 .summary-panel {
     background: #f0f9ff;
     border: 1px solid #bae6fd;
