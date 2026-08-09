@@ -65,15 +65,11 @@ else
                 </select>
             </div>
             <div class="form-group">
-                <label>Người chi</label>
-                <input @bind="_paidBy" />
-            </div>
-            <div class="form-group">
-                <label>Số hóa đơn / chứng từ</label>
+                <label>Số hóa đơn / chứng từ <span class="text-muted">(không bắt buộc)</span></label>
                 <input @bind="_invoiceNumber" />
             </div>
             <div class="form-group">
-                <label>Ghi chú</label>
+                <label>Ghi chú <span class="text-muted">(không bắt buộc)</span></label>
                 <input @bind="_note" />
             </div>
             <div class="form-group">
@@ -161,7 +157,6 @@ else
     private DateTime _expenseDateValue = DateTime.Today;
     private string _amountText = "";
     private string _category = ExpenseService.Categories[0];
-    private string _paidBy = "";
     private string _invoiceNumber = "";
     private string _note = "";
     private string? _attachmentFileId;
@@ -214,7 +209,6 @@ else
         _expenseDateValue = DateTime.TryParse(item.ExpenseDate, out var date) ? date.Date : DateTime.Today;
         _amountText = item.Amount.ToString("N0");
         _category = item.Category;
-        _paidBy = item.PaidBy ?? "";
         _invoiceNumber = item.InvoiceNumber ?? "";
         _note = item.Note ?? "";
         _attachmentFileId = item.AttachmentFileId;
@@ -229,7 +223,6 @@ else
         _expenseDateValue = DateTime.Today;
         _amountText = "";
         _category = ExpenseService.Categories[0];
-        _paidBy = "";
         _invoiceNumber = "";
         _note = "";
         ClearAttachment();
@@ -309,7 +302,7 @@ else
                 ExpenseDate = _expenseDateValue.ToString("yyyy-MM-dd"),
                 Amount = amount,
                 Category = _category,
-                PaidBy = string.IsNullOrWhiteSpace(_paidBy) ? null : _paidBy.Trim(),
+                PaidBy = Session.CurrentUser?.Username,
                 InvoiceNumber = string.IsNullOrWhiteSpace(_invoiceNumber) ? null : _invoiceNumber.Trim(),
                 Note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
                 AttachmentFileId = _attachmentFileId,
