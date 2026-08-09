@@ -127,9 +127,8 @@ a.brand-link:hover,
     font-size: 0.9rem;
 }
 
-.home-alert-empty {
-    margin: 0;
-    color: #64748b;
+.home-alert-toolbar {
+    margin-bottom: 0.75rem;
 }
 
 .home-alert--timesheet {

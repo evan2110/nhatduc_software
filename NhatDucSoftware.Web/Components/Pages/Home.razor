@@ -6,6 +6,7 @@
 @inject LoadingService Loading
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Web.Helpers
 
 <PageTitle>Trang chủ</PageTitle>
 
@@ -37,35 +38,120 @@ else
     }
     else
     {
-        @RenderAlertSection(
-            "Thiếu chấm công",
-            _bundle.MissingTimesheets.Count,
-            "home-alert--timesheet",
-            RenderTimesheetTable(_bundle.MissingTimesheets, showTeacher: Session.IsAdmin))
+        <div class="card home-alert-card home-alert--timesheet">
+            <div class="home-alert-header">
+                <h3>Thiếu chấm công</h3>
+                <span class="home-alert-count">@_bundle.MissingTimesheets.Count</span>
+            </div>
+            @RenderGapSection(_bundle.MissingTimesheets, _timesheetPage, p => _timesheetPage = p, Session.IsAdmin)
+        </div>
 
-        @RenderAlertSection(
-            "Thiếu điểm danh",
-            _bundle.MissingAttendances.Count,
-            "home-alert--attendance",
-            RenderAttendanceTable(_bundle.MissingAttendances, showTeacher: Session.IsAdmin))
+        <div class="card home-alert-card home-alert--attendance">
+            <div class="home-alert-header">
+                <h3>Thiếu điểm danh</h3>
+                <span class="home-alert-count">@_bundle.MissingAttendances.Count</span>
+            </div>
+            @RenderGapSection(_bundle.MissingAttendances, _attendancePage, p => _attendancePage = p, Session.IsAdmin)
+        </div>
 
-        @RenderAlertSection(
-            "Chênh lệch chấm công ↔ điểm danh",
-            _bundle.Discrepancies.Count,
-            "home-alert--discrepancy",
-            RenderDiscrepancyTable(_bundle.Discrepancies, showTeacher: Session.IsAdmin))
+        <div class="card home-alert-card home-alert--discrepancy">
+            <div class="home-alert-header">
+                <h3>Chênh lệch chấm công ↔ điểm danh</h3>
+                <span class="home-alert-count">@_bundle.Discrepancies.Count</span>
+            </div>
+            @RenderGapSection(_bundle.Discrepancies, _discrepancyPage, p => _discrepancyPage = p, Session.IsAdmin)
+        </div>
 
-        @RenderAlertSection(
-            $"Chưa có nhận xét (tháng {_bundle.Month}/{_bundle.Year})",
-            _bundle.MissingEvaluations.Count,
-            "home-alert--evaluation",
-            RenderEvaluationTable(_bundle.MissingEvaluations, showTeacher: Session.IsAdmin))
+        <div class="card home-alert-card home-alert--evaluation">
+            <div class="home-alert-header">
+                <h3>Chưa có nhận xét (tháng @_bundle.Month/@_bundle.Year)</h3>
+                <span class="home-alert-count">@FilteredEvaluations.Count</span>
+            </div>
+            @if (_bundle.MissingEvaluations.Count == 0)
+            {
+                <p class="home-alert-empty">Không có.</p>
+            }
+            else
+            {
+                <div class="toolbar home-alert-toolbar">
+                    <label>Lớp</label>
+                    <select @bind="_evaluationClassId" @bind:after="OnEvaluationFilterChanged">
+                        <option value="0">Tất cả</option>
+                        @foreach (var cls in EvaluationClassOptions)
+                        {
+                            <option value="@cls.ClassId">@cls.ClassName</option>
+                        }
+                    </select>
+                    <label>
+                        Hiển thị
+                        <select @bind="_pageSize" @bind:after="OnPageSizeChanged">
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                        / trang
+                    </label>
+                </div>
+
+                @if (FilteredEvaluations.Count == 0)
+                {
+                    <p class="home-alert-empty">Không có học viên phù hợp với lớp đã chọn.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="data-table compact">
+                            <thead>
+                                <tr>
+                                    @if (Session.IsAdmin) { <th>Giáo viên</th> }
+                                    <th>Lớp</th>
+                                    <th>Học viên</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in PagedEvaluations)
+                                {
+                                    <tr>
+                                        @if (Session.IsAdmin) { <td>@row.TeacherName</td> }
+                                        <td>@row.ClassName</td>
+                                        <td>@row.StudentName</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @RenderPager(FilteredEvaluations.Count, _evaluationPage, p => _evaluationPage = p)
+                }
+            }
+        </div>
     }
 }
 
 @code {
     private TeacherHomeAlertBundle _bundle = new();
     private string? _message;
+    private int _pageSize = 15;
+    private int _timesheetPage = 1;
+    private int _attendancePage = 1;
+    private int _discrepancyPage = 1;
+    private int _evaluationPage = 1;
+    private int _evaluationClassId;
+
+    private List<TeacherMissingEvaluationAlert> FilteredEvaluations =>
+        _evaluationClassId <= 0
+            ? _bundle.MissingEvaluations
+            : _bundle.MissingEvaluations.Where(x => x.ClassId == _evaluationClassId).ToList();
+
+    private List<(int ClassId, string ClassName)> EvaluationClassOptions =>
+        _bundle.MissingEvaluations
+            .GroupBy(x => x.ClassId)
+            .Select(g => (g.Key, g.First().ClassName))
+            .OrderBy(x => x.ClassName)
+            .ToList();
+
+    private List<TeacherMissingEvaluationAlert> PagedEvaluations =>
+        PaginationHelper.GetPage(FilteredEvaluations, _evaluationPage, _pageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,6 +165,7 @@ else
         try
         {
             await Task.Run(LoadAlerts);
+            ResetPages();
         }
         finally
         {
@@ -106,48 +193,70 @@ else
             else
             {
                 _message = "Không xác định được tài khoản giáo viên.";
-                _bundle = new TeacherHomeAlertBundle
-                {
-                    FromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1),
-                    ToDate = DateTime.Today,
-                    Year = DateTime.Now.Year,
-                    Month = DateTime.Now.Month
-                };
+                _bundle = EmptyBundle();
             }
         }
         catch (Exception ex)
         {
             _message = $"Không tải được thông báo: {ex.Message}";
-            _bundle = new TeacherHomeAlertBundle
-            {
-                FromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1),
-                ToDate = DateTime.Today,
-                Year = DateTime.Now.Year,
-                Month = DateTime.Now.Month
-            };
+            _bundle = EmptyBundle();
         }
     }
 
-    private RenderFragment RenderAlertSection(string title, int count, string cssClass, RenderFragment body) => __builder =>
+    private static TeacherHomeAlertBundle EmptyBundle() => new()
     {
-        <div class="card home-alert-card @cssClass">
-            <div class="home-alert-header">
-                <h3>@title</h3>
-                <span class="home-alert-count">@count</span>
-            </div>
-            @if (count == 0)
-            {
-                <p class="home-alert-empty">Không có.</p>
-            }
-            else
-            {
-                @body
-            }
-        </div>
+        FromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1),
+        ToDate = DateTime.Today,
+        Year = DateTime.Now.Year,
+        Month = DateTime.Now.Month
     };
 
-    private RenderFragment RenderTimesheetTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) => __builder =>
+    private void ResetPages()
     {
+        _timesheetPage = 1;
+        _attendancePage = 1;
+        _discrepancyPage = 1;
+        _evaluationPage = 1;
+        _evaluationClassId = 0;
+    }
+
+    private void OnEvaluationFilterChanged()
+    {
+        _evaluationPage = 1;
+    }
+
+    private void OnPageSizeChanged()
+    {
+        ResetPages();
+    }
+
+    private RenderFragment RenderGapSection(
+        List<TeacherScheduleGapAlert> rows,
+        int currentPage,
+        Action<int> setPage,
+        bool showTeacher) => __builder =>
+    {
+        if (rows.Count == 0)
+        {
+            <p class="home-alert-empty">Không có.</p>
+            return;
+        }
+
+        var paged = PaginationHelper.GetPage(rows, currentPage, _pageSize);
+
+        <div class="toolbar home-alert-toolbar">
+            <label>
+                Hiển thị
+                <select value="@_pageSize" @onchange="e => ChangePageSize(e)">
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+                / trang
+            </label>
+        </div>
+
         <div class="table-responsive">
             <table class="data-table compact">
                 <thead>
@@ -160,7 +269,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var row in rows)
+                    @foreach (var row in paged)
                     {
                         <tr>
                             @if (showTeacher) { <td>@row.TeacherName</td> }
@@ -173,36 +282,43 @@ else
                 </tbody>
             </table>
         </div>
+
+        @RenderPager(rows.Count, currentPage, setPage)
     };
 
-    private RenderFragment RenderAttendanceTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) =>
-        RenderTimesheetTable(rows, showTeacher);
-
-    private RenderFragment RenderDiscrepancyTable(List<TeacherScheduleGapAlert> rows, bool showTeacher) =>
-        RenderTimesheetTable(rows, showTeacher);
-
-    private RenderFragment RenderEvaluationTable(List<TeacherMissingEvaluationAlert> rows, bool showTeacher) => __builder =>
+    private void ChangePageSize(ChangeEventArgs e)
     {
-        <div class="table-responsive">
-            <table class="data-table compact">
-                <thead>
-                    <tr>
-                        @if (showTeacher) { <th>Giáo viên</th> }
-                        <th>Lớp</th>
-                        <th>Học viên</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in rows)
-                    {
-                        <tr>
-                            @if (showTeacher) { <td>@row.TeacherName</td> }
-                            <td>@row.ClassName</td>
-                            <td>@row.StudentName</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        if (int.TryParse(e.Value?.ToString(), out var size) && size > 0)
+        {
+            _pageSize = size;
+            ResetPages();
+        }
+    }
+
+    private RenderFragment RenderPager(int totalItems, int currentPage, Action<int> setPage) => __builder =>
+    {
+        var totalPages = PaginationHelper.GetTotalPages(totalItems, _pageSize);
+        if (totalPages <= 1)
+        {
+            return;
+        }
+
+        var safePage = Math.Clamp(currentPage, 1, totalPages);
+        var start = Math.Max(1, safePage - 2);
+        var end = Math.Min(totalPages, safePage + 2);
+
+        <div class="pagination-bar">
+            <button class="btn btn-secondary" @onclick="() => setPage(1)" disabled="@(safePage <= 1)">«</button>
+            <button class="btn btn-secondary" @onclick="() => setPage(safePage - 1)" disabled="@(safePage <= 1)">‹</button>
+            @for (var p = start; p <= end; p++)
+            {
+                var pageNum = p;
+                <button class="btn btn-secondary @(pageNum == safePage ? "active" : "")"
+                        @onclick="() => setPage(pageNum)">@pageNum</button>
+            }
+            <button class="btn btn-secondary" @onclick="() => setPage(safePage + 1)" disabled="@(safePage >= totalPages)">›</button>
+            <button class="btn btn-secondary" @onclick="() => setPage(totalPages)" disabled="@(safePage >= totalPages)">»</button>
+            <span class="pagination-info">Trang @safePage / @totalPages</span>
         </div>
     };
 }
