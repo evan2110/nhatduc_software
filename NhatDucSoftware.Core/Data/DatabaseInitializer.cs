@@ -63,6 +63,28 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateTeacherPayAdjustmentsTable(connection);
         MigrateStudentTuitionDiscountsTable(connection);
         MigrateDataProtectionKeysTable(connection);
+        MigrateExpensesTable(connection);
+    }
+
+    private static void MigrateExpensesTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS Expenses (
+    Id BIGSERIAL PRIMARY KEY,
+    ExpenseDate TEXT NOT NULL,
+    Amount NUMERIC(18,2) NOT NULL,
+    Category TEXT NOT NULL,
+    Note TEXT NULL,
+    PaidBy TEXT NULL,
+    InvoiceNumber TEXT NULL,
+    AttachmentFileId TEXT NULL,
+    AttachmentFileName TEXT NULL,
+    AttachmentUrl TEXT NULL,
+    CreatedAt TEXT NOT NULL,
+    CreatedBy TEXT NULL
+);";
+        createTable.ExecuteNonQuery();
     }
 
     private static void MigrateDataProtectionKeysTable(System.Data.Common.DbConnection connection)

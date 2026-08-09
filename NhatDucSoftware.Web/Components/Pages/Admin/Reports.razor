@@ -27,6 +27,8 @@ else
             <span>Tổng học viên: @_summary.TotalStudents</span>
             <span>Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)</span>
             <span>Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
+            <span>Chi lương (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalSalaryExpense)</span>
+            <span>Chi khác (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalManualExpense)</span>
             <span>Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)</span>
             <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
         </div>
@@ -91,14 +93,25 @@ else
 
     <div class="card report-section">
         <div class="report-section-header">
-            <h3>Tổng chi — Lương giáo viên (sau điều chỉnh) năm @_selectedYear</h3>
+            <h3>Chi lương — Lương giáo viên (sau điều chỉnh) năm @_selectedYear</h3>
             <div class="report-actions">
                 <button class="btn btn-secondary btn-sm" @onclick="() => ShowExpenseDetail(null)">Chi tiết giáo viên</button>
                 <a class="btn btn-success btn-sm" href="@($"/api/export/expense-month/{_selectedYear}")" target="_blank">Xuất Excel</a>
             </div>
         </div>
         @RenderAmountChart(_expenseByMonth, "chart-bar-expense", ShowExpenseDetail)
-        @RenderAmountTable(_expenseByMonth, "Tổng chi", ShowExpenseDetail)
+        @RenderAmountTable(_expenseByMonth, "Chi lương", ShowExpenseDetail)
+    </div>
+
+    <div class="card report-section">
+        <div class="report-section-header">
+            <h3>Chi khác — Chi tiêu thủ công năm @_selectedYear</h3>
+            <div class="report-actions">
+                <a class="btn btn-secondary btn-sm" href="/admin/expenses">Quản lý chi tiêu</a>
+            </div>
+        </div>
+        @RenderAmountChart(_manualExpenseByMonth, "chart-bar-expense")
+        @RenderAmountTable(_manualExpenseByMonth, "Chi khác")
     </div>
 
     <div class="card report-section">
@@ -222,6 +235,7 @@ else
     private List<RevenueByYearStat> _revenueByYear = new();
     private List<RevenueByMonthStat> _revenueByMonth = new();
     private List<MonthlyAmountStat> _expenseByMonth = new();
+    private List<MonthlyAmountStat> _manualExpenseByMonth = new();
     private List<MonthlyAmountStat> _tuitionByMonth = new();
     private List<MonthlyEnrollmentStat> _enrollmentByMonth = new();
     private List<TeacherExpenseDetailStat> _teacherDetails = new();
@@ -283,8 +297,9 @@ else
             {
                 _revenueByMonth = ReportService.GetRevenueByMonth(year);
                 _expenseByMonth = ReportService.GetExpenseByMonth(year);
+                _manualExpenseByMonth = ReportService.GetManualExpenseByMonth(year);
                 _tuitionByMonth = ReportService.GetTuitionEarnedByMonth(year);
-                ReportService.FillYearFinancialTotals(_summary, _tuitionByMonth, _expenseByMonth);
+                ReportService.FillYearFinancialTotals(_summary, _tuitionByMonth, _expenseByMonth, _manualExpenseByMonth);
                 _enrollmentByMonth = ReportService.GetEnrollmentByMonth(year);
                 _mostDiligent = ReportService.GetMostDiligentStudent(year, month);
                 _topAchievement = ReportService.GetTopAchievementStudent(year, month);
@@ -295,8 +310,11 @@ else
         {
             _revenueByMonth = new();
             _expenseByMonth = new();
+            _manualExpenseByMonth = new();
             _tuitionByMonth = new();
             _summary.TotalTuitionEarned = 0;
+            _summary.TotalSalaryExpense = 0;
+            _summary.TotalManualExpense = 0;
             _summary.TotalExpense = 0;
             _enrollmentByMonth = new();
             _mostDiligent = null;

@@ -10,5 +10,11 @@ public class ReportSummary
     public decimal TotalTuitionEarned { get; set; }
 
     /// <summary>Lương giáo viên (sau điều chỉnh) theo năm đang chọn.</summary>
+    public decimal TotalSalaryExpense { get; set; }
+
+    /// <summary>Chi tiêu thủ công (sổ Expenses) theo năm đang chọn.</summary>
+    public decimal TotalManualExpense { get; set; }
+
+    /// <summary>Tổng chi = Chi lương + Chi khác theo năm đang chọn.</summary>
     public decimal TotalExpense { get; set; }
 }

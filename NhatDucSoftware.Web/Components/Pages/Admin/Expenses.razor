@@ -1,0 +1,371 @@
+@page "/admin/expenses"
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ExpenseService ExpenseService
+@inject GoogleDriveService DriveService
+@inject LoadingService Loading
+@inject NavigationManager Nav
+@using NhatDucSoftware.Core.Models
+@using NhatDucSoftware.Web.Helpers
+
+<PageTitle>Quản lý chi tiêu</PageTitle>
+
+@if (!Session.IsAdmin)
+{
+    <p>Không có quyền truy cập.</p>
+}
+else
+{
+    <h1 class="page-title">Quản lý chi tiêu</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_isError ? "alert-danger" : "alert-success")">@_message</div>
+    }
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Năm</label>
+            <select @bind="_selectedYear" @bind:after="LoadExpenses">
+                @foreach (var y in _years)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+            <label>Tháng</label>
+            <select @bind="_selectedMonth" @bind:after="LoadExpenses">
+                <option value="0">Tất cả</option>
+                @for (var month = 1; month <= 12; month++)
+                {
+                    <option value="@month">Tháng @month</option>
+                }
+            </select>
+            <span class="report-section-period">Tổng kỳ: @MoneyHelper.FormatCurrency(_periodTotal)</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>@(_selectedId is null ? "Thêm khoản chi" : $"Sửa khoản chi #{_selectedId}")</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Ngày chi</label>
+                <input type="date" @bind="_expenseDateValue" />
+            </div>
+            <div class="form-group">
+                <label>Số tiền</label>
+                <input @bind="_amountText" placeholder="VD: 1.500.000" />
+            </div>
+            <div class="form-group">
+                <label>Danh mục</label>
+                <select @bind="_category">
+                    @foreach (var c in ExpenseService.Categories)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Người chi</label>
+                <input @bind="_paidBy" />
+            </div>
+            <div class="form-group">
+                <label>Số hóa đơn / chứng từ</label>
+                <input @bind="_invoiceNumber" />
+            </div>
+            <div class="form-group">
+                <label>Ghi chú</label>
+                <input @bind="_note" />
+            </div>
+            <div class="form-group">
+                <label>Đính kèm (Google Drive)</label>
+                <InputFile OnChange="OnFileSelected" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt" disabled="@_uploading" />
+                @if (!string.IsNullOrWhiteSpace(_attachmentFileName))
+                {
+                    <div class="report-note">
+                        File: @_attachmentFileName
+                        @if (!string.IsNullOrWhiteSpace(_attachmentUrl))
+                        {
+                            <text> — </text><a href="@_attachmentUrl" target="_blank" rel="noopener">Mở</a>
+                        }
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="ClearAttachment" disabled="@_uploading">Gỡ file</button>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="SaveExpense" disabled="@_uploading">
+                @(_selectedId is null ? "Thêm" : "Cập nhật")
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetForm" disabled="@_uploading">Làm mới</button>
+            <button class="btn btn-danger" @onclick="DeleteExpense" disabled="@(_selectedId is null || _uploading)">Xóa</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Danh mục</th>
+                        <th>Số tiền</th>
+                        <th>Người chi</th>
+                        <th>Hóa đơn</th>
+                        <th>File</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_expenses.Count == 0)
+                    {
+                        <tr><td colspan="7">Chưa có khoản chi trong kỳ đã chọn.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in _expenses)
+                        {
+                            <tr class="@(_selectedId == item.Id ? "selected" : "")" @onclick="() => SelectExpense(item)">
+                                <td>@FormatDate(item.ExpenseDate)</td>
+                                <td>@item.Category</td>
+                                <td>@MoneyHelper.FormatCurrency(item.Amount)</td>
+                                <td>@(item.PaidBy ?? "—")</td>
+                                <td>@(item.InvoiceNumber ?? "—")</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(item.AttachmentUrl))
+                                    {
+                                        <a href="@item.AttachmentUrl" target="_blank" rel="noopener" @onclick:stopPropagation="true">
+                                            @(item.AttachmentFileName ?? "Xem")
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <text>—</text>
+                                    }
+                                </td>
+                                <td>@(item.Note ?? "—")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Expense> _expenses = new();
+    private List<int> _years = new();
+    private int _selectedYear = DateTime.Now.Year;
+    private int _selectedMonth = DateTime.Now.Month;
+    private int? _selectedId;
+    private DateTime _expenseDateValue = DateTime.Today;
+    private string _amountText = "";
+    private string _category = ExpenseService.Categories[0];
+    private string _paidBy = "";
+    private string _invoiceNumber = "";
+    private string _note = "";
+    private string? _attachmentFileId;
+    private string? _attachmentFileName;
+    private string? _attachmentUrl;
+    private string? _message;
+    private bool _isError;
+    private bool _uploading;
+    private decimal _periodTotal;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAdmin)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var currentYear = DateTime.Now.Year;
+        _years = Enumerable.Range(currentYear - 5, 8).OrderByDescending(x => x).ToList();
+        if (!_years.Contains(_selectedYear))
+        {
+            _years.Insert(0, _selectedYear);
+        }
+
+        LoadExpenses();
+    }
+
+    private void LoadExpenses()
+    {
+        try
+        {
+            int? month = _selectedMonth is >= 1 and <= 12 ? _selectedMonth : null;
+            _expenses = ExpenseService.GetByYearMonth(_selectedYear, month);
+            _periodTotal = _expenses.Sum(x => x.Amount);
+            _message = null;
+        }
+        catch (Exception ex)
+        {
+            _expenses = new();
+            _periodTotal = 0;
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private void SelectExpense(Expense item)
+    {
+        _selectedId = item.Id;
+        _expenseDateValue = DateTime.TryParse(item.ExpenseDate, out var date) ? date.Date : DateTime.Today;
+        _amountText = item.Amount.ToString("N0");
+        _category = item.Category;
+        _paidBy = item.PaidBy ?? "";
+        _invoiceNumber = item.InvoiceNumber ?? "";
+        _note = item.Note ?? "";
+        _attachmentFileId = item.AttachmentFileId;
+        _attachmentFileName = item.AttachmentFileName;
+        _attachmentUrl = item.AttachmentUrl;
+        _message = null;
+    }
+
+    private void ResetForm()
+    {
+        _selectedId = null;
+        _expenseDateValue = DateTime.Today;
+        _amountText = "";
+        _category = ExpenseService.Categories[0];
+        _paidBy = "";
+        _invoiceNumber = "";
+        _note = "";
+        ClearAttachment();
+        _message = null;
+        _isError = false;
+    }
+
+    private void ClearAttachment()
+    {
+        _attachmentFileId = null;
+        _attachmentFileName = null;
+        _attachmentUrl = null;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        if (e.FileCount == 0) return;
+
+        var file = e.File;
+        const long maxSize = 50 * 1024 * 1024;
+        if (file.Size > maxSize)
+        {
+            _message = "File quá lớn. Giới hạn 50MB.";
+            _isError = true;
+            return;
+        }
+
+        _uploading = true;
+        _message = null;
+        _isError = false;
+        Loading.Show();
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxSize);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+                ? "application/octet-stream"
+                : file.ContentType;
+
+            var result = await DriveService.UploadToExpenseFolderAsync(memory, file.Name, contentType);
+            _attachmentFileId = result.FileId;
+            _attachmentFileName = file.Name;
+            _attachmentUrl = result.WebViewLink;
+            _message = $"Đã upload \"{file.Name}\" lên Google Drive.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+        finally
+        {
+            Loading.Hide();
+            _uploading = false;
+        }
+    }
+
+    private void SaveExpense()
+    {
+        if (!MoneyHelper.TryParseMoney(_amountText, out var amount) || amount <= 0)
+        {
+            _message = "Số tiền không hợp lệ.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            var expense = new Expense
+            {
+                Id = _selectedId ?? 0,
+                ExpenseDate = _expenseDateValue.ToString("yyyy-MM-dd"),
+                Amount = amount,
+                Category = _category,
+                PaidBy = string.IsNullOrWhiteSpace(_paidBy) ? null : _paidBy.Trim(),
+                InvoiceNumber = string.IsNullOrWhiteSpace(_invoiceNumber) ? null : _invoiceNumber.Trim(),
+                Note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+                AttachmentFileId = _attachmentFileId,
+                AttachmentFileName = _attachmentFileName,
+                AttachmentUrl = _attachmentUrl,
+                CreatedBy = Session.CurrentUser?.Username
+            };
+
+            if (_selectedId is null)
+            {
+                ExpenseService.Add(expense);
+                _message = "Đã thêm khoản chi.";
+            }
+            else
+            {
+                ExpenseService.Update(expense);
+                _message = "Đã cập nhật khoản chi.";
+            }
+
+            _isError = false;
+            LoadExpenses();
+            ResetForm();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private void DeleteExpense()
+    {
+        if (_selectedId is null) return;
+
+        try
+        {
+            ExpenseService.Delete(_selectedId.Value);
+            _message = "Đã xóa khoản chi.";
+            _isError = false;
+            LoadExpenses();
+            ResetForm();
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private static string FormatDate(string value)
+    {
+        if (DateTime.TryParse(value, out var date))
+        {
+            return date.ToString("dd/MM/yyyy");
+        }
+
+        return value;
+    }
+}

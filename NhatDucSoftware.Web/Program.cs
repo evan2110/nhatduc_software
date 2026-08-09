@@ -91,6 +91,7 @@ builder.Services.AddScoped<TeacherTimesheetNotificationService>();
 builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<TeacherProfileService>();
+builder.Services.AddScoped<ExpenseService>();
 builder.Services.AddScoped<GoogleDriveService>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
@@ -102,6 +103,9 @@ builder.Services.AddScoped<GoogleDriveService>(sp =>
         TeacherProfileRootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_TEACHER_PROFILE_ROOT_FOLDER_ID")
             ?? config["GoogleDrive:TeacherProfileRootFolderId"]
             ?? "1yq8ByWsZv5-AQiteWVbETVKpcplQBcbq",
+        ExpenseRootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_EXPENSE_ROOT_FOLDER_ID")
+            ?? config["GoogleDrive:ExpenseRootFolderId"]
+            ?? "1Hh5whYpr638YxI9JMO8Y8R_Zyiy7wS6T",
         ServiceAccountJson = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON")
             ?? config["GoogleDrive:ServiceAccountJson"],
         ClientId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_ID")

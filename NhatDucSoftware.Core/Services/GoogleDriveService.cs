@@ -160,6 +160,55 @@ public class GoogleDriveService
         };
     }
 
+    public async Task<GoogleDriveUploadResult> UploadToExpenseFolderAsync(
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            throw new InvalidOperationException($"Google Drive chưa được cấu hình. {ConfigurationHint}");
+        }
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new InvalidOperationException("Tên file không hợp lệ.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.ExpenseRootFolderId))
+        {
+            throw new InvalidOperationException("Chưa cấu hình GOOGLE_DRIVE_EXPENSE_ROOT_FOLDER_ID.");
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+
+        var fileMetadata = new GoogleFile
+        {
+            Name = fileName.Trim(),
+            Parents = [_settings.ExpenseRootFolderId]
+        };
+
+        var request = drive.Files.Create(fileMetadata, fileStream, contentType);
+        request.Fields = "id, webViewLink";
+
+        var uploadResult = await request.UploadAsync(cancellationToken);
+        if (uploadResult.Status != UploadStatus.Completed)
+        {
+            var detail = uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.";
+            throw new InvalidOperationException(TranslateDriveError(detail));
+        }
+
+        var uploaded = request.ResponseBody
+            ?? throw new InvalidOperationException("Google Drive không trả về thông tin file.");
+
+        return new GoogleDriveUploadResult
+        {
+            FileId = uploaded.Id,
+            WebViewLink = uploaded.WebViewLink
+        };
+    }
+
     private async Task<DriveService> GetDriveServiceAsync(CancellationToken cancellationToken)
     {
         if (_driveService is not null)

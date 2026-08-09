@@ -9,22 +9,25 @@ public class ReportService
     private readonly TeacherTimesheetService _timesheetService;
     private readonly TeacherService _teacherService;
     private readonly PaymentService _paymentService;
+    private readonly ExpenseService _expenseService;
     private TuitionYearReportData? _tuitionYearReportCache;
     private int _tuitionYearReportCacheYear;
 
     public ReportService()
-        : this(new TeacherTimesheetService(), new TeacherService(), new PaymentService())
+        : this(new TeacherTimesheetService(), new TeacherService(), new PaymentService(), new ExpenseService())
     {
     }
 
     public ReportService(
         TeacherTimesheetService timesheetService,
         TeacherService teacherService,
-        PaymentService paymentService)
+        PaymentService paymentService,
+        ExpenseService expenseService)
     {
         _timesheetService = timesheetService;
         _teacherService = teacherService;
         _paymentService = paymentService;
+        _expenseService = expenseService;
     }
 
     public ReportSummary GetSummary()
@@ -50,25 +53,37 @@ public class ReportService
     }
 
     /// <summary>
-    /// Gán Tổng thu / Tổng chi theo năm từ dữ liệu tháng đã tải (cùng nguồn với biểu đồ).
+    /// Gán Tổng thu / Chi lương / Chi khác / Tổng chi theo năm từ dữ liệu tháng đã tải.
     /// </summary>
     public void FillYearFinancialTotals(
         ReportSummary summary,
         IReadOnlyList<MonthlyAmountStat> tuitionByMonth,
-        IReadOnlyList<MonthlyAmountStat> expenseByMonth)
+        IReadOnlyList<MonthlyAmountStat> salaryExpenseByMonth,
+        IReadOnlyList<MonthlyAmountStat> manualExpenseByMonth)
     {
         summary.TotalTuitionEarned = tuitionByMonth.Sum(x => x.Amount);
-        summary.TotalExpense = expenseByMonth.Sum(x => x.Amount);
+        summary.TotalSalaryExpense = salaryExpenseByMonth.Sum(x => x.Amount);
+        summary.TotalManualExpense = manualExpenseByMonth.Sum(x => x.Amount);
+        summary.TotalExpense = summary.TotalSalaryExpense + summary.TotalManualExpense;
     }
 
-    public (decimal TotalTuitionEarned, decimal TotalExpense) GetYearFinancialTotals(int year)
+    public (decimal TotalTuitionEarned, decimal TotalSalaryExpense, decimal TotalManualExpense, decimal TotalExpense)
+        GetYearFinancialTotals(int year)
     {
         var tuitionByMonth = GetTuitionEarnedByMonth(year);
-        var expenseByMonth = GetExpenseByMonth(year);
+        var salaryExpenseByMonth = GetExpenseByMonth(year);
+        var manualExpenseByMonth = GetManualExpenseByMonth(year);
+        var salary = salaryExpenseByMonth.Sum(x => x.Amount);
+        var manual = manualExpenseByMonth.Sum(x => x.Amount);
         return (
             tuitionByMonth.Sum(x => x.Amount),
-            expenseByMonth.Sum(x => x.Amount));
+            salary,
+            manual,
+            salary + manual);
     }
+
+    public List<MonthlyAmountStat> GetManualExpenseByMonth(int year) =>
+        _expenseService.GetAmountByMonth(year);
 
     public List<RevenueByYearStat> GetRevenueByYear()
     {
