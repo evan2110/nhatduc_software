@@ -309,13 +309,13 @@ WHERE ClassId = ANY(@classIds);";
         return result;
     }
 
-    private static Dictionary<(int ClassId, string SessionDate, int Shift), (int Recorded, HashSet<int> RecordedStudentIds)> LoadAttendanceStats(
+    private static Dictionary<(int ClassId, string SessionDate, int Shift), AttendanceSlotStats> LoadAttendanceStats(
         DbConnection connection,
         List<int> classIds,
         DateTime from,
         DateTime to)
     {
-        var result = new Dictionary<(int, string, int), (int, HashSet<int>)>();
+        var result = new Dictionary<(int, string, int), AttendanceSlotStats>();
         if (classIds.Count == 0)
         {
             return result;
@@ -342,7 +342,7 @@ WHERE ats.ClassId = ANY(@classIds)
             var key = (classId, sessionDate, shift);
             if (!result.TryGetValue(key, out var stats))
             {
-                stats = (0, new HashSet<int>());
+                stats = new AttendanceSlotStats();
                 result[key] = stats;
             }
 
@@ -355,12 +355,22 @@ WHERE ats.ClassId = ANY(@classIds)
             var status = reader.IsDBNull(4) ? "" : reader.GetString(4).Trim().ToUpperInvariant();
             if (status is "C" or "V")
             {
-                stats.Item2.Add(studentId);
-                result[key] = (stats.Item2.Count, stats.Item2);
+                stats.RecordedStudentIds.Add(studentId);
+                if (status == "C")
+                {
+                    stats.PresentStudentIds.Add(studentId);
+                }
             }
         }
 
         return result;
+    }
+
+    private sealed class AttendanceSlotStats
+    {
+        public HashSet<int> RecordedStudentIds { get; } = new();
+        public HashSet<int> PresentStudentIds { get; } = new();
+        public int Recorded => RecordedStudentIds.Count;
     }
 
     private static void BuildScheduleAlerts(
@@ -370,7 +380,7 @@ WHERE ats.ClassId = ANY(@classIds)
         List<ScheduledSlot> slots,
         Dictionary<(int TeacherId, string WorkDate, int Shift), bool> timesheets,
         Dictionary<int, List<(int StudentId, DateTime JoinedDate)>> studentJoins,
-        Dictionary<(int ClassId, string SessionDate, int Shift), (int Recorded, HashSet<int> RecordedStudentIds)> attendanceStats)
+        Dictionary<(int ClassId, string SessionDate, int Shift), AttendanceSlotStats> attendanceStats)
     {
         var byTeacherDateShift = slots
             .GroupBy(s => (s.TeacherId, s.WorkDate, s.ShiftNumber))
@@ -391,7 +401,47 @@ WHERE ats.ClassId = ANY(@classIds)
             var hasTimesheet = timesheets.TryGetValue((teacherId, dateKey, shiftNumber), out var isPresent);
             bool? timesheetPresent = hasTimesheet ? isPresent : null;
 
-            if (!hasTimesheet)
+            var classAttendance = classSlots
+                .Select(slot =>
+                {
+                    var totalStudents = 0;
+                    HashSet<int>? eligible = null;
+                    if (studentJoins.TryGetValue(slot.ClassId, out var joins))
+                    {
+                        eligible = joins
+                            .Where(j => j.JoinedDate <= workDate)
+                            .Select(j => j.StudentId)
+                            .ToHashSet();
+                        totalStudents = eligible.Count;
+                    }
+
+                    var recorded = 0;
+                    var present = 0;
+                    if (attendanceStats.TryGetValue((slot.ClassId, dateKey, shiftNumber), out var stats))
+                    {
+                        if (eligible is not null)
+                        {
+                            recorded = stats.RecordedStudentIds.Count(id => eligible.Contains(id));
+                            present = stats.PresentStudentIds.Count(id => eligible.Contains(id));
+                        }
+                        else
+                        {
+                            recorded = stats.Recorded;
+                            present = stats.PresentStudentIds.Count;
+                        }
+                    }
+
+                    var attendanceComplete = totalStudents == 0 || recorded == totalStudents;
+                    var allStudentsAbsent = totalStudents > 0 && attendanceComplete && present == 0;
+                    return (Slot: slot, TotalStudents: totalStudents, Recorded: recorded, AttendanceComplete: attendanceComplete, AllStudentsAbsent: allStudentsAbsent);
+                })
+                .ToList();
+
+            // Toàn bộ học viên các lớp trong ca đều vắng: không yêu cầu chấm công.
+            var timesheetWaivedForAllAbsent = classAttendance.Count > 0
+                && classAttendance.All(x => x.AllStudentsAbsent);
+
+            if (!hasTimesheet && !timesheetWaivedForAllAbsent)
             {
                 var classNames = string.Join(", ", classSlots.Select(c => c.ClassName).OrderBy(n => n));
                 bundle.MissingTimesheets.Add(new TeacherScheduleGapAlert
@@ -412,34 +462,11 @@ WHERE ats.ClassId = ANY(@classIds)
                 continue;
             }
 
-            foreach (var slot in classSlots)
+            foreach (var item in classAttendance)
             {
-                var totalStudents = 0;
-                if (studentJoins.TryGetValue(slot.ClassId, out var joins))
-                {
-                    totalStudents = joins.Count(j => j.JoinedDate <= workDate);
-                }
+                var slot = item.Slot;
 
-                var recorded = 0;
-                if (attendanceStats.TryGetValue((slot.ClassId, dateKey, shiftNumber), out var stats))
-                {
-                    if (studentJoins.TryGetValue(slot.ClassId, out var joinRows))
-                    {
-                        var eligible = joinRows
-                            .Where(j => j.JoinedDate <= workDate)
-                            .Select(j => j.StudentId)
-                            .ToHashSet();
-                        recorded = stats.RecordedStudentIds.Count(id => eligible.Contains(id));
-                    }
-                    else
-                    {
-                        recorded = stats.Recorded;
-                    }
-                }
-
-                var attendanceComplete = totalStudents == 0 || recorded == totalStudents;
-
-                if (!attendanceComplete)
+                if (!item.AttendanceComplete)
                 {
                     bundle.MissingAttendances.Add(new TeacherScheduleGapAlert
                     {
@@ -449,13 +476,19 @@ WHERE ats.ClassId = ANY(@classIds)
                         ShiftNumber = shiftNumber,
                         ClassId = slot.ClassId,
                         ClassName = slot.ClassName,
-                        Detail = totalStudents > 0
-                            ? $"Chưa điểm danh đủ ({recorded}/{totalStudents})"
+                        Detail = item.TotalStudents > 0
+                            ? $"Chưa điểm danh đủ ({item.Recorded}/{item.TotalStudents})"
                             : "Chưa điểm danh"
                     });
                 }
 
-                if (hasTimesheet != attendanceComplete)
+                // Toàn HS vắng: không báo chênh lệch (không yêu cầu chấm công).
+                if (item.AllStudentsAbsent)
+                {
+                    continue;
+                }
+
+                if (hasTimesheet != item.AttendanceComplete)
                 {
                     var detailText = hasTimesheet
                         ? "Đã chấm công (có mặt) nhưng điểm danh chưa xong"

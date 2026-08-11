@@ -77,28 +77,41 @@ WHERE ats.ClassId = @classId
         return result;
     }
 
-    public (int TotalStudents, int RecordedStudents, bool IsComplete) GetAttendanceCompletionStatus(
+    public (int TotalStudents, int RecordedStudents, bool IsComplete, bool AllStudentsAbsent) GetAttendanceCompletionStatus(
         int classId, DateTime sessionDate, int shiftNumber)
     {
         var students = GetStudentsByClass(classId, sessionDate);
         if (students.Count == 0)
         {
-            return (0, 0, true);
+            return (0, 0, true, false);
         }
 
         var attendance = GetAttendanceByClassDateAndShift(classId, sessionDate, shiftNumber);
-        var recorded = students.Count(s =>
+        var recorded = 0;
+        var present = 0;
+        foreach (var student in students)
         {
-            if (!attendance.TryGetValue(s.StudentId, out var status))
+            if (!attendance.TryGetValue(student.StudentId, out var status))
             {
-                return false;
+                continue;
             }
 
             var normalized = status.Trim().ToUpperInvariant();
-            return normalized is "C" or "V";
-        });
+            if (normalized is not ("C" or "V"))
+            {
+                continue;
+            }
 
-        return (students.Count, recorded, recorded == students.Count);
+            recorded++;
+            if (normalized == "C")
+            {
+                present++;
+            }
+        }
+
+        var isComplete = recorded == students.Count;
+        var allStudentsAbsent = isComplete && present == 0;
+        return (students.Count, recorded, isComplete, allStudentsAbsent);
     }
 
     public List<AttendanceRow> GetAttendanceRowsForClass(int classId, DateTime sessionDate, int shiftNumber)

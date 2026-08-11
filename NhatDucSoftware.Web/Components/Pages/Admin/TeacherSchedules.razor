@@ -124,7 +124,7 @@ else
                             <span class="schedule-detail-meta @GetTimesheetHeaderClass(shift, isTimesheetEditOpen)"
                                   @onclick="() => OpenTimesheetEdit(shift)">
                                 Chấm công:
-                                <span class="@GetStatusClass(shift.TimesheetRecorded)">@GetTimesheetLabel(shift)</span>
+                                <span class="@GetStatusClass(shift.TimesheetRecorded || shift.TimesheetWaivedForAllStudentsAbsent)">@GetTimesheetLabel(shift)</span>
                             </span>
                         </div>
 
@@ -522,14 +522,27 @@ else
         return $"{ClassWeeklySchedule.GetDayName(dayIndex)}, {_selectedDate:dd/MM/yyyy}";
     }
 
-    private static string GetTimesheetLabel(TeacherDailyShiftDetail shift) =>
-        shift.TimesheetRecorded
-            ? shift.TimesheetPresent == true ? "Đã chấm — Có mặt — bấm để xem" : "Đã chấm — Vắng — bấm để xem"
-            : "Chưa chấm — bấm để bổ sung";
+    private static string GetTimesheetLabel(TeacherDailyShiftDetail shift)
+    {
+        if (shift.TimesheetRecorded)
+        {
+            return shift.TimesheetPresent == true
+                ? "Đã chấm — Có mặt — bấm để xem"
+                : "Đã chấm — Vắng — bấm để xem";
+        }
+
+        if (shift.TimesheetWaivedForAllStudentsAbsent)
+        {
+            return "Không yêu cầu — toàn HS vắng";
+        }
+
+        return "Chưa chấm — bấm để bổ sung";
+    }
 
     private static string GetTimesheetHeaderClass(TeacherDailyShiftDetail shift, bool isEditOpen)
     {
-        var baseClass = shift.TimesheetRecorded ? "schedule-timesheet-complete" : "schedule-timesheet-missing";
+        var ok = shift.TimesheetRecorded || shift.TimesheetWaivedForAllStudentsAbsent;
+        var baseClass = ok ? "schedule-timesheet-complete" : "schedule-timesheet-missing";
         return isEditOpen ? $"{baseClass} selected" : baseClass;
     }
 

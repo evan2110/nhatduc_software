@@ -319,7 +319,8 @@ WHERE TeacherId = @tid;";
                             ClassName = classEntry.ClassName,
                             TotalStudents = completion.TotalStudents,
                             RecordedStudents = completion.RecordedStudents,
-                            AttendanceComplete = completion.IsComplete
+                            AttendanceComplete = completion.IsComplete,
+                            AllStudentsAbsent = completion.AllStudentsAbsent
                         };
                     })
                     .OrderBy(c => c.ClassName)
@@ -341,11 +342,15 @@ WHERE TeacherId = @tid;";
             TeacherName = teacherName,
             WorkDate = date.Date,
             Shifts = shiftDetails,
-            AllTimesheetsComplete = shiftDetails.Count > 0 && shiftDetails.All(s => s.TimesheetRecorded),
+            AllTimesheetsComplete = shiftDetails.Count > 0 && shiftDetails.All(s =>
+                s.TimesheetRecorded || IsTimesheetWaivedForAllStudentsAbsent(s)),
             AllAttendanceComplete = shiftDetails.Count > 0 && shiftDetails.All(s =>
                 s.TimesheetPresent == false || s.Classes.All(c => c.AttendanceComplete))
         };
     }
+
+    private static bool IsTimesheetWaivedForAllStudentsAbsent(TeacherDailyShiftDetail shift) =>
+        shift.Classes.Count > 0 && shift.Classes.All(c => c.AllStudentsAbsent);
 
     private static bool IsClassVisibleForDate(int classId, DateTime date)
     {
@@ -435,7 +440,8 @@ public class TeacherDailyScheduleDetail
     public bool AllAttendanceComplete { get; set; }
 
     public int RequiredShiftCount => Shifts.Count;
-    public int RecordedShiftCount => Shifts.Count(s => s.TimesheetRecorded);
+    public int RecordedShiftCount => Shifts.Count(s =>
+        s.TimesheetRecorded || (s.Classes.Count > 0 && s.Classes.All(c => c.AllStudentsAbsent)));
     public int RequiredClassShiftCount => Shifts.Sum(s => s.Classes.Count);
     public int CompletedClassShiftCount => Shifts.Sum(s =>
         s.TimesheetPresent == false
@@ -449,6 +455,9 @@ public class TeacherDailyShiftDetail
     public bool TimesheetRecorded { get; set; }
     public bool? TimesheetPresent { get; set; }
     public List<TeacherDailyClassDetail> Classes { get; set; } = new();
+
+    public bool TimesheetWaivedForAllStudentsAbsent =>
+        Classes.Count > 0 && Classes.All(c => c.AllStudentsAbsent);
 }
 
 public class TeacherDailyClassDetail
@@ -458,4 +467,5 @@ public class TeacherDailyClassDetail
     public int TotalStudents { get; set; }
     public int RecordedStudents { get; set; }
     public bool AttendanceComplete { get; set; }
+    public bool AllStudentsAbsent { get; set; }
 }
