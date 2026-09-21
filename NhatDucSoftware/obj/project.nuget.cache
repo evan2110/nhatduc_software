@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "qB1gfxGM6tU=",
+  "dgSpecHash": "SA+4wNWAqwA=",
   "success": true,
-  "projectFilePath": "d:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
+  "projectFilePath": "D:\\Tool\\NhatDucSoftware\\NhatDucSoftware\\NhatDucSoftware.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\duc21\\.nuget\\packages\\bouncycastle.cryptography\\2.6.2\\bouncycastle.cryptography.2.6.2.nupkg.sha512",
     "C:\\Users\\duc21\\.nuget\\packages\\closedxml\\0.105.0\\closedxml.0.105.0.nupkg.sha512",

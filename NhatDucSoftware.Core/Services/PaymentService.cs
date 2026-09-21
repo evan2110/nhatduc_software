@@ -26,20 +26,20 @@ public class PaymentService
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
-        // Tính: số buổi có mặt (C) của từng lớp × học phí khóa học tương ứng
+        // Tính: từng buổi có mặt (C) × học phí còn hiệu lực đúng ngày buổi đó
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT COALESCE(SUM(attended * co.TuitionFee), 0)
-FROM (
-    SELECT cs.ClassId,
-           (SELECT COUNT(*) FROM AttendanceRecords ar
-            INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
-            WHERE ar.StudentId = @studentId AND ats.ClassId = cs.ClassId AND ar.Status = 'C') AS attended
-    FROM ClassStudents cs
-    WHERE cs.StudentId = @studentId
-) sub
-INNER JOIN Classes c ON c.Id = sub.ClassId
-INNER JOIN Courses co ON co.Id = c.CourseId;";
+        command.CommandText = $@"
+SELECT COALESCE(SUM({CourseFeeSql.SessionTuitionFee}), 0)
+FROM AttendanceRecords ar
+INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
+INNER JOIN Classes c ON c.Id = ats.ClassId
+INNER JOIN Courses co ON co.Id = c.CourseId
+WHERE ar.StudentId = @studentId
+  AND ar.Status = 'C'
+  AND EXISTS (
+      SELECT 1 FROM ClassStudents cs
+      WHERE cs.StudentId = ar.StudentId AND cs.ClassId = ats.ClassId
+  );";
         command.Parameters.AddWithValue("@studentId", studentId);
 
         return Convert.ToDecimal(command.ExecuteScalar());
@@ -276,7 +276,7 @@ DO UPDATE SET DiscountPercent = EXCLUDED.DiscountPercent,
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
+        command.CommandText = $@"
 WITH Enrollments AS (
     SELECT cs.ClassId, c.ClassName
     FROM ClassStudents cs
@@ -285,7 +285,7 @@ WITH Enrollments AS (
 ),
 StudentTuition AS (
     SELECT ats.ClassId,
-           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
+           COALESCE(SUM({CourseFeeSql.SessionTuitionFee}), 0) AS AttendanceTuition
     FROM AttendanceRecords ar
     INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
     INNER JOIN Classes c ON c.Id = ats.ClassId

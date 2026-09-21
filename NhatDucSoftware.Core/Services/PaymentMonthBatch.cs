@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Npgsql;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -230,7 +231,7 @@ public sealed class PaymentMonthBatch
         int year)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = @"
+        command.CommandText = $@"
 WITH Enrollments AS (
     SELECT cs.StudentId, cs.ClassId, c.ClassName
     FROM ClassStudents cs
@@ -240,7 +241,7 @@ WITH Enrollments AS (
 StudentTuition AS (
     SELECT ar.StudentId,
            ats.ClassId,
-           COALESCE(SUM(co.TuitionFee), 0) AS AttendanceTuition
+           COALESCE(SUM({CourseFeeSql.SessionTuitionFee}), 0) AS AttendanceTuition
     FROM AttendanceRecords ar
     INNER JOIN AttendanceSessions ats ON ats.Id = ar.SessionId
     INNER JOIN Classes c ON c.Id = ats.ClassId

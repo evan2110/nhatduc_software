@@ -64,6 +64,35 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateStudentTuitionDiscountsTable(connection);
         MigrateDataProtectionKeysTable(connection);
         MigrateExpensesTable(connection);
+        MigrateCourseFeeHistoryTable(connection);
+    }
+
+    private static void MigrateCourseFeeHistoryTable(System.Data.Common.DbConnection connection)
+    {
+        using (var createTable = connection.CreateCommand())
+        {
+            createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS CourseFeeHistory (
+    Id BIGSERIAL PRIMARY KEY,
+    CourseId BIGINT NOT NULL,
+    TuitionFee NUMERIC(18,2) NOT NULL,
+    EffectiveFrom DATE NOT NULL,
+    CreatedAt TEXT NOT NULL,
+    CONSTRAINT UQ_CourseFeeHistory_CourseId_EffectiveFrom UNIQUE (CourseId, EffectiveFrom)
+);";
+            createTable.ExecuteNonQuery();
+        }
+
+        using var seed = connection.CreateCommand();
+        seed.CommandText = @"
+INSERT INTO CourseFeeHistory(CourseId, TuitionFee, EffectiveFrom, CreatedAt)
+SELECT c.Id, c.TuitionFee, DATE '1900-01-01', @createdAt
+FROM Courses c
+WHERE NOT EXISTS (
+    SELECT 1 FROM CourseFeeHistory h WHERE h.CourseId = c.Id
+);";
+        AddParameter(seed, "@createdAt", DateTime.UtcNow.ToString("o"));
+        seed.ExecuteNonQuery();
     }
 
     private static void MigrateExpensesTable(System.Data.Common.DbConnection connection)

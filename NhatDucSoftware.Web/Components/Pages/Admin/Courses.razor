@@ -1,5 +1,6 @@
 @page "/admin/courses"
 @rendermode InteractiveServer
+@using NhatDucSoftware.Core.Helpers
 @inject UserSession Session
 @inject CourseService CourseService
 @inject NavigationManager Nav
@@ -29,6 +30,13 @@ else
                 <label>Học phí / buổi</label>
                 <input @bind="_feeText" />
             </div>
+            @if (_selectedId is not null)
+            {
+                <div class="form-group">
+                    <label>Ngày hiệu lực</label>
+                    <input type="date" @bind="_feeEffectiveFrom" min="@MinEffectiveFromText" />
+                </div>
+            }
         </div>
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="AddCourse">Thêm</button>
@@ -63,8 +71,13 @@ else
     private int? _selectedId;
     private string _name = "";
     private string _feeText = "";
+    private DateTime _feeEffectiveFrom = VietnamDate.Today;
     private string? _message;
     private bool _isError;
+    private decimal _selectedFee;
+
+    private static string MinEffectiveFromText =>
+        CourseFeeRules.MinEffectiveFrom(VietnamDate.Today).ToString("yyyy-MM-dd");
 
     protected override void OnInitialized()
     {
@@ -79,6 +92,8 @@ else
         _selectedId = c.Id;
         _name = c.Name;
         _feeText = c.TuitionFee.ToString("N0");
+        _selectedFee = c.TuitionFee;
+        _feeEffectiveFrom = VietnamDate.Today;
     }
 
     private bool TryValidateCourseForm()
@@ -104,7 +119,9 @@ else
             _message = "Đã thêm khóa học.";
             _isError = false;
             LoadCourses();
+            _selectedId = null;
             _name = ""; _feeText = "";
+            _feeEffectiveFrom = VietnamDate.Today;
         }
         catch (InvalidOperationException ex) { _message = ex.Message; _isError = true; }
     }
@@ -117,10 +134,16 @@ else
         try
         {
             MoneyHelper.TryParseMoney(_feeText, out var fee);
-            CourseService.Update(new Course { Id = _selectedId.Value, Name = _name.Trim(), TuitionFee = fee, Status = "Active" });
-            _message = "Đã cập nhật khóa học.";
+            DateTime? effectiveFrom = fee != _selectedFee ? _feeEffectiveFrom.Date : null;
+            CourseService.Update(
+                new Course { Id = _selectedId.Value, Name = _name.Trim(), TuitionFee = fee, Status = "Active" },
+                effectiveFrom);
+            _message = fee != _selectedFee
+                ? $"Đã cập nhật khóa học. Giá mới áp dụng từ {_feeEffectiveFrom:dd/MM/yyyy}."
+                : "Đã cập nhật khóa học.";
             _isError = false;
             LoadCourses();
+            _selectedFee = fee;
         }
         catch (InvalidOperationException ex) { _message = ex.Message; _isError = true; }
     }
