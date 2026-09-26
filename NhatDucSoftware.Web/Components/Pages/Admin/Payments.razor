@@ -100,7 +100,7 @@ else
                     {
                         var row = PagedPaymentRows[i];
                         var rowIndex = (_currentPage - 1) * _pageSize + i + 1;
-                        var remaining = Math.Max(0, row.SoTienCanDong - row.SoTien);
+                        var remaining = row.SoTienConLai;
                         <tr class="@(_selectedStudentId == row.StudentId ? "selected" : "")"
                             @onclick="() => SelectPaymentRow(row)">
                             <td>@rowIndex</td>
@@ -403,7 +403,7 @@ else
     private decimal FilteredTotalPaid => FilteredPaymentRows.Sum(x => x.SoTien);
 
     private decimal FilteredTotalRemaining =>
-        FilteredPaymentRows.Sum(x => Math.Max(0, x.SoTienCanDong - x.SoTien));
+        FilteredPaymentRows.Sum(x => x.SoTienConLai);
 
     private int TotalPages => PaginationHelper.GetTotalPages(FilteredCount, _pageSize);
 
@@ -452,6 +452,11 @@ else
         {
             row.SoTienCanDong = _monthBatch.GetTotalDue(row.StudentId, _classId);
         }
+
+        _allPaymentRows = _allPaymentRows
+            .OrderByDescending(row => row.SoTienConLai)
+            .ThenBy(row => row.HoVaTen, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
         _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
 
         var selectedStillVisible = _selectedStudentId > 0 && FilteredPaymentRows.Any(x => x.StudentId == _selectedStudentId);

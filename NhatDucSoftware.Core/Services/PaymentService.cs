@@ -1391,5 +1391,6 @@ public class PaymentClassListRow
     public string NgayThu { get; set; } = "";
     public decimal SoTienCanDong { get; set; }
     public decimal SoTien { get; set; }
+    public decimal SoTienConLai => Math.Max(0, SoTienCanDong - SoTien);
     public string NguoiThu { get; set; } = "";
 }
