@@ -178,7 +178,19 @@ WHERE TeacherId = @tid;";
     public IReadOnlyDictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<string>> GetTeacherClassNamesByDateAndShiftForMonth(
         int teacherId, int year, int month)
     {
-        var result = new Dictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<string>>();
+        return GetTeacherClassesByDateAndShiftForMonth(teacherId, year, month)
+            .ToDictionary(
+                pair => pair.Key,
+                pair => (IReadOnlyList<string>)pair.Value.Select(item => item.ClassName).ToList());
+    }
+
+    /// <summary>
+    /// Tra cứu lớp (mã và tên) theo ngày và ca của giáo viên trong tháng (theo lịch tuần).
+    /// </summary>
+    public IReadOnlyDictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<(int ClassId, string ClassName)>> GetTeacherClassesByDateAndShiftForMonth(
+        int teacherId, int year, int month)
+    {
+        var result = new Dictionary<(DateTime Date, int ShiftNumber), IReadOnlyList<(int ClassId, string ClassName)>>();
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var weekSchedules = new Dictionary<DateTime, List<TeacherScheduleEntry>>();
 
@@ -196,11 +208,10 @@ WHERE TeacherId = @tid;";
             foreach (var group in entries.Where(e => e.DayOfWeek == scheduleDay).GroupBy(e => e.ShiftNumber))
             {
                 result[(date.Date, group.Key)] = group
-                    .Select(e => e.ClassName)
-                    .Distinct()
-                    .OrderBy(name => name)
-                    .ToList()
-                    .AsReadOnly();
+                    .GroupBy(e => e.ClassId)
+                    .Select(classGroup => (classGroup.Key, classGroup.First().ClassName))
+                    .OrderBy(item => item.ClassName)
+                    .ToList();
             }
         }
 

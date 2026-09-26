@@ -280,6 +280,36 @@ ORDER BY c.ClassName, ats.SessionDate, ats.ShiftNumber, s.FullName;";
         return result;
     }
 
+    /// <summary>
+    /// Các buổi (lớp, ngày, ca) trong tháng có ít nhất một học viên điểm danh Có mặt.
+    /// </summary>
+    public HashSet<(int ClassId, DateTime Date, int ShiftNumber)> GetSlotsWithPresentStudent(int year, int month)
+    {
+        var result = new HashSet<(int ClassId, DateTime Date, int ShiftNumber)>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+SELECT DISTINCT ats.ClassId, ats.SessionDate, ats.ShiftNumber
+FROM AttendanceSessions ats
+INNER JOIN AttendanceRecords ar ON ar.SessionId = ats.Id
+WHERE ar.Status = 'C'
+  AND EXTRACT(YEAR FROM ats.SessionDate::date) = @year
+  AND EXTRACT(MONTH FROM ats.SessionDate::date) = @month;";
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var sessionDate = DateTime.Parse(reader.GetString(1)).Date;
+            result.Add((reader.GetInt32(0), sessionDate, reader.GetInt32(2)));
+        }
+
+        return result;
+    }
+
     public (int TotalSessions, int Attended, int Absent) GetStudentAttendanceSummary(int studentId, int year, int month)
     {
         using var connection = DbContext.CreateConnection();
