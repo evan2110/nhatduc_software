@@ -1,3 +1,13 @@
+.present-shift-total {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.attendance-check {
+    color: #dc2626;
+    font-weight: 700;
+}
+
 .preview-tabs {
     display: inline-flex;
     gap: 0;

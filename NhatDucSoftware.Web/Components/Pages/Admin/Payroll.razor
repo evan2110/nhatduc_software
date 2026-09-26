@@ -109,7 +109,7 @@ else
                         </div>
                         <div class="list-meta">
                             <span>@FilteredDetailCount ca</span>
-                            <span>Tổng số ca có mặt: @PresentDetailCount</span>
+                            <span class="present-shift-total">Tổng số ca có mặt: @PresentDetailCount</span>
                             <label>
                                 Hiển thị
                                 <select @bind="_detailPageSize" @bind:after="ResetDetailPage">
@@ -141,7 +141,7 @@ else
                                         <td>@r.ShiftNumber</td>
                                         <td>@(string.IsNullOrEmpty(r.ClassNames) ? "-" : r.ClassNames)</td>
                                         <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
-                                        <td>@AttendanceStatusLabel(r)</td>
+                                        <td class="@(r.HasAttendance == false ? "attendance-check" : null)">@AttendanceStatusLabel(r)</td>
                                         <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
                                         <td>@r.Note</td>
                                     </tr>
@@ -829,9 +829,8 @@ else
                     ShiftNumber = r.ShiftNumber,
                     ClassNames = classList.Count > 0 ? string.Join(", ", classList.Select(c => c.ClassName)) : null,
                     IsPresent = r.IsPresent,
-                    HasAttendance = classList.Count == 0
-                        ? null
-                        : classList.All(c => attendedSlots.Contains((c.ClassId, r.WorkDate.Date, r.ShiftNumber))),
+                    HasAttendance = classList.Count > 0
+                        && classList.All(c => attendedSlots.Contains((c.ClassId, r.WorkDate.Date, r.ShiftNumber))),
                     Note = r.Note,
                     ShiftPay = r.IsPresent
                         ? TimesheetService.GetShiftPay(row.TeacherId, r.WorkDate, r.ShiftNumber)
@@ -847,7 +846,7 @@ else
         row.HasAttendance switch
         {
             true => "Đã điểm danh",
-            false => "Chưa điểm danh",
+            false => "Cần kiểm tra lại",
             _ => "-"
         };
 
