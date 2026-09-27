@@ -1224,8 +1224,9 @@ WHERE SourcePaymentId = @paymentId;";
         transaction.Commit();
     }
 
-    public void DeletePaymentHistory(int paymentId, int studentId)
+    public void DeletePaymentHistory(int paymentId, int studentId, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanDeletePaymentHistory, "Bạn không có quyền xóa lịch sử thu phí.");
         EnsurePaymentNotFinalized(paymentId, studentId);
 
         using var connection = DbContext.CreateConnection();

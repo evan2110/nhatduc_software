@@ -1,4 +1,5 @@
 @page "/teacher/schedule"
+@attribute [Authorize(Roles = "Teacher")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ClassScheduleService ScheduleService

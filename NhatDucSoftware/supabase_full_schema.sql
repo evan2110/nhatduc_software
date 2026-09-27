@@ -310,19 +310,4 @@ WHERE NOT EXISTS (
     SELECT 1 FROM "Teachers" WHERE "Email" = 'teacher@demo.local'
 );
 
-INSERT INTO "Users" ("Username", "PasswordHash", "Role", "TeacherId")
-SELECT 'admin', '123456', 'Admin', NULL
-WHERE NOT EXISTS (
-    SELECT 1 FROM "Users" WHERE "Username" = 'admin'
-);
-
-INSERT INTO "Users" ("Username", "PasswordHash", "Role", "TeacherId")
-SELECT 'teacher', '123456', 'Teacher', t."Id"
-FROM "Teachers" t
-WHERE t."Email" = 'teacher@demo.local'
-  AND NOT EXISTS (
-      SELECT 1 FROM "Users" WHERE "Username" = 'teacher'
-  )
-LIMIT 1;
-
 COMMIT;

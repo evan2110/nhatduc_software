@@ -1,5 +1,6 @@
 @page "/notifications"
 @page "/home"
+@attribute [Authorize(Roles = "Admin,Teacher")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject TeacherHomeAlertService AlertService

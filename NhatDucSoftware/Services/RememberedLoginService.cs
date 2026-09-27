@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace NhatDucSoftware.Services;
@@ -10,7 +8,6 @@ public class RememberedLoginService
     {
         public bool RememberMe { get; set; }
         public string Username { get; set; } = string.Empty;
-        public byte[]? ProtectedPassword { get; set; }
     }
 
     private static string FilePath
@@ -25,44 +22,37 @@ public class RememberedLoginService
         }
     }
 
-    public (bool RememberMe, string Username, string Password) Load()
+    public (bool RememberMe, string Username) Load()
     {
         if (!File.Exists(FilePath))
         {
-            return (false, string.Empty, string.Empty);
+            return (false, string.Empty);
         }
 
         try
         {
             var json = File.ReadAllText(FilePath);
             var data = JsonSerializer.Deserialize<RememberedLoginData>(json);
-            if (data is null || !data.RememberMe || string.IsNullOrWhiteSpace(data.Username) || data.ProtectedPassword is null)
+            if (data is null || !data.RememberMe || string.IsNullOrWhiteSpace(data.Username))
             {
-                return (false, string.Empty, string.Empty);
+                return (false, string.Empty);
             }
 
-            var passwordBytes = ProtectedData.Unprotect(data.ProtectedPassword, null, DataProtectionScope.CurrentUser);
-            return (true, data.Username, Encoding.UTF8.GetString(passwordBytes));
+            return (true, data.Username);
         }
         catch
         {
             Clear();
-            return (false, string.Empty, string.Empty);
+            return (false, string.Empty);
         }
     }
 
-    public void Save(string username, string password)
+    public void Save(string username)
     {
-        var protectedPassword = ProtectedData.Protect(
-            Encoding.UTF8.GetBytes(password),
-            null,
-            DataProtectionScope.CurrentUser);
-
         var data = new RememberedLoginData
         {
             RememberMe = true,
-            Username = username,
-            ProtectedPassword = protectedPassword
+            Username = username
         };
 
         File.WriteAllText(FilePath, JsonSerializer.Serialize(data));

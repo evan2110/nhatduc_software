@@ -74,8 +74,10 @@ ORDER BY DayOfWeek, ShiftNumber;";
     /// Lưu lịch học cho lớp ở tuần chỉ định.
     /// entries: list of (DayOfWeek, ShiftNumber)
     /// </summary>
-    public void SaveScheduleForWeek(int classId, DateTime weekMonday, List<(int DayOfWeek, int ShiftNumber)> entries)
+    public void SaveScheduleForWeek(int classId, DateTime weekMonday, List<(int DayOfWeek, int ShiftNumber)> entries, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanManageWeeklySchedule, "Bạn không có quyền quản lý lịch học tuần.");
+
         var weekStr = weekMonday.ToString("yyyy-MM-dd");
 
         using var connection = DbContext.CreateConnection();

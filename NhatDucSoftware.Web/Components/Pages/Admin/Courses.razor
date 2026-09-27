@@ -1,4 +1,5 @@
 @page "/admin/courses"
+@attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @using NhatDucSoftware.Core.Helpers
 @inject UserSession Session

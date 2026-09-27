@@ -1,4 +1,5 @@
 @page "/admin/classes"
+@attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ClassService ClassService
@@ -510,7 +511,7 @@ else
         if (_selectedClassId is null) return;
         try
         {
-            ClassService.DeleteClass(_selectedClassId.Value);
+            ClassService.DeleteClass(_selectedClassId.Value, Session.CurrentUser!);
             _message = "Đã xóa lớp.";
             _selectedClassId = null;
             _classStudents.Clear();
@@ -554,7 +555,7 @@ else
         }
 
         if (_selectedClassId is null || _selectedStudentInClassId is null) return;
-        ClassService.RemoveStudentFromClass(_selectedClassId.Value, _selectedStudentInClassId.Value);
+        ClassService.RemoveStudentFromClass(_selectedClassId.Value, _selectedStudentInClassId.Value, Session.CurrentUser!);
         _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
         _selectedStudentInClassId = null;
         LoadClasses();
@@ -591,7 +592,7 @@ else
 
         try
         {
-            ClassService.TransferStudentToClass(_selectedClassId.Value, _transferTargetClassId, _selectedStudentInClassId.Value);
+            ClassService.TransferStudentToClass(_selectedClassId.Value, _transferTargetClassId, _selectedStudentInClassId.Value, Session.CurrentUser!);
             _classStudents = ClassService.GetStudentsInClass(_selectedClassId.Value);
             _selectedStudentInClassId = null;
             LoadClasses();
@@ -643,7 +644,7 @@ else
         if (_selectedClassId is null) return;
         var monday = ClassWeeklySchedule.GetMondayOfWeek(_weekDate);
         var entries = _scheduleShifts.Select(x => (x.Day, x.Shift)).ToList();
-        ScheduleService.SaveScheduleForWeek(_selectedClassId.Value, monday, entries);
+        ScheduleService.SaveScheduleForWeek(_selectedClassId.Value, monday, entries, Session.CurrentUser!);
         _message = "Đã lưu lịch học!";
         _showSchedule = false;
     }

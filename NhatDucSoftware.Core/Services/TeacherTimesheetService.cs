@@ -1,4 +1,5 @@
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -212,8 +213,10 @@ ORDER BY c.ClassName;";
         return result;
     }
 
-    public void SaveClassPayRate(int teacherId, int classId, decimal payPerShift)
+    public void SaveClassPayRate(int teacherId, int classId, decimal payPerShift, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanManagePaySettings, "Bạn không có quyền cài đặt lương/ca.");
+
         if (payPerShift <= 0)
         {
             throw new InvalidOperationException("Lương mỗi ca phải lớn hơn 0.");
@@ -685,8 +688,11 @@ ORDER BY CreatedAt ASC, Id ASC;";
         decimal payPerShift,
         string? note,
         int createdByUserId,
-        string createdByUsername)
+        string createdByUsername,
+        AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanAdjustMonthlyPay, "Bạn không có quyền điều chỉnh lương.");
+
         if (payPerShift <= 0)
         {
             throw new InvalidOperationException("Lương mỗi ca phải lớn hơn 0.");
@@ -728,8 +734,10 @@ VALUES(@teacherId, @year, @month, @shiftCount, @payPerShift, @note, @createdByUs
         command.ExecuteNonQuery();
     }
 
-    public void DeletePayAdjustment(long adjustmentId, int teacherId, int year, int month)
+    public void DeletePayAdjustment(long adjustmentId, int teacherId, int year, int month, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanAdjustMonthlyPay, "Bạn không có quyền điều chỉnh lương.");
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 

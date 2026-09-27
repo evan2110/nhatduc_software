@@ -1,4 +1,5 @@
 @page "/teacher/evaluation"
+@attribute [Authorize(Roles = "Teacher")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ClassService ClassService

@@ -64,14 +64,13 @@ public class LoginForm : Form
 
     private void LoadRememberedLogin()
     {
-        var (rememberMe, username, password) = _rememberedLoginService.Load();
+        var (rememberMe, username) = _rememberedLoginService.Load();
         if (!rememberMe)
         {
             return;
         }
 
         _txtUsername.Text = username;
-        _txtPassword.Text = password;
         _chkRemember.Checked = true;
     }
 
@@ -89,7 +88,7 @@ public class LoginForm : Form
 
         if (_chkRemember.Checked)
         {
-            _rememberedLoginService.Save(username, password);
+            _rememberedLoginService.Save(username);
         }
         else
         {

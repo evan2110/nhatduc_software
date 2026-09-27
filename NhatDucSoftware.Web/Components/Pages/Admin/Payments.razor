@@ -1,4 +1,5 @@
 @page "/admin/payments"
+@attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject PaymentService PaymentService
@@ -817,7 +818,7 @@ else
 
         try
         {
-            PaymentService.DeletePaymentHistory(paymentId, _detailStudentId);
+            PaymentService.DeletePaymentHistory(paymentId, _detailStudentId, Session.CurrentUser!);
             _detailHistory = PaymentService.GetPaymentHistoryByClassMonthYear(_detailStudentId, _classId, _month, _year);
             LoadGrid();
         }

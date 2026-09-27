@@ -1,4 +1,5 @@
 @page "/admin/payroll"
+@attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject TeacherService TeacherService
@@ -1013,7 +1014,8 @@ else
                 _payAdjustmentPayPerShift,
                 string.IsNullOrWhiteSpace(_payAdjustmentNote) ? null : _payAdjustmentNote.Trim(),
                 Session.CurrentUser.Id,
-                Session.CurrentUser.Username);
+                Session.CurrentUser.Username,
+                Session.CurrentUser);
             _payAdjustmentMessage = "Đã lưu điều chỉnh lương.";
             _payAdjustmentIsError = false;
             _message = $"Đã điều chỉnh lương cho {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
@@ -1047,7 +1049,7 @@ else
 
         try
         {
-            TimesheetService.DeletePayAdjustment(adjustmentId, _payAdjustmentTeacherId, _year, _month);
+            TimesheetService.DeletePayAdjustment(adjustmentId, _payAdjustmentTeacherId, _year, _month, Session.CurrentUser!);
             _payAdjustmentMessage = "Đã xóa bản ghi điều chỉnh.";
             _payAdjustmentIsError = false;
             _message = $"Đã xóa điều chỉnh lương của {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
@@ -1085,7 +1087,7 @@ else
 
         try
         {
-            TimesheetService.SaveClassPayRate(_paySettingsTeacherId, item.ClassId, item.PayPerShift);
+            TimesheetService.SaveClassPayRate(_paySettingsTeacherId, item.ClassId, item.PayPerShift, Session.CurrentUser!);
             _message = $"Đã lưu lương/ca cho lớp {item.ClassName}.";
             LoadPaySettings();
             LoadPayroll();

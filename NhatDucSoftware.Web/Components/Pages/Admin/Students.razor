@@ -1,4 +1,5 @@
 @page "/admin/students"
+@attribute [Authorize(Roles = "Admin")]
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject StudentService StudentService
@@ -481,7 +482,7 @@ else
         if (_selectedId is null) return;
         try
         {
-            StudentService.Delete(_selectedId.Value);
+            StudentService.Delete(_selectedId.Value, Session.CurrentUser!);
             _message = "Đã xóa học viên.";
             LoadStudents();
             ClearForm();

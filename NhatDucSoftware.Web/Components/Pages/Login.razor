@@ -1,5 +1,6 @@
 @page "/"
 @page "/login"
+@attribute [AllowAnonymous]
 @inject UserSession Session
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.WebUtilities
@@ -9,11 +10,16 @@
 <div class="login-page">
     <div class="login-card">
         <h1>Nhat Duc Software</h1>
-        @if (_showError)
+        @if (_rateLimited)
+        {
+            <div class="alert alert-danger">Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi một phút rồi thử lại.</div>
+        }
+        else if (_showError)
         {
             <div class="alert alert-danger">Tên đăng nhập hoặc mật khẩu không đúng.</div>
         }
-        <form method="post" action="/account/login" class="login-form">
+        <form method="post" action="/account/login" class="login-form" data-enhance="false">
+            <AntiforgeryToken />
             <div class="form-group">
                 <label for="username">Tên đăng nhập</label>
                 <input id="username" name="username" required autocomplete="username" />
@@ -35,6 +41,7 @@
 
 @code {
     private bool _showError;
+    private bool _rateLimited;
 
     protected override void OnInitialized()
     {
@@ -44,6 +51,12 @@
         }
 
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        _showError = QueryHelpers.ParseQuery(uri.Query).ContainsKey("error");
+        if (!QueryHelpers.ParseQuery(uri.Query).TryGetValue("error", out var error))
+        {
+            return;
+        }
+
+        _rateLimited = error.Any(value => value == "rate");
+        _showError = !_rateLimited;
     }
 }

@@ -8,15 +8,17 @@ public class ClassScheduleForm : Form
     private readonly ClassScheduleService _scheduleService = new();
     private readonly int _classId;
     private readonly string _className;
+    private readonly AuthenticatedUser _actor;
     private readonly DataGridView _dgvSchedule;
     private readonly DateTimePicker _dtpWeek;
     private readonly Button _btnLoad;
     private readonly Button _btnSave;
 
-    public ClassScheduleForm(int classId, string className)
+    public ClassScheduleForm(int classId, string className, AuthenticatedUser actor)
     {
         _classId = classId;
         _className = className;
+        _actor = actor;
 
         Text = $"Lịch học - {className}";
         Width = 750;
@@ -115,7 +117,7 @@ public class ClassScheduleForm : Form
             }
         }
 
-        _scheduleService.SaveScheduleForWeek(_classId, monday, entries);
+        _scheduleService.SaveScheduleForWeek(_classId, monday, entries, _actor);
         MessageBox.Show("Đã lưu lịch học!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 }

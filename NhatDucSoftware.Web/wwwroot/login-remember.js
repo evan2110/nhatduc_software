@@ -3,21 +3,12 @@
 
     function getFields() {
         var username = document.getElementById('username');
-        var password = document.getElementById('password');
         var remember = document.getElementById('rememberMe');
-        if (!username || !password || !remember) {
+        if (!username || !remember) {
             return null;
         }
 
-        return { username: username, password: password, remember: remember };
-    }
-
-    function encodePassword(value) {
-        return btoa(unescape(encodeURIComponent(value || '')));
-    }
-
-    function decodePassword(value) {
-        return decodeURIComponent(escape(atob(value || '')));
+        return { username: username, remember: remember };
     }
 
     function loadRemembered() {
@@ -34,11 +25,15 @@
 
             var data = JSON.parse(raw);
             if (!data || !data.username) {
+                localStorage.removeItem(STORAGE_KEY);
                 return;
             }
 
+            if (data.password) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ username: data.username }));
+            }
+
             fields.username.value = data.username;
-            fields.password.value = data.password ? decodePassword(data.password) : '';
             fields.remember.checked = true;
         } catch (e) {
             localStorage.removeItem(STORAGE_KEY);
@@ -58,8 +53,7 @@
 
         if (fields.remember.checked) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                username: fields.username.value,
-                password: encodePassword(fields.password.value)
+                username: fields.username.value
             }));
         } else {
             localStorage.removeItem(STORAGE_KEY);

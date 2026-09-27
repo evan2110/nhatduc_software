@@ -1,3 +1,5 @@
+using NhatDucSoftware.Core.Helpers;
+
 namespace NhatDucSoftware.Core.Data;
 
 public static class DatabaseInitializer
@@ -66,6 +68,35 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateExpensesTable(connection);
         MigrateIncomesTable(connection);
         MigrateCourseFeeHistoryTable(connection);
+        MigratePlaintextPasswords(connection);
+    }
+
+    private static void MigratePlaintextPasswords(Npgsql.NpgsqlConnection connection)
+    {
+        var rows = new List<(int Id, string Password)>();
+        using (var select = connection.CreateCommand())
+        {
+            select.CommandText = "SELECT Id, PasswordHash FROM Users;";
+            using var reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                var stored = reader.GetString(1);
+                if (!PasswordHasher.IsHashed(stored))
+                {
+                    rows.Add((Convert.ToInt32(reader.GetValue(0)), stored));
+                }
+            }
+        }
+
+        foreach (var (id, password) in rows)
+        {
+            using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE Users SET PasswordHash = @hash WHERE Id = @id AND PasswordHash = @current;";
+            update.Parameters.AddWithValue("@hash", PasswordHasher.Hash(password));
+            update.Parameters.AddWithValue("@id", id);
+            update.Parameters.AddWithValue("@current", password);
+            update.ExecuteNonQuery();
+        }
     }
 
     private static void MigrateCourseFeeHistoryTable(System.Data.Common.DbConnection connection)

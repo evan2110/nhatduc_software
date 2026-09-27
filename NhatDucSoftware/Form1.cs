@@ -1394,7 +1394,7 @@ namespace NhatDucSoftware
 
             foreach (var s in selected)
             {
-                _studentService.Delete(s.Id);
+                _studentService.Delete(s.Id, _currentUser);
             }
             LoadStudents();
         }
@@ -1743,7 +1743,7 @@ namespace NhatDucSoftware
 
             foreach (var c in selected)
             {
-                _classService.DeleteClass(c.Id);
+                _classService.DeleteClass(c.Id, _currentUser);
             }
             LoadClasses();
         }
@@ -1807,7 +1807,7 @@ namespace NhatDucSoftware
 
             foreach (var studentId in selected)
             {
-                _classService.RemoveStudentFromClass(c.Id, studentId);
+                _classService.RemoveStudentFromClass(c.Id, studentId, _currentUser);
             }
             LoadClassesAndRestore(c.Id);
         }
@@ -1821,7 +1821,7 @@ namespace NhatDucSoftware
             }
 
             if (dgvClasses.CurrentRow?.DataBoundItem is not ClassInfo c) return;
-            using var form = new ClassScheduleForm(c.Id, c.ClassName);
+            using var form = new ClassScheduleForm(c.Id, c.ClassName, _currentUser);
             form.ShowDialog();
             LoadClasses();
         }
@@ -1917,7 +1917,7 @@ namespace NhatDucSoftware
             {
                 try
                 {
-                    _teacherService.Delete(teacher.Id);
+                    _teacherService.Delete(teacher.Id, _currentUser);
                 }
                 catch
                 {
@@ -2554,7 +2554,7 @@ namespace NhatDucSoftware
 
             try
             {
-                _paymentService.DeletePaymentHistory(paymentId, studentId);
+                _paymentService.DeletePaymentHistory(paymentId, studentId, _currentUser);
                 LoadSelectedPaymentInfo();
             }
             catch (Exception ex)

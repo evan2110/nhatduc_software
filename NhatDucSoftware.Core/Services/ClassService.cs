@@ -213,8 +213,10 @@ WHERE Id = @id;";
         command.ExecuteNonQuery();
     }
 
-    public void DeleteClass(int classId)
+    public void DeleteClass(int classId, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanDeleteClass, "Bạn không có quyền xóa lớp.");
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
@@ -339,8 +341,10 @@ VALUES(@classId, @studentId, @joinedDate);";
         command.ExecuteNonQuery();
     }
 
-    public void RemoveStudentFromClass(int classId, int studentId)
+    public void RemoveStudentFromClass(int classId, int studentId, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanRemoveStudentFromClass, "Bạn không có quyền xóa học viên khỏi lớp.");
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
@@ -351,8 +355,10 @@ VALUES(@classId, @studentId, @joinedDate);";
         command.ExecuteNonQuery();
     }
 
-    public void TransferStudentToClass(int fromClassId, int toClassId, int studentId, DateTime? joinedDate = null)
+    public void TransferStudentToClass(int fromClassId, int toClassId, int studentId, AuthenticatedUser actor, DateTime? joinedDate = null)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanTransferClass, "Bạn không có quyền chuyển lớp.");
+
         if (fromClassId == toClassId)
         {
             throw new InvalidOperationException("Lớp đích phải khác lớp hiện tại.");

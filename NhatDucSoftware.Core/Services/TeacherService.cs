@@ -1,5 +1,6 @@
 using Npgsql;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -36,10 +37,7 @@ public class TeacherService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"SELECT Username, PasswordHash
-FROM Users
-WHERE TeacherId = @teacherId
-LIMIT 1;";
+        command.CommandText = "SELECT Username FROM Users WHERE TeacherId = @teacherId LIMIT 1;";
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         using var reader = command.ExecuteReader();
@@ -50,8 +48,7 @@ LIMIT 1;";
 
         return new TeacherAccountInfo
         {
-            Username = reader.GetString(0),
-            Password = reader.GetString(1)
+            Username = reader.GetString(0)
         };
     }
 
@@ -69,7 +66,7 @@ LIMIT 1;";
         command.CommandText = @"UPDATE Users
 SET PasswordHash = @password
 WHERE TeacherId = @teacherId;";
-        command.Parameters.AddWithValue("@password", newPassword.Trim());
+        command.Parameters.AddWithValue("@password", PasswordHasher.Hash(newPassword.Trim()));
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         if (command.ExecuteNonQuery() == 0)
@@ -80,7 +77,7 @@ WHERE TeacherId = @teacherId;";
 
     /// <summary>
     /// Thêm giáo viên mới và tự động tạo tài khoản đăng nhập.
-    /// Username = tên viết thường không dấu, Password mặc định = "123456".
+    /// Username = tên viết thường không dấu. Mật khẩu mặc định "123456" được băm trước khi lưu và chỉ trả về một lần.
     /// </summary>
     private static int GetNextAvailableId(NpgsqlConnection connection, NpgsqlTransaction? transaction = null)
     {
@@ -137,7 +134,7 @@ VALUES(@id, @name, @phone, @email, @status);";
         userCmd.CommandText = @"INSERT INTO Users(Username, PasswordHash, Role, TeacherId)
 VALUES(@username, @password, 'Teacher', @teacherId);";
         userCmd.Parameters.AddWithValue("@username", username);
-        userCmd.Parameters.AddWithValue("@password", defaultPassword);
+        userCmd.Parameters.AddWithValue("@password", PasswordHasher.Hash(defaultPassword));
         userCmd.Parameters.AddWithValue("@teacherId", nextId);
         userCmd.ExecuteNonQuery();
 
@@ -220,8 +217,10 @@ WHERE Id = @id;";
         command.ExecuteNonQuery();
     }
 
-    public void Delete(int teacherId)
+    public void Delete(int teacherId, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanDeleteTeacher, "Bạn không có quyền xóa giáo viên.");
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 

@@ -6,6 +6,7 @@ namespace NhatDucSoftware;
 public class TeacherManagementForm : Form
 {
     private readonly TeacherService _teacherService = new();
+    private readonly AuthenticatedUser _actor;
 
     private readonly DataGridView _dgvTeachers = new();
     private readonly TextBox _txtName = new();
@@ -15,8 +16,9 @@ public class TeacherManagementForm : Form
 
     private List<Teacher> _teachers = new();
 
-    public TeacherManagementForm()
+    public TeacherManagementForm(AuthenticatedUser actor)
     {
+        _actor = actor;
         Text = "Quản lý giáo viên";
         Width = 980;
         Height = 520;
@@ -161,7 +163,7 @@ public class TeacherManagementForm : Form
         {
             try
             {
-                _teacherService.Delete(t.Id);
+                _teacherService.Delete(t.Id, _actor);
             }
             catch
             {

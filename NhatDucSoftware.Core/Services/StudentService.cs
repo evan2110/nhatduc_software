@@ -1,5 +1,6 @@
 using Npgsql;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -208,8 +209,10 @@ VALUES(@studentId, @oldBalance, @newBalance, @updatedAt, @updatedBy);";
         command.ExecuteNonQuery();
     }
 
-    public void Delete(int id)
+    public void Delete(int id, AuthenticatedUser actor)
     {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanDeleteStudent, "Bạn không có quyền xóa học viên.");
+
         using var connection = DbContext.CreateConnection();
         connection.Open();
 

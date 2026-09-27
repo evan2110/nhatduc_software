@@ -1,9 +1,12 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using NhatDucSoftware.Core.Data;
 using NhatDucSoftware.Core.Services;
 using NhatDucSoftware.Web.Components;
@@ -71,8 +74,56 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
             ? CookieSecurePolicy.SameAsRequest
             : CookieSecurePolicy.Always;
+        options.Events.OnRedirectToAccessDenied = async context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api"))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.WriteAsync(
+                "<p>Không có quyền truy cập.</p><p><a href=\"/notifications\">Về trang thông báo</a></p>");
+        };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        if (context.HttpContext.Request.Path.StartsWithSegments("/account/login"))
+        {
+            context.HttpContext.Response.Redirect("/login?error=rate");
+            return;
+        }
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Quá nhiều yêu cầu. Vui lòng thử lại sau.", token);
+    };
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 8,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("export", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserSession>();
@@ -133,6 +184,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
@@ -176,7 +228,7 @@ app.MapPost("/account/login", async (HttpContext context, AuthService auth) =>
 
     var redirectUrl = "/notifications";
     return Results.LocalRedirect(redirectUrl);
-}).DisableAntiforgery();
+}).RequireRateLimiting("login");
 
 app.MapGet("/account/logout", async (HttpContext context) =>
 {
@@ -191,7 +243,7 @@ app.MapGet("/api/export/students", (ExcelExportService excel, StudentService stu
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "DanhSachHocVien.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/payments/{month:int}/{year:int}/{classId:int}", (int month, int year, int classId, ExcelExportService excel, PaymentService payments) =>
 {
@@ -201,7 +253,7 @@ app.MapGet("/api/export/payments/{month:int}/{year:int}/{classId:int}", (int mon
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"HocPhi_{month:D2}_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/revenue-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
 {
@@ -211,7 +263,7 @@ app.MapGet("/api/export/revenue-month/{year:int}", (int year, ExcelExportService
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoDoanhthuThang_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/revenue-year", (ExcelExportService excel, ReportService reports) =>
 {
@@ -221,7 +273,7 @@ app.MapGet("/api/export/revenue-year", (ExcelExportService excel, ReportService 
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "BaoCaoDoanhthuNam.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/expense-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
 {
@@ -232,7 +284,7 @@ app.MapGet("/api/export/expense-month/{year:int}", (int year, ExcelExportService
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoChi_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/tuition-earned/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
 {
@@ -243,7 +295,7 @@ app.MapGet("/api/export/tuition-earned/{year:int}", (int year, ExcelExportServic
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoThu_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/enrollment-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
 {
@@ -253,7 +305,7 @@ app.MapGet("/api/export/enrollment-month/{year:int}", (int year, ExcelExportServ
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"BaoCaoHocVienLop_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/evaluations/{studentId:int}/{year:int}/{month:int}", (int studentId, int year, int month, ExcelExportService excel, EvaluationService evaluations, StudentService students) =>
 {
@@ -265,7 +317,7 @@ app.MapGet("/api/export/evaluations/{studentId:int}/{year:int}/{month:int}", (in
     var bytes = File.ReadAllBytes(path);
     File.Delete(path);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"DiemNhanXet_{name.Replace(" ", "")}_{month:D2}_{year}.xlsx");
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/center-activity", (string from, string to, ExcelExportService excel, AttendanceService attendance, TeacherTimesheetService timesheets) =>
 {
@@ -292,7 +344,7 @@ app.MapGet("/api/export/center-activity", (string from, string to, ExcelExportSe
         ? $"DiemDanh_ChamCong_{fromDate:yyyyMMdd}.xlsx"
         : $"DiemDanh_ChamCong_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.xlsx";
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.MapGet("/api/export/teacher-payroll-attendance", (
     int teacherId,
@@ -317,6 +369,6 @@ app.MapGet("/api/export/teacher-payroll-attendance", (
         attachment.Bytes,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         attachment.FileName);
-});
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
 app.Run();
