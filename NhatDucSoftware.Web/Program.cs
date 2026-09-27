@@ -92,6 +92,7 @@ builder.Services.AddScoped<ClassScheduleService>();
 builder.Services.AddScoped<ExcelExportService>();
 builder.Services.AddScoped<TeacherProfileService>();
 builder.Services.AddScoped<ExpenseService>();
+builder.Services.AddScoped<IncomeService>();
 builder.Services.AddScoped<TeacherHomeAlertService>();
 builder.Services.AddScoped<GoogleDriveService>(sp =>
 {

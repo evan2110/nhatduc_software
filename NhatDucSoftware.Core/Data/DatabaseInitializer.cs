@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateStudentTuitionDiscountsTable(connection);
         MigrateDataProtectionKeysTable(connection);
         MigrateExpensesTable(connection);
+        MigrateIncomesTable(connection);
         MigrateCourseFeeHistoryTable(connection);
     }
 
@@ -110,6 +111,27 @@ CREATE TABLE IF NOT EXISTS Expenses (
     AttachmentFileId TEXT NULL,
     AttachmentFileName TEXT NULL,
     AttachmentUrl TEXT NULL,
+    CreatedAt TEXT NOT NULL,
+    CreatedBy TEXT NULL
+);";
+        createTable.ExecuteNonQuery();
+    }
+
+    private static void MigrateIncomesTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS Incomes (
+    Id BIGSERIAL PRIMARY KEY,
+    IncomeDate TEXT NOT NULL,
+    IncomeType TEXT NOT NULL,
+    Title TEXT NOT NULL,
+    Amount NUMERIC(18,2) NOT NULL,
+    Note TEXT NULL,
+    CollectedBy TEXT NULL,
+    StudentCount INTEGER NULL,
+    PricePerLesson NUMERIC(18,2) NULL,
+    SalaryPerLesson NUMERIC(18,2) NULL,
     CreatedAt TEXT NOT NULL,
     CreatedBy TEXT NULL
 );";

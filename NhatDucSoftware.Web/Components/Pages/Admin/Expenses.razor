@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ExpenseService ExpenseService
+@inject IncomeService IncomeService
 @inject GoogleDriveService DriveService
 @inject LoadingService Loading
 @inject NavigationManager Nav
@@ -40,7 +41,8 @@ else
                     <option value="@month">Tháng @month</option>
                 }
             </select>
-            <span class="report-section-period">Tổng kỳ: @MoneyHelper.FormatCurrency(_periodTotal)</span>
+            <span class="report-section-period">Tổng chi: @MoneyHelper.FormatCurrency(_periodTotal)</span>
+            <span class="report-section-period">Tổng thu: @MoneyHelper.FormatCurrency(_incomePeriodTotal)</span>
         </div>
     </div>
 
@@ -146,10 +148,123 @@ else
             </table>
         </div>
     </div>
+
+    <div class="card">
+        <h3>@(_selectedIncomeId is null ? "Thêm khoản thu" : $"Sửa khoản thu #{_selectedIncomeId}")</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Loại khoản thu</label>
+                <select @bind="_incomeType" @bind:after="OnIncomeTypeChanged">
+                    @foreach (var incomeType in IncomeService.IncomeTypes)
+                    {
+                        <option value="@incomeType">@incomeType</option>
+                    }
+                </select>
+            </div>
+            @if (_isPreschoolIncome)
+            {
+                <div class="form-group">
+                    <label>Tên trường</label>
+                    <input @bind="_incomeTitle" />
+                </div>
+                <div class="form-group">
+                    <label>Tổng số học sinh</label>
+                    <input @bind="_studentCountText" @bind:after="SyncPreschoolAmount" inputmode="numeric" />
+                </div>
+                <div class="form-group">
+                    <label>Giá tiền 1 tiết</label>
+                    <input @bind="_pricePerLessonText" @bind:after="SyncPreschoolAmount" placeholder="VD: 150.000" />
+                </div>
+                <div class="form-group">
+                    <label>Lương 1 tiết</label>
+                    <input @bind="_salaryPerLessonText" placeholder="80.000" />
+                </div>
+                <div class="form-group">
+                    <label>Số tiền thu được</label>
+                    <input @bind="_incomeAmountText" placeholder="VD: 1.500.000" />
+                    <div class="report-note">Tự tính = số học sinh × giá 1 tiết. Có thể sửa lại.</div>
+                </div>
+            }
+            else
+            {
+                <div class="form-group">
+                    <label>Tên khoản thu</label>
+                    <input @bind="_incomeTitle" />
+                </div>
+                <div class="form-group">
+                    <label>Số tiền thu</label>
+                    <input @bind="_incomeAmountText" placeholder="VD: 1.500.000" />
+                </div>
+            }
+            <div class="form-group">
+                <label>Ngày thu</label>
+                <input type="date" @bind="_incomeDateValue" />
+            </div>
+            <div class="form-group">
+                <label>Ghi chú</label>
+                <input @bind="_incomeNote" />
+            </div>
+            <div class="form-group">
+                <label>Người thu</label>
+                <input @bind="_collectedBy" />
+            </div>
+        </div>
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="SaveIncome">
+                @(_selectedIncomeId is null ? "Thêm" : "Cập nhật")
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetIncomeForm">Làm mới</button>
+            <button class="btn btn-danger" @onclick="DeleteIncome" disabled="@(_selectedIncomeId is null)">Xóa</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Loại</th>
+                        <th>Tên</th>
+                        <th>Số HS</th>
+                        <th>Giá 1 tiết</th>
+                        <th>Lương 1 tiết</th>
+                        <th>Số tiền</th>
+                        <th>Người thu</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_incomes.Count == 0)
+                    {
+                        <tr><td colspan="9">Chưa có khoản thu trong kỳ đã chọn.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in _incomes)
+                        {
+                            <tr class="@(_selectedIncomeId == item.Id ? "selected" : "")" @onclick="() => SelectIncome(item)">
+                                <td>@FormatDate(item.IncomeDate)</td>
+                                <td>@item.IncomeType</td>
+                                <td>@item.Title</td>
+                                <td>@(item.StudentCount?.ToString() ?? "—")</td>
+                                <td>@(item.PricePerLesson is null ? "—" : MoneyHelper.FormatCurrency(item.PricePerLesson.Value))</td>
+                                <td>@(item.SalaryPerLesson is null ? "—" : MoneyHelper.FormatCurrency(item.SalaryPerLesson.Value))</td>
+                                <td>@MoneyHelper.FormatCurrency(item.Amount)</td>
+                                <td>@(item.CollectedBy ?? "—")</td>
+                                <td>@(item.Note ?? "—")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 }
 
 @code {
     private List<Expense> _expenses = new();
+    private List<Income> _incomes = new();
     private List<int> _years = new();
     private int _selectedYear = DateTime.Now.Year;
     private int _selectedMonth = DateTime.Now.Month;
@@ -166,6 +281,19 @@ else
     private bool _isError;
     private bool _uploading;
     private decimal _periodTotal;
+    private decimal _incomePeriodTotal;
+    private int? _selectedIncomeId;
+    private string _incomeType = IncomeService.TypeOther;
+    private string _incomeTitle = "";
+    private string _incomeAmountText = "";
+    private DateTime _incomeDateValue = DateTime.Today;
+    private string _incomeNote = "";
+    private string _collectedBy = "";
+    private string _studentCountText = "";
+    private string _pricePerLessonText = "";
+    private string _salaryPerLessonText = MoneyHelper.FormatMoneyInput(IncomeService.DefaultSalaryPerLesson);
+
+    private bool _isPreschoolIncome => _incomeType == IncomeService.TypePreschool;
 
     protected override void OnInitialized()
     {
@@ -182,6 +310,7 @@ else
             _years.Insert(0, _selectedYear);
         }
 
+        _collectedBy = Session.CurrentUser?.Username ?? "";
         LoadExpenses();
     }
 
@@ -191,13 +320,17 @@ else
         {
             int? month = _selectedMonth is >= 1 and <= 12 ? _selectedMonth : null;
             _expenses = ExpenseService.GetByYearMonth(_selectedYear, month);
+            _incomes = IncomeService.GetByYearMonth(_selectedYear, month);
             _periodTotal = _expenses.Sum(x => x.Amount);
+            _incomePeriodTotal = _incomes.Sum(x => x.Amount);
             _message = null;
         }
         catch (Exception ex)
         {
             _expenses = new();
+            _incomes = new();
             _periodTotal = 0;
+            _incomePeriodTotal = 0;
             _message = ex.Message;
             _isError = true;
         }
@@ -360,5 +493,177 @@ else
         }
 
         return value;
+    }
+
+    private void OnIncomeTypeChanged()
+    {
+        if (_isPreschoolIncome && string.IsNullOrWhiteSpace(_salaryPerLessonText))
+        {
+            _salaryPerLessonText = MoneyHelper.FormatMoneyInput(IncomeService.DefaultSalaryPerLesson);
+        }
+    }
+
+    private void SyncPreschoolAmount()
+    {
+        if (!_isPreschoolIncome)
+        {
+            return;
+        }
+
+        if (int.TryParse(_studentCountText?.Trim(), out var studentCount)
+            && studentCount > 0
+            && MoneyHelper.TryParseMoney(_pricePerLessonText, out var pricePerLesson)
+            && pricePerLesson > 0)
+        {
+            _incomeAmountText = MoneyHelper.FormatMoneyInput(studentCount * pricePerLesson);
+        }
+    }
+
+    private void SelectIncome(Income item)
+    {
+        _selectedIncomeId = item.Id;
+        _incomeType = IncomeService.IncomeTypes.Contains(item.IncomeType, StringComparer.Ordinal)
+            ? item.IncomeType
+            : IncomeService.TypeOther;
+        _incomeTitle = item.Title;
+        _incomeAmountText = MoneyHelper.FormatMoneyInput(item.Amount);
+        _incomeDateValue = DateTime.TryParse(item.IncomeDate, out var date) ? date.Date : DateTime.Today;
+        _incomeNote = item.Note ?? "";
+        _collectedBy = item.CollectedBy ?? "";
+        _studentCountText = item.StudentCount?.ToString() ?? "";
+        _pricePerLessonText = item.PricePerLesson is null ? "" : MoneyHelper.FormatMoneyInput(item.PricePerLesson.Value);
+        _salaryPerLessonText = item.SalaryPerLesson is null
+            ? MoneyHelper.FormatMoneyInput(IncomeService.DefaultSalaryPerLesson)
+            : MoneyHelper.FormatMoneyInput(item.SalaryPerLesson.Value);
+        _message = null;
+    }
+
+    private void ResetIncomeForm()
+    {
+        _selectedIncomeId = null;
+        _incomeType = IncomeService.TypeOther;
+        _incomeTitle = "";
+        _incomeAmountText = "";
+        _incomeDateValue = DateTime.Today;
+        _incomeNote = "";
+        _collectedBy = Session.CurrentUser?.Username ?? "";
+        _studentCountText = "";
+        _pricePerLessonText = "";
+        _salaryPerLessonText = MoneyHelper.FormatMoneyInput(IncomeService.DefaultSalaryPerLesson);
+        _message = null;
+        _isError = false;
+    }
+
+    private void SaveIncome()
+    {
+        if (!MoneyHelper.TryParseMoney(_incomeAmountText, out var amount) || amount <= 0)
+        {
+            _message = "Số tiền thu không hợp lệ.";
+            _isError = true;
+            return;
+        }
+
+        int? studentCount = null;
+        decimal? pricePerLesson = null;
+        decimal? salaryPerLesson = null;
+
+        if (_isPreschoolIncome)
+        {
+            if (!int.TryParse(_studentCountText?.Trim(), out var parsedStudentCount) || parsedStudentCount <= 0)
+            {
+                _message = "Tổng số học sinh phải lớn hơn 0.";
+                _isError = true;
+                return;
+            }
+
+            if (!MoneyHelper.TryParseMoney(_pricePerLessonText, out var parsedPrice) || parsedPrice <= 0)
+            {
+                _message = "Giá tiền 1 tiết không hợp lệ.";
+                _isError = true;
+                return;
+            }
+
+            if (!MoneyHelper.TryParseMoney(_salaryPerLessonText, out var parsedSalary) || parsedSalary < 0)
+            {
+                _message = "Lương 1 tiết không hợp lệ.";
+                _isError = true;
+                return;
+            }
+
+            studentCount = parsedStudentCount;
+            pricePerLesson = parsedPrice;
+            salaryPerLesson = parsedSalary;
+        }
+
+        if (string.IsNullOrWhiteSpace(_incomeTitle))
+        {
+            _message = _isPreschoolIncome ? "Tên trường không được để trống." : "Tên khoản thu không được để trống.";
+            _isError = true;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_collectedBy))
+        {
+            _message = "Người thu không được để trống.";
+            _isError = true;
+            return;
+        }
+
+        try
+        {
+            var income = new Income
+            {
+                Id = _selectedIncomeId ?? 0,
+                IncomeDate = _incomeDateValue.ToString("yyyy-MM-dd"),
+                IncomeType = _incomeType,
+                Title = _incomeTitle.Trim(),
+                Amount = amount,
+                Note = string.IsNullOrWhiteSpace(_incomeNote) ? null : _incomeNote.Trim(),
+                CollectedBy = _collectedBy.Trim(),
+                StudentCount = studentCount,
+                PricePerLesson = pricePerLesson,
+                SalaryPerLesson = salaryPerLesson,
+                CreatedBy = Session.CurrentUser?.Username
+            };
+
+            var isNew = _selectedIncomeId is null;
+            if (isNew)
+            {
+                IncomeService.Add(income);
+            }
+            else
+            {
+                IncomeService.Update(income);
+            }
+
+            LoadExpenses();
+            ResetIncomeForm();
+            _message = isNew ? "Đã thêm khoản thu." : "Đã cập nhật khoản thu.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+    }
+
+    private void DeleteIncome()
+    {
+        if (_selectedIncomeId is null) return;
+
+        try
+        {
+            IncomeService.Delete(_selectedIncomeId.Value);
+            LoadExpenses();
+            ResetIncomeForm();
+            _message = "Đã xóa khoản thu.";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
     }
 }
