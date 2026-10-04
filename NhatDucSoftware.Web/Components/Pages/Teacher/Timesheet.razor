@@ -35,15 +35,17 @@ else
             <button class="btn btn-primary" @onclick="SaveTimesheet">Lưu chấm công</button>
             <span class="text-bold">Tổng ca: @_totalShifts</span>
         </div>
-        <p class="text-muted">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng). Mỗi ca có ghi chú riêng, lưu cùng ca đã chấm.</p>
-        @if (_requiresPreschoolNote)
-        {
-            <p class="text-muted">Ghi chú bắt buộc theo mẫu Tên lớp: số đi học, số vắng(tên học sinh vắng). Ví dụ: @PreschoolTimesheetNote.Example</p>
-        }
-        @if (_isDualRole)
-        {
-            <p class="text-muted">Mỗi ca phải chọn Trung tâm hoặc Mầm non cạnh ô ghi chú.</p>
-        }
+        <div class="timesheet-guide">
+            <p>Chỉ chấm công ngày hôm nay. Nhập <strong>C</strong> hoặc <strong>✓</strong> nếu có mặt, <strong>✗</strong> nếu vắng.</p>
+            @if (_isDualRole)
+            {
+                <p>Mỗi ca chọn <strong>Trung tâm</strong> hoặc <strong>Mầm non</strong>.</p>
+            }
+            @if (_requiresPreschoolNote)
+            {
+                <p>Ghi chú theo mẫu <code>@PreschoolTimesheetNote.Example</code></p>
+            }
+        </div>
 
         <div class="table-responsive">
             <table class="data-table timesheet-table">
@@ -59,8 +61,8 @@ else
                 <tbody>
                     @foreach (var day in _days)
                     {
-                        <tr>
-                            <td>@day.Label</td>
+                        <tr class="@(day.IsToday ? "timesheet-today" : null)">
+                            <td class="timesheet-day">@day.Label</td>
                             @for (int s = 1; s <= 5; s++)
                             {
                                 var shift = s;
@@ -68,29 +70,34 @@ else
                                     <div class="shift-stack">
                                         @if (day.IsToday)
                                         {
-                                            <input class="input-shift" value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
-                                            <div class="shift-note-row">
-                                                @if (_isDualRole)
-                                                {
-                                                    <select class="shift-place" value="@GetPlace(day, shift)" @onchange="e => SetPlace(day, shift, e.Value?.ToString())">
-                                                        <option value="">Chọn</option>
-                                                        <option value="@TeacherTimesheet.WorkPlaceCenter">Trung tâm</option>
-                                                        <option value="@TeacherTimesheet.WorkPlacePreschool">Mầm non</option>
-                                                    </select>
-                                                }
-                                                <input class="input-note" value="@GetNote(day, shift)" placeholder="@(_requiresPreschoolNote ? PreschoolTimesheetNote.Example : "Ghi chú")" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
-                                            </div>
+                                            <input class="input-shift" value="@GetShiftValue(day.Day, shift)" placeholder="C" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
+                                            @if (_isDualRole)
+                                            {
+                                                <select class="shift-place" value="@GetPlace(day, shift)" @onchange="e => SetPlace(day, shift, e.Value?.ToString())">
+                                                    <option value="">Nơi dạy</option>
+                                                    <option value="@TeacherTimesheet.WorkPlaceCenter">Trung tâm</option>
+                                                    <option value="@TeacherTimesheet.WorkPlacePreschool">Mầm non</option>
+                                                </select>
+                                            }
+                                            @if (_requiresPreschoolNote)
+                                            {
+                                                <textarea class="input-note" rows="2" value="@GetNote(day, shift)" placeholder="Lớp: đi, vắng(tên)" @onchange="e => SetNote(day, shift, e.Value?.ToString())"></textarea>
+                                            }
+                                            else
+                                            {
+                                                <input class="input-note" value="@GetNote(day, shift)" placeholder="Ghi chú" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
+                                            }
                                         }
                                         else
                                         {
-                                            <span>@GetShiftDisplay(day.Day, shift)</span>
+                                            <span class="shift-mark">@GetShiftDisplay(day.Day, shift)</span>
                                             @if (_isDualRole && !string.IsNullOrWhiteSpace(GetPlace(day, shift)))
                                             {
-                                                <span class="shift-note text-muted">@WorkPlaceLabel(GetPlace(day, shift))</span>
+                                                <span class="shift-place-badge @(GetPlace(day, shift) == TeacherTimesheet.WorkPlacePreschool ? "preschool" : "center")">@WorkPlaceLabel(GetPlace(day, shift))</span>
                                             }
                                             @if (!string.IsNullOrWhiteSpace(GetNote(day, shift)))
                                             {
-                                                <span class="shift-note text-muted">@GetNote(day, shift)</span>
+                                                <span class="shift-note">@GetNote(day, shift)</span>
                                             }
                                         }
                                     </div>

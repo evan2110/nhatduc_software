@@ -490,9 +490,46 @@ a.brand-link:hover,
     border-radius: 4px;
 }
 
+.timesheet-guide {
+    margin: 0.75rem 0 1rem;
+    padding: 0.65rem 0.85rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 8px;
+    color: #475569;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.timesheet-guide p {
+    margin: 0.1rem 0;
+}
+
+.timesheet-guide code {
+    font-family: inherit;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+}
+
+.timesheet-table .timesheet-day {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.timesheet-table tr.timesheet-today td {
+    background: #f8fbff;
+}
+
+.timesheet-table tr.timesheet-today:hover td {
+    background: #f8fbff;
+}
+
 .timesheet-table .shift-cell {
     vertical-align: top;
-    min-width: 9.5rem;
+    min-width: 8.75rem;
 }
 
 .shift-stack {
@@ -502,36 +539,63 @@ a.brand-link:hover,
 }
 
 .shift-stack .input-shift,
-.shift-stack .input-note {
+.shift-stack .input-note,
+.shift-stack .shift-place {
     width: 100%;
     max-width: none;
 }
 
-.shift-note-row {
-    display: flex;
-    gap: 0.35rem;
-    align-items: center;
+.shift-stack .input-shift {
+    min-height: 36px;
+    font-weight: 700;
 }
 
 .shift-place {
-    flex: 0 0 7.2rem;
-    min-height: 40px;
-    padding: 0.35rem;
+    min-height: 34px;
+    padding: 0.3rem 0.4rem;
     border: 1px solid var(--border);
-    border-radius: 4px;
+    border-radius: 6px;
     background: #fff;
-    font-size: 14px;
+    font-size: 13px;
+    color: #334155;
 }
 
-.shift-stack .shift-note-row .input-note {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 8rem;
+.shift-stack textarea.input-note {
+    min-height: 52px;
+    resize: vertical;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.shift-mark {
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.shift-place-badge {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 0.12rem 0.45rem;
+    border-radius: 999px;
+}
+
+.shift-place-badge.center {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.shift-place-badge.preschool {
+    background: #fef3c7;
+    color: #92400e;
 }
 
 .shift-note {
     font-size: 0.8rem;
-    line-height: 1.3;
+    line-height: 1.35;
+    color: #475569;
     white-space: pre-wrap;
     word-break: break-word;
 }
