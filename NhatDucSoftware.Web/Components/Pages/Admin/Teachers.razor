@@ -41,6 +41,10 @@ else
                     <option value="Inactive">Inactive</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label>Mật khẩu mới</label>
+                <input @bind="_newPassword" autocomplete="new-password" placeholder="Nhập mật khẩu tùy ý" />
+            </div>
         </div>
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="AddTeacher">Thêm</button>
@@ -89,6 +93,7 @@ else
     private string _phone = "";
     private string _email = "";
     private string _status = "Active";
+    private string _newPassword = "";
     private string? _message;
     private string? _accountInfo;
 
@@ -118,6 +123,7 @@ else
         _phone = t.Phone;
         _email = t.Email ?? "";
         _status = t.Status;
+        _newPassword = "";
         _accountInfo = null;
     }
 
@@ -192,14 +198,29 @@ else
     private void ResetPassword()
     {
         if (_selectedId is null) return;
-        TeacherService.UpdatePassword(_selectedId.Value, "123456");
-        _accountInfo = "Mật khẩu mới: 123456";
+        if (string.IsNullOrWhiteSpace(_newPassword))
+        {
+            _message = "Nhập mật khẩu mới trước khi đổi.";
+            _accountInfo = null;
+            return;
+        }
+
+        try
+        {
+            var password = _newPassword.Trim();
+            TeacherService.UpdatePassword(_selectedId.Value, password);
+            _message = "Đã đổi mật khẩu.";
+            _accountInfo = $"Mật khẩu mới: {password}";
+            _newPassword = "";
+        }
+        catch (Exception ex) { _message = ex.Message; }
     }
 
     private void ClearForm()
     {
         _selectedId = null;
         _fullName = ""; _phone = ""; _email = "";
+        _newPassword = "";
         _status = "Active";
     }
 }
