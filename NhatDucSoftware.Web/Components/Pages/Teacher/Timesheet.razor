@@ -3,7 +3,9 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject TeacherTimesheetService TimesheetService
+@inject TeacherService TeacherService
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Helpers
 
 <PageTitle>Bảng chấm công</PageTitle>
 
@@ -17,7 +19,7 @@ else
 
     @if (!string.IsNullOrEmpty(_message))
     {
-        <div class="alert alert-success">@_message</div>
+        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success")">@_message</div>
     }
 
     <div class="card">
@@ -34,6 +36,14 @@ else
             <span class="text-bold">Tổng ca: @_totalShifts</span>
         </div>
         <p class="text-muted">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng). Mỗi ca có ghi chú riêng, lưu cùng ca đã chấm.</p>
+        @if (_requiresPreschoolNote)
+        {
+            <p class="text-muted">Ghi chú bắt buộc theo mẫu Tên lớp: số đi học, số vắng(tên học sinh vắng). Ví dụ: @PreschoolTimesheetNote.Example</p>
+        }
+        @if (_isDualRole)
+        {
+            <p class="text-muted">Mỗi ca phải chọn Trung tâm hoặc Mầm non cạnh ô ghi chú.</p>
+        }
 
         <div class="table-responsive">
             <table class="data-table timesheet-table">
@@ -59,11 +69,25 @@ else
                                         @if (day.IsToday)
                                         {
                                             <input class="input-shift" value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
-                                            <input class="input-note" value="@GetNote(day, shift)" placeholder="Ghi chú" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
+                                            <div class="shift-note-row">
+                                                @if (_isDualRole)
+                                                {
+                                                    <select class="shift-place" value="@GetPlace(day, shift)" @onchange="e => SetPlace(day, shift, e.Value?.ToString())">
+                                                        <option value="">Chọn</option>
+                                                        <option value="@TeacherTimesheet.WorkPlaceCenter">Trung tâm</option>
+                                                        <option value="@TeacherTimesheet.WorkPlacePreschool">Mầm non</option>
+                                                    </select>
+                                                }
+                                                <input class="input-note" value="@GetNote(day, shift)" placeholder="@(_requiresPreschoolNote ? PreschoolTimesheetNote.Example : "Ghi chú")" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
+                                            </div>
                                         }
                                         else
                                         {
                                             <span>@GetShiftDisplay(day.Day, shift)</span>
+                                            @if (_isDualRole && !string.IsNullOrWhiteSpace(GetPlace(day, shift)))
+                                            {
+                                                <span class="shift-note text-muted">@WorkPlaceLabel(GetPlace(day, shift))</span>
+                                            }
                                             @if (!string.IsNullOrWhiteSpace(GetNote(day, shift)))
                                             {
                                                 <span class="shift-note text-muted">@GetNote(day, shift)</span>
@@ -84,7 +108,10 @@ else
     private int _month = DateTime.Now.Month;
     private int _year = DateTime.Now.Year;
     private int _totalShifts;
+    private bool _isDualRole;
+    private bool _requiresPreschoolNote;
     private string? _message;
+    private bool _messageIsError;
     private List<TeacherTimesheet> _records = new();
     private List<DayRow> _days = new();
     private Dictionary<(int Day, int Shift), string> _editValues = new();
@@ -99,6 +126,10 @@ else
     {
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
 
+        var teacher = TeacherService.GetAll().FirstOrDefault(t => t.Id == teacherId);
+        _isDualRole = teacher is { IsCenterTeacher: true, IsPreschoolTeacher: true };
+        _requiresPreschoolNote = teacher?.IsPreschoolTeacher == true;
+
         _records = TimesheetService.GetTimesheetByMonth(teacherId, _year, _month);
         _totalShifts = _records.Count(r => r.IsPresent);
         _editValues.Clear();
@@ -108,9 +139,12 @@ else
         {
             var date = new DateTime(_year, _month, d);
             var notes = new string[5];
+            var places = new string[5];
             for (int s = 1; s <= 5; s++)
             {
-                notes[s - 1] = _records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s)?.Note ?? "";
+                var record = _records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s);
+                notes[s - 1] = record?.Note ?? "";
+                places[s - 1] = record?.WorkPlace ?? "";
             }
 
             return new DayRow
@@ -118,7 +152,8 @@ else
                 Day = d,
                 Label = $"{d:D2}/{_month:D2}/{_year}",
                 IsToday = date.Date == DateTime.Today,
-                Notes = notes
+                Notes = notes,
+                Places = places
             };
         }).ToList();
     }
@@ -147,11 +182,26 @@ else
         day.Notes[shift - 1] = value ?? "";
     }
 
+    private static string GetPlace(DayRow day, int shift) => day.Places[shift - 1];
+
+    private static void SetPlace(DayRow day, int shift, string? value)
+    {
+        day.Places[shift - 1] = value ?? "";
+    }
+
+    private static string WorkPlaceLabel(string place) => place switch
+    {
+        TeacherTimesheet.WorkPlacePreschool => "Mầm non",
+        TeacherTimesheet.WorkPlaceCenter => "Trung tâm",
+        _ => ""
+    };
+
     private void SaveTimesheet()
     {
         if (Session.CurrentUser?.TeacherId is not int teacherId) return;
 
         var skipped = 0;
+        var pending = new List<(DateTime WorkDate, int Shift, bool IsPresent, string? Note, string? WorkPlace)>();
         foreach (var day in _days)
         {
             var workDate = new DateTime(_year, _month, day.Day);
@@ -166,13 +216,35 @@ else
                 var cellValue = GetShiftValue(day.Day, shift).Trim().ToUpperInvariant();
                 if (cellValue is not ("C" or "✓" or "✗")) continue;
 
-                bool isPresent = cellValue is "C" or "✓";
                 var note = GetNote(day, shift).Trim();
-                TimesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent,
-                    note.Length > 0 ? note : null);
+                var place = GetPlace(day, shift);
+                if (_isDualRole && place is not (TeacherTimesheet.WorkPlaceCenter or TeacherTimesheet.WorkPlacePreschool))
+                {
+                    _messageIsError = true;
+                    _message = $"Ca {shift}: chọn Trung tâm hoặc Mầm non.";
+                    return;
+                }
+
+                if (_requiresPreschoolNote && !PreschoolTimesheetNote.IsValid(note, out var noteError))
+                {
+                    _messageIsError = true;
+                    _message = $"Ca {shift}: {noteError}";
+                    return;
+                }
+
+                string? workPlace = _isDualRole
+                    ? place
+                    : _requiresPreschoolNote ? TeacherTimesheet.WorkPlacePreschool : null;
+                pending.Add((workDate, shift, cellValue is "C" or "✓", note.Length > 0 ? note : null, workPlace));
             }
         }
 
+        foreach (var item in pending)
+        {
+            TimesheetService.SaveTimesheet(teacherId, item.WorkDate, item.Shift, item.IsPresent, item.Note, item.WorkPlace);
+        }
+
+        _messageIsError = false;
         _message = skipped > 0
             ? "Đã lưu chấm công. Giáo viên chỉ được chấm công trong ngày hôm nay."
             : "Đã lưu chấm công thành công!";
@@ -185,5 +257,6 @@ else
         public string Label { get; set; } = "";
         public bool IsToday { get; set; }
         public string[] Notes { get; set; } = ["", "", "", "", ""];
+        public string[] Places { get; set; } = ["", "", "", "", ""];
     }
 }

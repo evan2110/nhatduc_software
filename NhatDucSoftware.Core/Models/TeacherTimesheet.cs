@@ -8,6 +8,10 @@ public class TeacherTimesheet
     public int ShiftNumber { get; set; } // 1-5
     public bool IsPresent { get; set; }
     public string? Note { get; set; }
+    public string? WorkPlace { get; set; }
+
+    public const string WorkPlaceCenter = "Center";
+    public const string WorkPlacePreschool = "Preschool";
 
     // Computed
     public string TeacherName { get; set; } = string.Empty;

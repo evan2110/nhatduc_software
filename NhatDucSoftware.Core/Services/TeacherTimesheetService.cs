@@ -9,22 +9,19 @@ public class TeacherTimesheetService
     /// <summary>
     /// Lưu chấm công cho giáo viên theo ngày và ca.
     /// </summary>
-    public void SaveTimesheet(int teacherId, DateTime workDate, int shiftNumber, bool isPresent, string? note = null)
+    public void SaveTimesheet(int teacherId, DateTime workDate, int shiftNumber, bool isPresent, string? note = null, string? workPlace = null)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-INSERT INTO TeacherTimesheets (TeacherId, WorkDate, ShiftNumber, IsPresent, Note)
-VALUES (@teacherId, @workDate, @shift, @present, @note)
-ON CONFLICT(TeacherId, WorkDate, ShiftNumber)
-DO UPDATE SET IsPresent = @present, Note = @note;";
+        command.CommandText = "INSERT INTO TeacherTimesheets (TeacherId, WorkDate, ShiftNumber, IsPresent, Note, WorkPlace) VALUES (@teacherId, @workDate, @shift, @present, @note, @workPlace) ON CONFLICT(TeacherId, WorkDate, ShiftNumber) DO UPDATE SET IsPresent = @present, Note = @note, WorkPlace = COALESCE(@workPlace, TeacherTimesheets.WorkPlace);";
         command.Parameters.AddWithValue("@teacherId", teacherId);
         command.Parameters.AddWithValue("@workDate", workDate.ToString("yyyy-MM-dd"));
         command.Parameters.AddWithValue("@shift", shiftNumber);
         command.Parameters.AddWithValue("@present", isPresent ? 1 : 0);
         command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+        command.Parameters.AddWithValue("@workPlace", (object?)workPlace ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 
@@ -49,14 +46,7 @@ DO UPDATE SET IsPresent = @present, Note = @note;";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT tt.Id, tt.TeacherId, tt.WorkDate, tt.ShiftNumber, tt.IsPresent, tt.Note, t.FullName
-FROM TeacherTimesheets tt
-INNER JOIN Teachers t ON t.Id = tt.TeacherId
-WHERE tt.TeacherId = @teacherId
-  AND tt.WorkDate >= @startDate
-  AND tt.WorkDate <= @endDate
-ORDER BY tt.WorkDate, tt.ShiftNumber;";
+        command.CommandText = "SELECT tt.Id, tt.TeacherId, tt.WorkDate, tt.ShiftNumber, tt.IsPresent, tt.Note, tt.WorkPlace, t.FullName FROM TeacherTimesheets tt INNER JOIN Teachers t ON t.Id = tt.TeacherId WHERE tt.TeacherId = @teacherId AND tt.WorkDate >= @startDate AND tt.WorkDate <= @endDate ORDER BY tt.WorkDate, tt.ShiftNumber;";
         command.Parameters.AddWithValue("@teacherId", teacherId);
         command.Parameters.AddWithValue("@startDate", $"{year:D4}-{month:D2}-01");
         var lastDay = DateTime.DaysInMonth(year, month);
@@ -73,7 +63,8 @@ ORDER BY tt.WorkDate, tt.ShiftNumber;";
                 ShiftNumber = reader.GetInt32(3),
                 IsPresent = reader.GetInt32(4) == 1,
                 Note = reader.IsDBNull(5) ? null : reader.GetString(5),
-                TeacherName = reader.GetString(6)
+                WorkPlace = reader.IsDBNull(6) ? null : reader.GetString(6),
+                TeacherName = reader.GetString(7)
             });
         }
 

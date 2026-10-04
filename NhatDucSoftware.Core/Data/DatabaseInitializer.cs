@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateClassInactiveFromWeekColumn(connection);
         MigrateTeacherProfileColumns(connection);
         MigrateTeacherRoleColumns(connection);
+        MigrateTimesheetWorkPlaceColumn(connection);
         MigrateTeacherPayAdjustmentsTable(connection);
         MigrateStudentTuitionDiscountsTable(connection);
         MigrateDataProtectionKeysTable(connection);
@@ -235,6 +236,13 @@ ADD COLUMN IF NOT EXISTS Note TEXT;";
         using var addPreschool = connection.CreateCommand();
         addPreschool.CommandText = "ALTER TABLE Teachers ADD COLUMN IF NOT EXISTS IsPreschoolTeacher BOOLEAN NOT NULL DEFAULT FALSE;";
         addPreschool.ExecuteNonQuery();
+    }
+
+    private static void MigrateTimesheetWorkPlaceColumn(System.Data.Common.DbConnection connection)
+    {
+        using var addColumn = connection.CreateCommand();
+        addColumn.CommandText = "ALTER TABLE TeacherTimesheets ADD COLUMN IF NOT EXISTS WorkPlace TEXT;";
+        addColumn.ExecuteNonQuery();
     }
 
     private static void MigrateTeacherPayAdjustmentsTable(System.Data.Common.DbConnection connection)
