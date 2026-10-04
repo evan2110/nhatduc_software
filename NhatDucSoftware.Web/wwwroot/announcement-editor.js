@@ -11,7 +11,7 @@ window.announcementEditor = {
 
         this._loading = new Promise(function (resolve, reject) {
             var script = document.createElement("script");
-            script.src = "lib/suneditor/suneditor.min.js";
+            script.src = "/lib/suneditor/suneditor.min.js";
             script.onload = function () { resolve(); };
             script.onerror = function () { reject(new Error("Không tải được trình soạn thảo.")); };
             document.body.appendChild(script);

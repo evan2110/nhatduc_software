@@ -3,6 +3,10 @@
 @inject IJSRuntime JS
 
 <div class="announcement-editor-host">
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
     <textarea @ref="_surface"></textarea>
 </div>
 
@@ -10,33 +14,42 @@
     private ElementReference _surface;
     private bool _created;
     private int _version;
+    private string? _error;
 
     protected override bool ShouldRender() => !_created;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_created)
+        if (_created || _error is not null)
         {
             return;
         }
 
         var version = ++_version;
         var surface = _surface;
-        await JS.InvokeVoidAsync("announcementEditor.create", surface);
-        if (version != _version)
+        try
         {
-            try
+            await JS.InvokeVoidAsync("announcementEditor.create", surface);
+            if (version != _version)
             {
-                await JS.InvokeVoidAsync("announcementEditor.destroy", surface);
-            }
-            catch (JSDisconnectedException)
-            {
+                try
+                {
+                    await JS.InvokeVoidAsync("announcementEditor.destroy", surface);
+                }
+                catch (JSDisconnectedException)
+                {
+                }
+
+                return;
             }
 
-            return;
+            _created = true;
         }
-
-        _created = true;
+        catch (Exception ex) when (ex is not JSDisconnectedException)
+        {
+            _error = "Không mở được trình soạn thảo. " + ex.Message;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     public async Task<string> GetHtmlAsync() =>

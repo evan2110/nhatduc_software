@@ -265,6 +265,11 @@ else
             await Task.Run(LoadPageData);
             ResetPages();
         }
+        catch (Exception ex)
+        {
+            _message = $"Không tải được thông báo: {ex.Message}";
+            _bundle = EmptyBundle();
+        }
         finally
         {
             Loading.Hide();

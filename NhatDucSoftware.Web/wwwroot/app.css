@@ -174,10 +174,6 @@ a.brand-link:hover,
     min-width: 0;
 }
 
-.announcement-editor-host > textarea {
-    display: none;
-}
-
 .announcement-editor-host .sun-editor {
     width: 100% !important;
     max-width: 100%;
