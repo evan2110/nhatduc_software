@@ -8,7 +8,7 @@ namespace NhatDucSoftware.Core.Services;
 public class AnnouncementService
 {
     public const int MaxTitleLength = 200;
-    public const int MaxContentLength = 20000;
+    public const int MaxContentLength = 100000;
     public const long MaxImageBytes = 4 * 1024 * 1024;
 
     private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)

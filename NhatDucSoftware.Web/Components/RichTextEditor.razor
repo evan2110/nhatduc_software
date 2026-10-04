@@ -1,27 +1,61 @@
 @using Microsoft.JSInterop
+@implements IAsyncDisposable
 @inject IJSRuntime JS
 
-<div class="rich-text-editor">
-    <div class="rich-text-toolbar" @onmousedown:preventDefault="true">
-        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Exec("bold")'><strong>Đậm</strong></button>
-        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Exec("italic")'><em>Nghiêng</em></button>
-        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Exec("underline")'><u>Gạch chân</u></button>
-        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Exec("insertUnorderedList")'>Danh sách</button>
-        <button type="button" class="btn btn-secondary btn-sm" @onclick='() => Exec("insertOrderedList")'>Đánh số</button>
-        <button type="button" class="btn btn-secondary btn-sm" @onclick="InsertLink">Liên kết</button>
-    </div>
-    <div @ref="_surface" class="rich-text-surface" contenteditable="true" data-placeholder="Nhập nội dung thông báo"></div>
+<div class="announcement-editor-host">
+    <textarea @ref="_surface"></textarea>
 </div>
 
 @code {
     private ElementReference _surface;
+    private bool _created;
+    private int _version;
+
+    protected override bool ShouldRender() => !_created;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_created)
+        {
+            return;
+        }
+
+        var version = ++_version;
+        var surface = _surface;
+        await JS.InvokeVoidAsync("announcementEditor.create", surface);
+        if (version != _version)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("announcementEditor.destroy", surface);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+
+            return;
+        }
+
+        _created = true;
+    }
 
     public async Task<string> GetHtmlAsync() =>
         await JS.InvokeAsync<string>("announcementEditor.getHtml", _surface);
 
-    private async Task Exec(string command) =>
-        await JS.InvokeVoidAsync("announcementEditor.exec", _surface, command, null);
-
-    private async Task InsertLink() =>
-        await JS.InvokeVoidAsync("announcementEditor.link", _surface);
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("announcementEditor.destroy", _surface);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
 }

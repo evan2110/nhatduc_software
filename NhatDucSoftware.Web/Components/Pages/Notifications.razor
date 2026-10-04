@@ -55,7 +55,7 @@ else
                         }
                     </div>
                     <p class="announcement-meta">@FormatCreatedAt(item.CreatedAt)</p>
-                    <div class="announcement-content">@((MarkupString)AnnouncementHtml.Sanitize(item.Content))</div>
+                    <div class="announcement-content sun-editor-editable">@((MarkupString)AnnouncementHtml.Sanitize(item.Content))</div>
                     @if (item.HasImage)
                     {
                         <img class="announcement-image" src="@($"/announcements/{item.Id}/image")" alt="@item.Title" />
