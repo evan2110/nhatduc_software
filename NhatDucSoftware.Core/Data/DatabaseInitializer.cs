@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateStudentBalanceHistoryTable(connection);
         MigrateClassInactiveFromWeekColumn(connection);
         MigrateTeacherProfileColumns(connection);
+        MigrateTeacherRoleColumns(connection);
         MigrateTeacherPayAdjustmentsTable(connection);
         MigrateStudentTuitionDiscountsTable(connection);
         MigrateDataProtectionKeysTable(connection);
@@ -221,6 +222,19 @@ CREATE TABLE IF NOT EXISTS StudentTuitionDiscounts (
 ALTER TABLE StudentTuitionDiscounts
 ADD COLUMN IF NOT EXISTS Note TEXT;";
         addNote.ExecuteNonQuery();
+    }
+
+    private static void MigrateTeacherRoleColumns(System.Data.Common.DbConnection connection)
+    {
+        using (var addCenter = connection.CreateCommand())
+        {
+            addCenter.CommandText = "ALTER TABLE Teachers ADD COLUMN IF NOT EXISTS IsCenterTeacher BOOLEAN NOT NULL DEFAULT TRUE;";
+            addCenter.ExecuteNonQuery();
+        }
+
+        using var addPreschool = connection.CreateCommand();
+        addPreschool.CommandText = "ALTER TABLE Teachers ADD COLUMN IF NOT EXISTS IsPreschoolTeacher BOOLEAN NOT NULL DEFAULT FALSE;";
+        addPreschool.ExecuteNonQuery();
     }
 
     private static void MigrateTeacherPayAdjustmentsTable(System.Data.Common.DbConnection connection)

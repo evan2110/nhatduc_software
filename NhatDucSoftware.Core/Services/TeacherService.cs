@@ -14,7 +14,7 @@ public class TeacherService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, FullName, Phone, Email, Status FROM Teachers ORDER BY Id ASC;";
+        command.CommandText = "SELECT Id, FullName, Phone, Email, Status, IsCenterTeacher, IsPreschoolTeacher FROM Teachers ORDER BY Id ASC;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -24,7 +24,9 @@ public class TeacherService
                 FullName = reader.GetString(1),
                 Phone = reader.IsDBNull(2) ? null : reader.GetString(2),
                 Email = reader.IsDBNull(3) ? null : reader.GetString(3),
-                Status = reader.GetString(4)
+                Status = reader.GetString(4),
+                IsCenterTeacher = !reader.IsDBNull(5) && reader.GetBoolean(5),
+                IsPreschoolTeacher = !reader.IsDBNull(6) && reader.GetBoolean(6)
             });
         }
 
@@ -113,13 +115,14 @@ WHERE TeacherId = @teacherId;";
         // Insert teacher with explicit Id
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = @"INSERT INTO Teachers(Id, FullName, Phone, Email, Status)
-VALUES(@id, @name, @phone, @email, @status);";
+        command.CommandText = "INSERT INTO Teachers(Id, FullName, Phone, Email, Status, IsCenterTeacher, IsPreschoolTeacher) VALUES(@id, @name, @phone, @email, @status, @isCenter, @isPreschool);";
         command.Parameters.AddWithValue("@id", nextId);
         command.Parameters.AddWithValue("@name", teacher.FullName);
         command.Parameters.AddWithValue("@phone", (object?)teacher.Phone ?? DBNull.Value);
         command.Parameters.AddWithValue("@email", (object?)teacher.Email ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", teacher.Status);
+        command.Parameters.AddWithValue("@isCenter", teacher.IsCenterTeacher);
+        command.Parameters.AddWithValue("@isPreschool", teacher.IsPreschoolTeacher);
         command.ExecuteNonQuery();
 
         teacher.Id = nextId;
@@ -206,14 +209,14 @@ VALUES(@username, @password, 'Teacher', @teacherId);";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"UPDATE Teachers
-SET FullName = @name, Phone = @phone, Email = @email, Status = @status
-WHERE Id = @id;";
+        command.CommandText = "UPDATE Teachers SET FullName = @name, Phone = @phone, Email = @email, Status = @status, IsCenterTeacher = @isCenter, IsPreschoolTeacher = @isPreschool WHERE Id = @id;";
         command.Parameters.AddWithValue("@id", teacher.Id);
         command.Parameters.AddWithValue("@name", teacher.FullName);
         command.Parameters.AddWithValue("@phone", (object?)teacher.Phone ?? DBNull.Value);
         command.Parameters.AddWithValue("@email", (object?)teacher.Email ?? DBNull.Value);
         command.Parameters.AddWithValue("@status", teacher.Status);
+        command.Parameters.AddWithValue("@isCenter", teacher.IsCenterTeacher);
+        command.Parameters.AddWithValue("@isPreschool", teacher.IsPreschoolTeacher);
         command.ExecuteNonQuery();
     }
 
@@ -254,6 +257,11 @@ WHERE Id = @id;";
         if (string.IsNullOrWhiteSpace(teacher.FullName))
         {
             throw new InvalidOperationException("Họ tên không được để trống.");
+        }
+
+        if (!teacher.IsCenterTeacher && !teacher.IsPreschoolTeacher)
+        {
+            throw new InvalidOperationException("Chọn ít nhất một loại: GV trung tâm hoặc GV mầm non.");
         }
     }
 

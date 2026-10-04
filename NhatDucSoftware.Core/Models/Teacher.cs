@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace NhatDucSoftware.Core.Models;
 
 public class Teacher
@@ -7,6 +9,10 @@ public class Teacher
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string Status { get; set; } = "Active";
+    [Browsable(false)]
+    public bool IsCenterTeacher { get; set; } = true;
+    [Browsable(false)]
+    public bool IsPreschoolTeacher { get; set; }
     public DateTime? DateOfBirth { get; set; }
     public string? Address { get; set; }
     public string? Qualification { get; set; }

@@ -45,6 +45,12 @@ else
                 <label>Mật khẩu mới</label>
                 <input @bind="_newPassword" autocomplete="new-password" placeholder="Nhập mật khẩu tùy ý" />
             </div>
+            <div class="form-group">
+                <label>Loại giáo viên</label>
+                <label class="checkbox-line"><input type="checkbox" @bind="_isCenterTeacher" /> GV trung tâm</label>
+                <label class="checkbox-line"><input type="checkbox" @bind="_isPreschoolTeacher" /> GV mầm non</label>
+                <p class="text-muted">Có thể chọn cả hai nếu giáo viên vừa dạy trung tâm vừa dạy mầm non.</p>
+            </div>
         </div>
         <div class="toolbar">
             <button class="btn btn-primary" @onclick="AddTeacher">Thêm</button>
@@ -65,7 +71,7 @@ else
         <div class="table-responsive">
         <table class="data-table">
             <thead>
-                <tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Trạng thái</th><th>Tài khoản</th></tr>
+                <tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Trạng thái</th><th>Loại</th><th>Tài khoản</th></tr>
             </thead>
             <tbody>
                 @foreach (var t in _teachers)
@@ -76,6 +82,7 @@ else
                         <td>@t.Phone</td>
                         <td>@t.Email</td>
                         <td>@t.Status</td>
+                        <td>@TeacherRoleLabel(t)</td>
                         <td>@GetUsername(t.Id)</td>
                     </tr>
                 }
@@ -93,6 +100,8 @@ else
     private string _phone = "";
     private string _email = "";
     private string _status = "Active";
+    private bool _isCenterTeacher = true;
+    private bool _isPreschoolTeacher;
     private string _newPassword = "";
     private string? _message;
     private string? _accountInfo;
@@ -116,6 +125,21 @@ else
 
     private string GetUsername(int id) => _usernames.TryGetValue(id, out var u) ? u : "";
 
+    private static string TeacherRoleLabel(Teacher teacher)
+    {
+        if (teacher.IsCenterTeacher && teacher.IsPreschoolTeacher)
+        {
+            return "Trung tâm, Mầm non";
+        }
+
+        if (teacher.IsPreschoolTeacher)
+        {
+            return "Mầm non";
+        }
+
+        return teacher.IsCenterTeacher ? "Trung tâm" : "";
+    }
+
     private void SelectTeacher(Teacher t)
     {
         _selectedId = t.Id;
@@ -123,6 +147,8 @@ else
         _phone = t.Phone;
         _email = t.Email ?? "";
         _status = t.Status;
+        _isCenterTeacher = t.IsCenterTeacher;
+        _isPreschoolTeacher = t.IsPreschoolTeacher;
         _newPassword = "";
         _accountInfo = null;
     }
@@ -132,6 +158,12 @@ else
         if (string.IsNullOrWhiteSpace(_fullName))
         {
             _message = "Họ tên không được để trống.";
+            return false;
+        }
+
+        if (!_isCenterTeacher && !_isPreschoolTeacher)
+        {
+            _message = "Chọn ít nhất một loại: GV trung tâm hoặc GV mầm non.";
             return false;
         }
 
@@ -149,7 +181,9 @@ else
                 FullName = _fullName.Trim(),
                 Phone = _phone.Trim(),
                 Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
-                Status = _status
+                Status = _status,
+                IsCenterTeacher = _isCenterTeacher,
+                IsPreschoolTeacher = _isPreschoolTeacher
             });
             _message = "Đã thêm giáo viên.";
             _accountInfo = $"Tài khoản: {username} / Mật khẩu: {password}";
@@ -172,7 +206,9 @@ else
                 FullName = _fullName.Trim(),
                 Phone = _phone.Trim(),
                 Email = string.IsNullOrWhiteSpace(_email) ? null : _email.Trim(),
-                Status = _status
+                Status = _status,
+                IsCenterTeacher = _isCenterTeacher,
+                IsPreschoolTeacher = _isPreschoolTeacher
             });
             _message = "Đã cập nhật giáo viên.";
             LoadTeachers();
@@ -222,5 +258,7 @@ else
         _fullName = ""; _phone = ""; _email = "";
         _newPassword = "";
         _status = "Active";
+        _isCenterTeacher = true;
+        _isPreschoolTeacher = false;
     }
 }
