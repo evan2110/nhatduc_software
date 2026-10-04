@@ -8,6 +8,7 @@
 @inject TeacherService TeacherService
 @inject LoadingService Loading
 @inject NavigationManager Nav
+@using NhatDucSoftware.Core.Helpers
 @using NhatDucSoftware.Core.Models
 @using NhatDucSoftware.Web.Helpers
 
@@ -54,7 +55,7 @@ else
                         }
                     </div>
                     <p class="announcement-meta">@FormatCreatedAt(item.CreatedAt)</p>
-                    <p class="announcement-content">@item.Content</p>
+                    <div class="announcement-content">@((MarkupString)AnnouncementHtml.Sanitize(item.Content))</div>
                     @if (item.HasImage)
                     {
                         <img class="announcement-image" src="@($"/announcements/{item.Id}/image")" alt="@item.Title" />
@@ -186,16 +187,16 @@ else
                 {
                     <div class="alert alert-danger">@_announcementFormMessage</div>
                 }
-                <div class="form-grid">
-                    <div class="form-group span-2">
+                <div class="announcement-form">
+                    <div class="form-group">
                         <label>Tiêu đề</label>
                         <input @bind="_announcementTitle" maxlength="@AnnouncementService.MaxTitleLength" />
                     </div>
-                    <div class="form-group span-2">
+                    <div class="form-group">
                         <label>Nội dung</label>
-                        <textarea rows="5" @bind="_announcementContent" maxlength="@AnnouncementService.MaxContentLength"></textarea>
+                        <RichTextEditor @ref="_announcementEditor" />
                     </div>
-                    <div class="form-group span-2">
+                    <div class="form-group">
                         <label>Hình ảnh</label>
                         <InputFile OnChange="OnAnnouncementImageSelected" accept="image/jpeg,image/png,image/webp,image/gif" />
                         <p class="text-muted">JPG, PNG, WEBP hoặc GIF. Tối đa 4MB. Có thể bỏ trống.</p>
@@ -222,6 +223,7 @@ else
     private bool _showAnnouncementModal;
     private string _announcementTitle = "";
     private string _announcementContent = "";
+    private RichTextEditor? _announcementEditor;
     private string? _announcementFormMessage;
     private byte[]? _announcementImage;
     private string? _announcementImageType;
@@ -397,7 +399,7 @@ else
         }
     }
 
-    private void SaveAnnouncement()
+    private async Task SaveAnnouncement()
     {
         if (!Session.IsAdmin)
         {
@@ -407,6 +409,9 @@ else
 
         try
         {
+            _announcementContent = _announcementEditor is null
+                ? ""
+                : await _announcementEditor.GetHtmlAsync();
             AnnouncementService.Add(
                 _announcementTitle,
                 _announcementContent,

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Models;
 
 namespace NhatDucSoftware.Core.Services;
@@ -7,7 +8,7 @@ namespace NhatDucSoftware.Core.Services;
 public class AnnouncementService
 {
     public const int MaxTitleLength = 200;
-    public const int MaxContentLength = 5000;
+    public const int MaxContentLength = 20000;
     public const long MaxImageBytes = 4 * 1024 * 1024;
 
     private static readonly HashSet<string> AllowedImageTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -67,7 +68,7 @@ public class AnnouncementService
     public void Add(string title, string content, byte[]? imageData, string? imageContentType, string? imageFileName, string? createdBy)
     {
         title = title.Trim();
-        content = content.Trim();
+        content = AnnouncementHtml.Sanitize(content);
         Validate(title, content, imageData, imageContentType);
 
         using var connection = DbContext.CreateConnection();
@@ -111,7 +112,7 @@ public class AnnouncementService
             throw new InvalidOperationException($"Tiêu đề tối đa {MaxTitleLength} ký tự.");
         }
 
-        if (string.IsNullOrWhiteSpace(content))
+        if (AnnouncementHtml.IsBlank(content))
         {
             throw new InvalidOperationException("Nội dung không được để trống.");
         }
