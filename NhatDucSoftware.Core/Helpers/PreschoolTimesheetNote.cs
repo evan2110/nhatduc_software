@@ -5,6 +5,7 @@ namespace NhatDucSoftware.Core.Helpers;
 public static class PreschoolTimesheetNote
 {
     public const string Example = "Lớn 1: 30, 2(An,Mỹ)";
+    public const string FormatGuide = "Tên lớp: số đi học, số vắng(tên học sinh vắng)";
 
     private static readonly Regex LinePattern = new(
         @"^\s*(.+?)\s*:\s*(\d+)\s*,\s*(\d+)\s*\(\s*([^)]*?)\s*\)\s*$",
@@ -14,14 +15,14 @@ public static class PreschoolTimesheetNote
     {
         if (string.IsNullOrWhiteSpace(note))
         {
-            error = $"Ghi chú bắt buộc theo mẫu Tên lớp: số đi học, số vắng(tên học sinh vắng). Ví dụ: {Example}";
+            error = Guide("Ghi chú là bắt buộc.");
             return false;
         }
 
         var lines = note.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (lines.Length == 0)
         {
-            error = $"Ghi chú bắt buộc theo mẫu Tên lớp: số đi học, số vắng(tên học sinh vắng). Ví dụ: {Example}";
+            error = Guide("Ghi chú là bắt buộc.");
             return false;
         }
 
@@ -30,14 +31,14 @@ public static class PreschoolTimesheetNote
             var match = LinePattern.Match(line);
             if (!match.Success || string.IsNullOrWhiteSpace(match.Groups[1].Value))
             {
-                error = $"Ghi chú không đúng mẫu. Ví dụ: {Example}";
+                error = Guide("Ghi chú chưa đúng mẫu.");
                 return false;
             }
 
             var absent = int.Parse(match.Groups[3].Value);
             if (absent > 0 && string.IsNullOrWhiteSpace(match.Groups[4].Value))
             {
-                error = $"Khi có học sinh vắng, ghi tên trong ngoặc. Ví dụ: {Example}";
+                error = Guide("Khi có học sinh vắng phải ghi tên trong ngoặc.");
                 return false;
             }
         }
@@ -45,4 +46,7 @@ public static class PreschoolTimesheetNote
         error = "";
         return true;
     }
+
+    private static string Guide(string reason) =>
+        $"{reason} Nhập theo dạng {FormatGuide}. Ví dụ: {Example}";
 }

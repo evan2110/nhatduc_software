@@ -567,6 +567,12 @@ a.brand-link:hover,
     line-height: 1.35;
 }
 
+.shift-stack .input-note.input-invalid {
+    border-color: #d97706;
+    background: #fffbeb;
+    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.15);
+}
+
 .shift-mark {
     font-weight: 700;
     line-height: 1.2;

@@ -19,7 +19,7 @@ else
 
     @if (!string.IsNullOrEmpty(_message))
     {
-        <div class="alert @(_messageIsError ? "alert-danger" : "alert-success")">@_message</div>
+        <div class="alert @(_messageIsError ? "alert-warning" : "alert-success")">@_message</div>
     }
 
     <div class="card">
@@ -36,7 +36,7 @@ else
             <span class="text-bold">Tổng ca: @_totalShifts</span>
         </div>
         <div class="timesheet-guide">
-            <p>Chỉ chấm công ngày hôm nay. Nhập <strong>C</strong> hoặc <strong>✓</strong> nếu có mặt, <strong>✗</strong> nếu vắng.</p>
+            <p>Chỉ chấm công ngày hôm nay. Nhập <strong>C</strong> hoặc <strong>✓</strong> nếu có mặt, <strong>X</strong> nếu vắng.</p>
             @if (_isDualRole)
             {
                 <p>Mỗi ca chọn <strong>Trung tâm</strong> hoặc <strong>Mầm non</strong>.</p>
@@ -81,11 +81,11 @@ else
                                             }
                                             @if (_requiresPreschoolNote)
                                             {
-                                                <textarea class="input-note" rows="2" value="@GetNote(day, shift)" placeholder="Lớp: đi, vắng(tên)" @onchange="e => SetNote(day, shift, e.Value?.ToString())"></textarea>
+                                                <textarea class="input-note @(_invalidShift == shift ? "input-invalid" : null)" rows="2" value="@GetNote(day, shift)" @onchange="e => SetNote(day, shift, e.Value?.ToString())"></textarea>
                                             }
                                             else
                                             {
-                                                <input class="input-note" value="@GetNote(day, shift)" placeholder="Ghi chú" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
+                                                <input class="input-note" value="@GetNote(day, shift)" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
                                             }
                                         }
                                         else
@@ -119,6 +119,7 @@ else
     private bool _requiresPreschoolNote;
     private string? _message;
     private bool _messageIsError;
+    private int? _invalidShift;
     private List<TeacherTimesheet> _records = new();
     private List<DayRow> _days = new();
     private Dictionary<(int Day, int Shift), string> _editValues = new();
@@ -221,28 +222,32 @@ else
             for (int shift = 1; shift <= 5; shift++)
             {
                 var cellValue = GetShiftValue(day.Day, shift).Trim().ToUpperInvariant();
-                if (cellValue is not ("C" or "✓" or "✗")) continue;
+                var isPresent = cellValue is "C" or "✓";
+                var isAbsent = cellValue is "X" or "✗";
+                if (!isPresent && !isAbsent) continue;
 
                 var note = GetNote(day, shift).Trim();
                 var place = GetPlace(day, shift);
                 if (_isDualRole && place is not (TeacherTimesheet.WorkPlaceCenter or TeacherTimesheet.WorkPlacePreschool))
                 {
                     _messageIsError = true;
-                    _message = $"Ca {shift}: chọn Trung tâm hoặc Mầm non.";
+                    _invalidShift = shift;
+                    _message = $"Ca {shift} chưa được lưu. Hãy chọn Trung tâm hoặc Mầm non, rồi bấm Lưu chấm công lại.";
                     return;
                 }
 
-                if (_requiresPreschoolNote && !PreschoolTimesheetNote.IsValid(note, out var noteError))
+                if (isPresent && _requiresPreschoolNote && !PreschoolTimesheetNote.IsValid(note, out var noteError))
                 {
                     _messageIsError = true;
-                    _message = $"Ca {shift}: {noteError}";
+                    _invalidShift = shift;
+                    _message = $"Ca {shift} chưa được lưu. {noteError}";
                     return;
                 }
 
                 string? workPlace = _isDualRole
                     ? place
                     : _requiresPreschoolNote ? TeacherTimesheet.WorkPlacePreschool : null;
-                pending.Add((workDate, shift, cellValue is "C" or "✓", note.Length > 0 ? note : null, workPlace));
+                pending.Add((workDate, shift, isPresent, note.Length > 0 ? note : null, workPlace));
             }
         }
 
@@ -252,6 +257,7 @@ else
         }
 
         _messageIsError = false;
+        _invalidShift = null;
         _message = skipped > 0
             ? "Đã lưu chấm công. Giáo viên chỉ được chấm công trong ngày hôm nay."
             : "Đã lưu chấm công thành công!";
