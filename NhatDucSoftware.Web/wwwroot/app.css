@@ -278,21 +278,61 @@ a.brand-link:hover,
     margin-bottom: 0.25rem;
 }
 
-.form-group label.checkbox-line {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 500;
-    margin: 0.35rem 0 0;
+.teacher-role-picker {
+    margin: 0 0 1rem;
 }
 
-.form-group .checkbox-line input {
-    width: 1.1rem;
-    min-height: 1.1rem;
-    height: 1.1rem;
+.teacher-role-title {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.45rem;
+}
+
+.teacher-role-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.65rem;
+}
+
+.teacher-role-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.teacher-role-option:has(input:checked) {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+
+.teacher-role-option input {
+    width: 1.15rem;
+    height: 1.15rem;
+    min-height: 0;
     padding: 0;
     margin: 0;
     flex: 0 0 auto;
+    accent-color: var(--primary);
+}
+
+.teacher-role-option strong {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.teacher-role-option small {
+    display: block;
+    margin-top: 0.1rem;
+    color: #64748b;
+    font-weight: 400;
+    font-size: 0.8rem;
 }
 
 .form-group input,
