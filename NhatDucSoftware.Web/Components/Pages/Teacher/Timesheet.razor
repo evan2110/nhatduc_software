@@ -33,10 +33,10 @@ else
             <button class="btn btn-primary" @onclick="SaveTimesheet">Lưu chấm công</button>
             <span class="text-bold">Tổng ca: @_totalShifts</span>
         </div>
-        <p class="text-muted">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng).</p>
+        <p class="text-muted">Giáo viên chỉ được chấm công trong ngày hôm nay. Nhập C/✓ (có mặt) hoặc ✗ (vắng). Mỗi ca có ghi chú riêng, lưu cùng ca đã chấm.</p>
 
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="data-table timesheet-table">
                 <thead>
                     <tr>
                         <th>Ngày</th>
@@ -44,7 +44,6 @@ else
                         {
                             <th>@TeacherTimesheet.GetShiftDescription(s)</th>
                         }
-                        <th>Ghi chú</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,27 +54,24 @@ else
                             @for (int s = 1; s <= 5; s++)
                             {
                                 var shift = s;
-                                <td>
-                                    @if (day.IsToday)
-                                    {
-                                        <input class="input-shift" value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
-                                    }
-                                    else
-                                    {
-                                        @GetShiftDisplay(day.Day, shift)
-                                    }
+                                <td class="shift-cell">
+                                    <div class="shift-stack">
+                                        @if (day.IsToday)
+                                        {
+                                            <input class="input-shift" value="@GetShiftValue(day.Day, shift)" @onchange="e => SetShiftValue(day.Day, shift, e.Value?.ToString())" />
+                                            <input class="input-note" value="@GetNote(day, shift)" placeholder="Ghi chú" @onchange="e => SetNote(day, shift, e.Value?.ToString())" />
+                                        }
+                                        else
+                                        {
+                                            <span>@GetShiftDisplay(day.Day, shift)</span>
+                                            @if (!string.IsNullOrWhiteSpace(GetNote(day, shift)))
+                                            {
+                                                <span class="shift-note text-muted">@GetNote(day, shift)</span>
+                                            }
+                                        }
+                                    </div>
                                 </td>
                             }
-                            <td>
-                                @if (day.IsToday)
-                                {
-                                    <input class="input-note" @bind="day.Note" />
-                                }
-                                else
-                                {
-                                    @day.Note
-                                }
-                            </td>
                         </tr>
                     }
                 </tbody>
@@ -111,8 +107,19 @@ else
         _days = Enumerable.Range(1, daysInMonth).Select(d =>
         {
             var date = new DateTime(_year, _month, d);
-            var dayNote = _records.FirstOrDefault(r => r.WorkDate.Day == d && !string.IsNullOrEmpty(r.Note))?.Note ?? "";
-            return new DayRow { Day = d, Label = $"{d:D2}/{_month:D2}/{_year}", IsToday = date.Date == DateTime.Today, Note = dayNote };
+            var notes = new string[5];
+            for (int s = 1; s <= 5; s++)
+            {
+                notes[s - 1] = _records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s)?.Note ?? "";
+            }
+
+            return new DayRow
+            {
+                Day = d,
+                Label = $"{d:D2}/{_month:D2}/{_year}",
+                IsToday = date.Date == DateTime.Today,
+                Notes = notes
+            };
         }).ToList();
     }
 
@@ -131,6 +138,13 @@ else
     private void SetShiftValue(int day, int shift, string? value)
     {
         _editValues[(day, shift)] = (value ?? "").Trim();
+    }
+
+    private static string GetNote(DayRow day, int shift) => day.Notes[shift - 1];
+
+    private static void SetNote(DayRow day, int shift, string? value)
+    {
+        day.Notes[shift - 1] = value ?? "";
     }
 
     private void SaveTimesheet()
@@ -153,8 +167,9 @@ else
                 if (cellValue is not ("C" or "✓" or "✗")) continue;
 
                 bool isPresent = cellValue is "C" or "✓";
+                var note = GetNote(day, shift).Trim();
                 TimesheetService.SaveTimesheet(teacherId, workDate, shift, isPresent,
-                    string.IsNullOrWhiteSpace(day.Note) ? null : day.Note.Trim());
+                    note.Length > 0 ? note : null);
             }
         }
 
@@ -169,6 +184,6 @@ else
         public int Day { get; set; }
         public string Label { get; set; } = "";
         public bool IsToday { get; set; }
-        public string Note { get; set; } = "";
+        public string[] Notes { get; set; } = ["", "", "", "", ""];
     }
 }

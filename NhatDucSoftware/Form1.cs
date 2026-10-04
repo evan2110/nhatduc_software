@@ -3016,22 +3016,21 @@ namespace NhatDucSoftware
             var table = new System.Data.DataTable();
             table.Columns.Add("Ngày", typeof(string));
             for (int s = 1; s <= 5; s++)
+            {
                 table.Columns.Add(TeacherTimesheet.GetShiftDescription(s), typeof(string));
-            table.Columns.Add("Ghi chú", typeof(string));
+                table.Columns.Add(TimesheetNoteColumn(s), typeof(string));
+            }
 
             for (int d = 1; d <= daysInMonth; d++)
             {
                 var row = table.NewRow();
                 row["Ngày"] = $"{d:D2}/{month:D2}/{year}";
-                string dayNote = "";
                 for (int s = 1; s <= 5; s++)
                 {
                     var rec = records.FirstOrDefault(r => r.WorkDate.Day == d && r.ShiftNumber == s);
-                    row[s] = rec != null ? (rec.IsPresent ? "✓" : "✗") : "";
-                    if (rec?.Note is not null && rec.Note.Length > 0 && dayNote.Length == 0)
-                        dayNote = rec.Note;
+                    row[TeacherTimesheet.GetShiftDescription(s)] = rec != null ? (rec.IsPresent ? "✓" : "✗") : "";
+                    row[TimesheetNoteColumn(s)] = rec?.Note ?? "";
                 }
-                row["Ghi chú"] = dayNote;
                 table.Rows.Add(row);
             }
 
@@ -3063,11 +3062,10 @@ namespace NhatDucSoftware
                     continue;
                 }
 
-                var note = dgvTimesheet.Rows[rowIdx].Cells["Ghi chú"].Value?.ToString()?.Trim() ?? "";
-
                 for (int shift = 1; shift <= 5; shift++)
                 {
-                    var cellValue = dgvTimesheet.Rows[rowIdx].Cells[shift].Value?.ToString()?.Trim().ToUpper() ?? "";
+                    var cellValue = dgvTimesheet.Rows[rowIdx].Cells[TeacherTimesheet.GetShiftDescription(shift)].Value?.ToString()?.Trim().ToUpper() ?? "";
+                    var note = dgvTimesheet.Rows[rowIdx].Cells[TimesheetNoteColumn(shift)].Value?.ToString()?.Trim() ?? "";
                     bool isPresent = cellValue == "C" || cellValue == "✓";
                     if (cellValue == "C" || cellValue == "✓" || cellValue == "✗")
                     {
@@ -3087,6 +3085,8 @@ namespace NhatDucSoftware
 
             LoadTimesheet();
         }
+
+        private static string TimesheetNoteColumn(int shift) => $"Ghi chú ca {shift}";
 
         private void btnLoadTeacherSchedule_Click(object sender, EventArgs e)
         {
