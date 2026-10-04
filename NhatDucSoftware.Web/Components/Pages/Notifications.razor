@@ -4,6 +4,7 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject TeacherHomeAlertService AlertService
+@inject AnnouncementService AnnouncementService
 @inject TeacherService TeacherService
 @inject LoadingService Loading
 @inject NavigationManager Nav
@@ -26,6 +27,42 @@ else
         — @_bundle.FromDate.ToString("dd/MM/yyyy") → @_bundle.ToDate.ToString("dd/MM/yyyy")
         (nhận xét: tháng @_bundle.Month/@_bundle.Year)
     </p>
+
+    @if (Session.IsAdmin)
+    {
+        <div class="toolbar">
+            <button class="btn btn-primary" @onclick="OpenAnnouncementModal">Tạo bài thông báo</button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_announcementMessage))
+    {
+        <div class="alert alert-success">@_announcementMessage</div>
+    }
+
+    @if (_announcements.Count > 0)
+    {
+        <div class="announcement-list">
+            @foreach (var item in _announcements)
+            {
+                <article class="card announcement-card">
+                    <div class="home-alert-header">
+                        <h3>@item.Title</h3>
+                        @if (Session.IsAdmin)
+                        {
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteAnnouncement(item.Id)">Xóa</button>
+                        }
+                    </div>
+                    <p class="announcement-meta">@FormatCreatedAt(item.CreatedAt)</p>
+                    <p class="announcement-content">@item.Content</p>
+                    @if (item.HasImage)
+                    {
+                        <img class="announcement-image" src="@($"/announcements/{item.Id}/image")" alt="@item.Title" />
+                    }
+                </article>
+            }
+        </div>
+    }
 
     @if (!string.IsNullOrEmpty(_message))
     {
@@ -138,11 +175,58 @@ else
             }
         </div>
     }
+
+    @if (_showAnnouncementModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseAnnouncementModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <h3>Tạo bài thông báo</h3>
+                <p class="text-muted">Bài đăng hiện ở đầu trang Thông báo của giáo viên.</p>
+                @if (!string.IsNullOrEmpty(_announcementFormMessage))
+                {
+                    <div class="alert alert-danger">@_announcementFormMessage</div>
+                }
+                <div class="form-grid">
+                    <div class="form-group span-2">
+                        <label>Tiêu đề</label>
+                        <input @bind="_announcementTitle" maxlength="@AnnouncementService.MaxTitleLength" />
+                    </div>
+                    <div class="form-group span-2">
+                        <label>Nội dung</label>
+                        <textarea rows="5" @bind="_announcementContent" maxlength="@AnnouncementService.MaxContentLength"></textarea>
+                    </div>
+                    <div class="form-group span-2">
+                        <label>Hình ảnh</label>
+                        <InputFile OnChange="OnAnnouncementImageSelected" accept="image/jpeg,image/png,image/webp,image/gif" />
+                        <p class="text-muted">JPG, PNG, WEBP hoặc GIF. Tối đa 4MB. Có thể bỏ trống.</p>
+                        @if (!string.IsNullOrEmpty(_announcementPreviewUrl))
+                        {
+                            <img class="announcement-preview" src="@_announcementPreviewUrl" alt="Xem trước hình ảnh" />
+                        }
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button class="btn btn-primary" @onclick="SaveAnnouncement">Đăng bài</button>
+                    <button class="btn btn-secondary" @onclick="CloseAnnouncementModal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
     private TeacherHomeAlertBundle _bundle = new();
+    private List<Announcement> _announcements = new();
     private string? _message;
+    private string? _announcementMessage;
+    private bool _showAnnouncementModal;
+    private string _announcementTitle = "";
+    private string _announcementContent = "";
+    private string? _announcementFormMessage;
+    private byte[]? _announcementImage;
+    private string? _announcementImageType;
+    private string? _announcementImageName;
+    private string? _announcementPreviewUrl;
     private int _pageSize = 15;
     private int _timesheetPage = 1;
     private int _attendancePage = 1;
@@ -176,13 +260,38 @@ else
         Loading.Show();
         try
         {
-            await Task.Run(LoadAlerts);
+            await Task.Run(LoadPageData);
             ResetPages();
         }
         finally
         {
             Loading.Hide();
         }
+    }
+
+    private void LoadPageData()
+    {
+        string? announcementError = null;
+        try
+        {
+            LoadAnnouncements();
+        }
+        catch (Exception ex)
+        {
+            _announcements = new();
+            announcementError = $"Không tải được bài thông báo: {ex.Message}";
+        }
+
+        LoadAlerts();
+        if (announcementError is not null)
+        {
+            _message = announcementError;
+        }
+    }
+
+    private void LoadAnnouncements()
+    {
+        _announcements = AnnouncementService.GetAll();
     }
 
     private void LoadAlerts()
@@ -222,6 +331,125 @@ else
         Year = DateTime.Now.Year,
         Month = DateTime.Now.Month
     };
+
+    private void OpenAnnouncementModal()
+    {
+        _announcementTitle = "";
+        _announcementContent = "";
+        _announcementFormMessage = null;
+        ClearAnnouncementImage();
+        _showAnnouncementModal = true;
+    }
+
+    private void CloseAnnouncementModal()
+    {
+        _showAnnouncementModal = false;
+        ClearAnnouncementImage();
+    }
+
+    private void ClearAnnouncementImage()
+    {
+        _announcementImage = null;
+        _announcementImageType = null;
+        _announcementImageName = null;
+        _announcementPreviewUrl = null;
+    }
+
+    private async Task OnAnnouncementImageSelected(InputFileChangeEventArgs e)
+    {
+        _announcementFormMessage = null;
+        if (e.FileCount == 0)
+        {
+            ClearAnnouncementImage();
+            return;
+        }
+
+        var file = e.File;
+        if (file.Size > AnnouncementService.MaxImageBytes)
+        {
+            ClearAnnouncementImage();
+            _announcementFormMessage = "Hình ảnh quá lớn. Giới hạn 4MB.";
+            return;
+        }
+
+        var contentType = file.ContentType;
+        if (contentType is not ("image/jpeg" or "image/png" or "image/webp" or "image/gif"))
+        {
+            ClearAnnouncementImage();
+            _announcementFormMessage = "Chỉ nhận hình JPG, PNG, WEBP hoặc GIF.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(AnnouncementService.MaxImageBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            _announcementImage = memory.ToArray();
+            _announcementImageType = contentType;
+            _announcementImageName = file.Name;
+            _announcementPreviewUrl = $"data:{contentType};base64,{Convert.ToBase64String(_announcementImage)}";
+        }
+        catch (Exception ex)
+        {
+            ClearAnnouncementImage();
+            _announcementFormMessage = ex.Message;
+        }
+    }
+
+    private void SaveAnnouncement()
+    {
+        if (!Session.IsAdmin)
+        {
+            _announcementFormMessage = "Bạn không có quyền đăng bài thông báo.";
+            return;
+        }
+
+        try
+        {
+            AnnouncementService.Add(
+                _announcementTitle,
+                _announcementContent,
+                _announcementImage,
+                _announcementImageType,
+                _announcementImageName,
+                Session.CurrentUser?.Username);
+            LoadAnnouncements();
+            _announcementMessage = "Đã đăng bài thông báo.";
+            _showAnnouncementModal = false;
+            ClearAnnouncementImage();
+        }
+        catch (Exception ex)
+        {
+            _announcementFormMessage = ex.Message;
+        }
+    }
+
+    private void DeleteAnnouncement(int id)
+    {
+        if (!Session.IsAdmin) return;
+
+        try
+        {
+            AnnouncementService.Delete(id);
+            LoadAnnouncements();
+            _announcementMessage = "Đã xóa bài thông báo.";
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+    }
+
+    private static string FormatCreatedAt(string value)
+    {
+        if (DateTime.TryParse(value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+        {
+            return parsed.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+        }
+
+        return value;
+    }
 
     private void ResetPages()
     {

@@ -68,7 +68,25 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateExpensesTable(connection);
         MigrateIncomesTable(connection);
         MigrateCourseFeeHistoryTable(connection);
+        MigrateAnnouncementsTable(connection);
         MigratePlaintextPasswords(connection);
+    }
+
+    private static void MigrateAnnouncementsTable(System.Data.Common.DbConnection connection)
+    {
+        using var createTable = connection.CreateCommand();
+        createTable.CommandText = @"
+CREATE TABLE IF NOT EXISTS Announcements (
+    Id BIGSERIAL PRIMARY KEY,
+    Title TEXT NOT NULL,
+    Content TEXT NOT NULL,
+    ImageData BYTEA NULL,
+    ImageContentType TEXT NULL,
+    ImageFileName TEXT NULL,
+    CreatedAt TEXT NOT NULL,
+    CreatedBy TEXT NULL
+);";
+        createTable.ExecuteNonQuery();
     }
 
     private static void MigratePlaintextPasswords(Npgsql.NpgsqlConnection connection)

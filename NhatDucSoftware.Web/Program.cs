@@ -145,6 +145,7 @@ builder.Services.AddScoped<TeacherProfileService>();
 builder.Services.AddScoped<ExpenseService>();
 builder.Services.AddScoped<IncomeService>();
 builder.Services.AddScoped<TeacherHomeAlertService>();
+builder.Services.AddScoped<AnnouncementService>();
 builder.Services.AddScoped<GoogleDriveService>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
@@ -188,6 +189,17 @@ app.UseRateLimiter();
 app.UseAntiforgery();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
+app.MapGet("/announcements/{id:int}/image", (int id, AnnouncementService announcements) =>
+{
+    var image = announcements.GetImage(id);
+    if (image is null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.File(image.Data, image.ContentType);
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin,Teacher" });
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
