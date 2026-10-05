@@ -142,7 +142,7 @@ else
                                         <td>@r.ShiftNumber</td>
                                         <td>@(string.IsNullOrEmpty(r.ClassNames) ? "-" : r.ClassNames)</td>
                                         <td>@(r.IsPresent ? "Có mặt" : "Vắng")</td>
-                                        <td class="@(r.HasAttendance == false ? "attendance-check" : null)">@AttendanceStatusLabel(r)</td>
+                                        <td class="@(r.HasAttendance == false && !r.SkipAttendanceRecheck ? "attendance-check" : null)">@AttendanceStatusLabel(r)</td>
                                         <td>@(r.IsPresent ? MoneyHelper.FormatCurrency(r.ShiftPay) : "-")</td>
                                         <td>@r.Note</td>
                                     </tr>
@@ -817,6 +817,8 @@ else
     {
         _selectedTeacherId = row.TeacherId;
         ResetDetailFilters();
+        var teacher = _teachers.FirstOrDefault(t => t.Id == row.TeacherId);
+        var preschoolOnly = teacher is { IsPreschoolTeacher: true, IsCenterTeacher: false };
         var classLookup = ScheduleService.GetTeacherClassesByDateAndShiftForMonth(row.TeacherId, _year, _month);
         var attendedSlots = AttendanceService.GetSlotsWithPresentStudent(_year, _month);
         _detailRecords = TimesheetService.GetTimesheetByMonth(row.TeacherId, _year, _month)
@@ -824,6 +826,7 @@ else
             {
                 classLookup.TryGetValue((r.WorkDate.Date, r.ShiftNumber), out var classes);
                 var classList = classes ?? Array.Empty<(int ClassId, string ClassName)>();
+                var preschoolShift = preschoolOnly || r.WorkPlace == TeacherTimesheet.WorkPlacePreschool;
                 return new TimesheetDetailRow
                 {
                     WorkDate = r.WorkDate,
@@ -832,6 +835,7 @@ else
                     IsPresent = r.IsPresent,
                     HasAttendance = classList.Count > 0
                         && classList.All(c => attendedSlots.Contains((c.ClassId, r.WorkDate.Date, r.ShiftNumber))),
+                    SkipAttendanceRecheck = preschoolShift,
                     Note = r.Note,
                     ShiftPay = r.IsPresent
                         ? TimesheetService.GetShiftPay(row.TeacherId, r.WorkDate, r.ShiftNumber)
@@ -843,13 +847,20 @@ else
 
     private int PresentDetailCount => FilteredDetailRecords.Count(r => r.IsPresent);
 
-    private static string AttendanceStatusLabel(TimesheetDetailRow row) =>
-        row.HasAttendance switch
+    private static string AttendanceStatusLabel(TimesheetDetailRow row)
+    {
+        if (row.HasAttendance == true)
         {
-            true => "Đã điểm danh",
-            false => "Cần kiểm tra lại",
-            _ => "-"
-        };
+            return "Đã điểm danh";
+        }
+
+        if (row.HasAttendance == false && !row.SkipAttendanceRecheck)
+        {
+            return "Cần kiểm tra lại";
+        }
+
+        return "-";
+    }
 
     private IEnumerable<TimesheetDetailRow> FilteredDetailRecords
     {
@@ -1279,6 +1290,7 @@ else
         public string? ClassNames { get; set; }
         public bool IsPresent { get; set; }
         public bool? HasAttendance { get; set; }
+        public bool SkipAttendanceRecheck { get; set; }
         public string? Note { get; set; }
         public decimal ShiftPay { get; set; }
     }
