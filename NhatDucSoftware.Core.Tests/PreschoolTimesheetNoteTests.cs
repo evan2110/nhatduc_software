@@ -14,6 +14,14 @@ public class PreschoolTimesheetNoteTests
     public void IsValid_AcceptsZeroAbsentWithoutNames()
     {
         Assert.True(PreschoolTimesheetNote.IsValid("Bé 2: 20, 0()", out _));
+        Assert.True(PreschoolTimesheetNote.IsValid("Lớn 11: 21, 0", out _));
+        Assert.True(PreschoolTimesheetNote.IsValid("Nhỡ 9: 9, 0", out _));
+    }
+
+    [Fact]
+    public void IsValid_AcceptsNamesSplitAcrossLines()
+    {
+        Assert.True(PreschoolTimesheetNote.IsValid("Bé 12: 13, 2(Nhiên\nP.Linh)", out _));
     }
 
     [Fact]

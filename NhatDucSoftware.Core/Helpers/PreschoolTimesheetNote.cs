@@ -8,7 +8,7 @@ public static class PreschoolTimesheetNote
     public const string FormatGuide = "Tên lớp: số đi học, số vắng(tên học sinh vắng)";
 
     private static readonly Regex LinePattern = new(
-        @"^\s*(.+?)\s*:\s*(\d+)\s*,\s*(\d+)\s*\(\s*([^)]*?)\s*\)\s*$",
+        @"^\s*(.+?)\s*:\s*(\d+)\s*,\s*(\d+)\s*(?:\(\s*([^)]*?)\s*\))?\s*$",
         RegexOptions.Compiled);
 
     public static bool IsValid(string? note, out string error)
@@ -26,8 +26,14 @@ public static class PreschoolTimesheetNote
             return false;
         }
 
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
+            var line = lines[i];
+            while (i + 1 < lines.Length && !line.Contains(')') && !lines[i + 1].Contains(':'))
+            {
+                line += " " + lines[++i];
+            }
+
             var match = LinePattern.Match(line);
             if (!match.Success || string.IsNullOrWhiteSpace(match.Groups[1].Value))
             {
@@ -36,7 +42,8 @@ public static class PreschoolTimesheetNote
             }
 
             var absent = int.Parse(match.Groups[3].Value);
-            if (absent > 0 && string.IsNullOrWhiteSpace(match.Groups[4].Value))
+            var names = match.Groups[4].Success ? match.Groups[4].Value : "";
+            if (absent > 0 && string.IsNullOrWhiteSpace(names))
             {
                 error = Guide("Khi có học sinh vắng phải ghi tên trong ngoặc.");
                 return false;
