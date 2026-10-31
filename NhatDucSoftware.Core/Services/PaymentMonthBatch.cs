@@ -157,6 +157,51 @@ public sealed class PaymentMonthBatch
             })
             .ToList();
 
+    public List<ClassTuitionMonthDetail> GetDetailsByClass(IEnumerable<PaymentClassListRow> students)
+    {
+        var groups = new Dictionary<int, ClassTuitionMonthDetail>();
+        foreach (var student in students)
+        {
+            foreach (var item in GetStudentBreakdown(student.StudentId))
+            {
+                if (item.TotalDue <= 0 && item.Paid <= 0 && item.Remaining <= 0 && item.CarryOver <= 0)
+                {
+                    continue;
+                }
+
+                if (!groups.TryGetValue(item.ClassId, out var group))
+                {
+                    group = new ClassTuitionMonthDetail
+                    {
+                        ClassId = item.ClassId,
+                        ClassName = string.IsNullOrWhiteSpace(item.ClassName) ? "Chưa rõ lớp" : item.ClassName
+                    };
+                    groups[item.ClassId] = group;
+                }
+
+                group.Students.Add(new ClassTuitionStudentLine
+                {
+                    Name = student.HoVaTen,
+                    GrossAttendance = item.GrossAttendance,
+                    DiscountAmount = item.DiscountAmount,
+                    CarryOver = item.CarryOver,
+                    TotalDue = item.TotalDue,
+                    Paid = item.Paid,
+                    Remaining = item.Remaining
+                });
+            }
+        }
+
+        foreach (var group in groups.Values)
+        {
+            group.Students.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        return groups.Values
+            .OrderBy(group => group.ClassName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
     public IEnumerable<(int ClassId, string ClassName, decimal NetAttendance)> GetClassNetAttendanceTotals()
     {
         var totals = new Dictionary<int, (string Name, decimal Amount)>();

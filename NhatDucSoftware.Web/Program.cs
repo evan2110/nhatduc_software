@@ -267,6 +267,16 @@ app.MapGet("/api/export/payments/{month:int}/{year:int}/{classId:int}", (int mon
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"HocPhi_{month:D2}_{year}.xlsx");
 }).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
+app.MapGet("/api/export/payments-by-class/{month:int}/{year:int}/{classId:int}", (int month, int year, int classId, ExcelExportService excel, PaymentService payments) =>
+{
+    var details = payments.GetTuitionDetailsByClass(classId, month, year);
+    var path = Path.Combine(Path.GetTempPath(), $"payments_by_class_{Guid.NewGuid():N}.xlsx");
+    excel.ExportTuitionByClassToExcel(details, month, year, path);
+    var bytes = File.ReadAllBytes(path);
+    File.Delete(path);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"HocPhiTheoLop_{month:D2}_{year}.xlsx");
+}).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
+
 app.MapGet("/api/export/revenue-month/{year:int}", (int year, ExcelExportService excel, ReportService reports) =>
 {
     var data = reports.GetRevenueByMonth(year);

@@ -723,6 +723,40 @@ a.brand-link:hover,
     margin-bottom: 0.5rem;
 }
 
+.summary-panel.summary-panel-clickable {
+    cursor: pointer;
+}
+
+.summary-panel.summary-panel-clickable:hover,
+.summary-panel.summary-panel-clickable:focus-visible {
+    border-color: #38bdf8;
+    background: #e0f2fe;
+}
+
+.summary-panel-hint {
+    margin: 0.45rem 0 0;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.modal-content.modal-tuition {
+    max-width: 1100px;
+}
+
+.tuition-class-section {
+    margin-bottom: 1.25rem;
+}
+
+.tuition-class-section h4 {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+}
+
+.tuition-class-section .text-muted {
+    margin: 0 0 0.5rem;
+}
+
 .summary-panel.student-summary {
     background: #f8fafc;
     border-color: #e2e8f0;

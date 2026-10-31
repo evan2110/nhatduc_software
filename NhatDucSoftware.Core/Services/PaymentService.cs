@@ -1008,6 +1008,13 @@ ORDER BY (lp.PaymentDate IS NULL), lp.PaymentDate DESC, fs.FullName ASC;";
     public ClassPaymentSummary GetClassPaymentSummary(int classId, int month, int year) =>
         PaymentMonthBatch.Load(classId, month, year).Summary;
 
+    public List<ClassTuitionMonthDetail> GetTuitionDetailsByClass(int classId, int month, int year)
+    {
+        var batch = PaymentMonthBatch.Load(classId, month, year);
+        var students = GetPaymentListByClassMonthYear(classId, month, year);
+        return batch.GetDetailsByClass(students);
+    }
+
     public PaymentMonthBatch LoadMonthBatch(int classId, int month, int year) =>
         PaymentMonthBatch.Load(classId, month, year);
 
@@ -1365,6 +1372,30 @@ public class StudentClassTuitionRow
     public decimal Paid { get; set; }
     public decimal Remaining { get; set; }
     public decimal CarryOver { get; set; }
+}
+
+public class ClassTuitionMonthDetail
+{
+    public int ClassId { get; set; }
+    public string ClassName { get; set; } = "";
+    public List<ClassTuitionStudentLine> Students { get; set; } = new();
+    public decimal GrossAttendance => Students.Sum(student => student.GrossAttendance);
+    public decimal DiscountAmount => Students.Sum(student => student.DiscountAmount);
+    public decimal CarryOver => Students.Sum(student => student.CarryOver);
+    public decimal TotalDue => Students.Sum(student => student.TotalDue);
+    public decimal Paid => Students.Sum(student => student.Paid);
+    public decimal Remaining => Students.Sum(student => student.Remaining);
+}
+
+public class ClassTuitionStudentLine
+{
+    public string Name { get; set; } = "";
+    public decimal GrossAttendance { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal CarryOver { get; set; }
+    public decimal TotalDue { get; set; }
+    public decimal Paid { get; set; }
+    public decimal Remaining { get; set; }
 }
 
 public class ClassPaymentSummary

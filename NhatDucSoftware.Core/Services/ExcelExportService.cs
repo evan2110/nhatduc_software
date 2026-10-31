@@ -355,6 +355,138 @@ public class ExcelExportService
         workbook.SaveAs(filePath);
     }
 
+    public void ExportTuitionByClassToExcel(List<ClassTuitionMonthDetail> classes, int month, int year, string filePath)
+    {
+        using var workbook = new XLWorkbook();
+        var usedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var summary = workbook.Worksheets.Add(GetUniqueSheetName("Tong hop", usedSheetNames));
+        summary.Cell(1, 1).Value = "Học phí theo lớp";
+        summary.Cell(1, 1).Style.Font.Bold = true;
+        summary.Cell(1, 1).Style.Font.FontSize = 14;
+        summary.Range(1, 1, 1, 8).Merge();
+        summary.Cell(2, 1).Value = $"Tháng: {month:D2}/{year}";
+        summary.Cell(2, 1).Style.Font.Bold = true;
+
+        summary.Cell(4, 1).Value = "Lớp";
+        summary.Cell(4, 2).Value = "Số học viên";
+        summary.Cell(4, 3).Value = "Học phí tháng";
+        summary.Cell(4, 4).Value = "Giảm";
+        summary.Cell(4, 5).Value = "Nợ chuyển";
+        summary.Cell(4, 6).Value = "Cần đóng";
+        summary.Cell(4, 7).Value = "Đã đóng";
+        summary.Cell(4, 8).Value = "Còn lại";
+        summary.Range(4, 1, 4, 8).Style.Font.Bold = true;
+        summary.Range(4, 1, 4, 8).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        var summaryRow = 5;
+        foreach (var group in classes)
+        {
+            summary.Cell(summaryRow, 1).Value = group.ClassName;
+            summary.Cell(summaryRow, 2).Value = group.Students.Count;
+            WriteTuitionAmounts(summary, summaryRow, 3, group.GrossAttendance, group.DiscountAmount, group.CarryOver, group.TotalDue, group.Paid, group.Remaining);
+            summaryRow++;
+        }
+
+        if (classes.Count > 0)
+        {
+            summary.Cell(summaryRow, 1).Value = "Tổng cộng";
+            summary.Cell(summaryRow, 1).Style.Font.Bold = true;
+            summary.Cell(summaryRow, 2).Value = classes.Sum(group => group.Students.Count);
+            summary.Cell(summaryRow, 2).Style.Font.Bold = true;
+            WriteTuitionAmounts(
+                summary,
+                summaryRow,
+                3,
+                classes.Sum(group => group.GrossAttendance),
+                classes.Sum(group => group.DiscountAmount),
+                classes.Sum(group => group.CarryOver),
+                classes.Sum(group => group.TotalDue),
+                classes.Sum(group => group.Paid),
+                classes.Sum(group => group.Remaining),
+                bold: true);
+            summary.Range(summaryRow, 1, summaryRow, 8).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        }
+
+        summary.Column(1).Width = 28;
+        summary.Column(2).Width = 14;
+        for (var column = 3; column <= 8; column++)
+        {
+            summary.Column(column).Width = 16;
+        }
+
+        foreach (var group in classes)
+        {
+            var sheet = workbook.Worksheets.Add(GetUniqueSheetName(group.ClassName, usedSheetNames));
+            sheet.Cell(1, 1).Value = group.ClassName;
+            sheet.Cell(1, 1).Style.Font.Bold = true;
+            sheet.Cell(1, 1).Style.Font.FontSize = 14;
+            sheet.Range(1, 1, 1, 7).Merge();
+            sheet.Cell(2, 1).Value = $"Tháng: {month:D2}/{year}";
+            sheet.Cell(2, 1).Style.Font.Bold = true;
+
+            sheet.Cell(4, 1).Value = "Họ tên";
+            sheet.Cell(4, 2).Value = "Học phí tháng";
+            sheet.Cell(4, 3).Value = "Giảm";
+            sheet.Cell(4, 4).Value = "Nợ chuyển";
+            sheet.Cell(4, 5).Value = "Cần đóng";
+            sheet.Cell(4, 6).Value = "Đã đóng";
+            sheet.Cell(4, 7).Value = "Còn lại";
+            sheet.Range(4, 1, 4, 7).Style.Font.Bold = true;
+            sheet.Range(4, 1, 4, 7).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+            var row = 5;
+            foreach (var student in group.Students)
+            {
+                sheet.Cell(row, 1).Value = student.Name;
+                WriteTuitionAmounts(sheet, row, 2, student.GrossAttendance, student.DiscountAmount, student.CarryOver, student.TotalDue, student.Paid, student.Remaining);
+                row++;
+            }
+
+            sheet.Cell(row, 1).Value = "Tổng lớp";
+            sheet.Cell(row, 1).Style.Font.Bold = true;
+            WriteTuitionAmounts(sheet, row, 2, group.GrossAttendance, group.DiscountAmount, group.CarryOver, group.TotalDue, group.Paid, group.Remaining, bold: true);
+            sheet.Range(row, 1, row, 7).Style.Fill.BackgroundColor = XLColor.LightYellow;
+
+            sheet.Column(1).Width = 28;
+            for (var column = 2; column <= 7; column++)
+            {
+                sheet.Column(column).Width = 16;
+            }
+        }
+
+        if (classes.Count == 0)
+        {
+            summary.Cell(5, 1).Value = "Không có học phí học viên trong tháng này.";
+        }
+
+        workbook.SaveAs(filePath);
+    }
+
+    private static void WriteTuitionAmounts(
+        IXLWorksheet sheet,
+        int row,
+        int startColumn,
+        decimal gross,
+        decimal discount,
+        decimal carryOver,
+        decimal due,
+        decimal paid,
+        decimal remaining,
+        bool bold = false)
+    {
+        decimal[] amounts = [gross, discount, carryOver, due, paid, remaining];
+        for (var index = 0; index < amounts.Length; index++)
+        {
+            var cell = sheet.Cell(row, startColumn + index);
+            cell.Value = amounts[index];
+            cell.Style.NumberFormat.Format = "#,##0";
+            if (bold)
+            {
+                cell.Style.Font.Bold = true;
+            }
+        }
+    }
+
     public void ExportCenterActivityByDateRange(
         DateTime fromDate,
         DateTime toDate,

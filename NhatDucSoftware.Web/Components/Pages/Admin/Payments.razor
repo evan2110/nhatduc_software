@@ -41,12 +41,13 @@ else
                 @for (int y = DateTime.Now.Year - 5; y <= DateTime.Now.Year + 1; y++) { <option value="@y">@y</option> }
             </select>
             <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
+            <a class="btn btn-success" href="@ClassTuitionExportUrl" target="_blank">Xuất Excel theo lớp</a>
             <button class="btn btn-primary" @onclick="OpenFinalizeConfirm" disabled="@IsFinalizeButtonDisabled">
                 @(_classId <= 0 ? "Chốt hàng loạt" : "Chốt số liệu")
             </button>
         </div>
 
-        <div class="summary-panel class-summary">
+        <div class="summary-panel class-summary summary-panel-clickable" role="button" tabindex="0" @onclick="OpenMonthDetail" @onkeydown="OnMonthDetailKeyDown">
             <div class="summary-panel-title">@(_classId <= 0 ? "Tổng học phí toàn trung tâm" : "Tổng học phí cả lớp")</div>
             <div class="summary-box">
                 <span>
@@ -59,6 +60,7 @@ else
                 <span>Tổng đã đóng: @MoneyHelper.FormatCurrency(_summary.TotalPaid)</span>
                 <span>Tổng còn lại: @MoneyHelper.FormatCurrency(_summary.TotalRemaining)</span>
             </div>
+            <p class="summary-panel-hint">Bấm để xem học phí từng học viên theo lớp.</p>
         </div>
 
         <div class="list-toolbar">
@@ -180,6 +182,74 @@ else
                 <button class="btn btn-primary" @onclick="CollectPayment" disabled="@(!CanCollectPayment)">Thu học phí</button>
                 <button class="btn btn-secondary" @onclick="PayFromBalanceSelected" disabled="@(!CanPayFromBalance)">Thanh toán từ số dư</button>
             }
+        </div>
+    }
+
+    @if (_showMonthDetail)
+    {
+        <div class="modal-backdrop" @onclick="CloseMonthDetail">
+            <div class="modal-content modal-tuition" @onclick:stopPropagation="true">
+                <h3>Chi tiết học phí tháng @_month.ToString("D2")/@_year</h3>
+                <a class="btn btn-success" href="@ClassTuitionExportUrl" target="_blank">Xuất Excel</a>
+                @if (_monthClassDetails.Count == 0)
+                {
+                    <p class="text-muted">Không có học phí học viên trong tháng này.</p>
+                }
+                else
+                {
+                    @foreach (var group in _monthClassDetails)
+                    {
+                        <section class="tuition-class-section">
+                            <h4>@group.ClassName</h4>
+                            <p class="text-muted">
+                                @group.Students.Count học viên
+                                · Cần đóng @MoneyHelper.FormatCurrency(group.TotalDue)
+                                · Đã đóng @MoneyHelper.FormatCurrency(group.Paid)
+                                · Còn lại @MoneyHelper.FormatCurrency(group.Remaining)
+                            </p>
+                            <div class="table-responsive">
+                                <table class="data-table compact">
+                                    <thead>
+                                        <tr>
+                                            <th>Họ tên</th>
+                                            <th>Học phí tháng</th>
+                                            <th>Giảm</th>
+                                            <th>Nợ chuyển</th>
+                                            <th>Cần đóng</th>
+                                            <th>Đã đóng</th>
+                                            <th>Còn lại</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var student in group.Students)
+                                        {
+                                            <tr>
+                                                <td>@student.Name</td>
+                                                <td>@MoneyHelper.FormatCurrency(student.GrossAttendance)</td>
+                                                <td>@MoneyHelper.FormatCurrency(student.DiscountAmount)</td>
+                                                <td>@MoneyHelper.FormatCurrency(student.CarryOver)</td>
+                                                <td>@MoneyHelper.FormatCurrency(student.TotalDue)</td>
+                                                <td>@MoneyHelper.FormatCurrency(student.Paid)</td>
+                                                <td class="amount-remaining">@MoneyHelper.FormatCurrency(student.Remaining)</td>
+                                            </tr>
+                                        }
+                                        <tr class="total-row">
+                                            <td>Tổng lớp</td>
+                                            <td>@MoneyHelper.FormatCurrency(group.GrossAttendance)</td>
+                                            <td>@MoneyHelper.FormatCurrency(group.DiscountAmount)</td>
+                                            <td>@MoneyHelper.FormatCurrency(group.CarryOver)</td>
+                                            <td>@MoneyHelper.FormatCurrency(group.TotalDue)</td>
+                                            <td>@MoneyHelper.FormatCurrency(group.Paid)</td>
+                                            <td class="amount-remaining">@MoneyHelper.FormatCurrency(group.Remaining)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    }
+                }
+                <button class="btn btn-secondary" @onclick="CloseMonthDetail">Đóng</button>
+            </div>
         </div>
     }
 
@@ -364,6 +434,9 @@ else
     private bool _isFinalized;
     private int _pendingFinalizeCount;
     private bool _showDetail;
+    private bool _showMonthDetail;
+    private List<ClassTuitionMonthDetail> _monthClassDetails = new();
+    private string ClassTuitionExportUrl => $"/api/export/payments-by-class/{_month}/{_year}/{_classId}";
     private bool _showDiscountModal;
     private bool _showFinalizeConfirm;
     private int _detailStudentId;
@@ -492,6 +565,25 @@ else
     {
         _currentPage = Math.Clamp(page, 1, TotalPages);
     }
+
+    private void OpenMonthDetail()
+    {
+        _monthClassDetails = BuildMonthClassDetails();
+        _showMonthDetail = true;
+    }
+
+    private void CloseMonthDetail() => _showMonthDetail = false;
+
+    private void OnMonthDetailKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            OpenMonthDetail();
+        }
+    }
+
+    private List<ClassTuitionMonthDetail> BuildMonthClassDetails() =>
+        _monthBatch?.GetDetailsByClass(_allPaymentRows) ?? new();
 
     private void OnFilterChanged()
     {
@@ -824,4 +916,5 @@ else
         }
         catch (Exception ex) { _message = ex.Message; _isError = true; }
     }
+
 }
