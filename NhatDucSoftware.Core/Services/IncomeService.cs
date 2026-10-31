@@ -12,6 +12,23 @@ public class IncomeService
 
     public static readonly string[] IncomeTypes = [TypeOther, TypePreschool];
 
+    public List<Income> GetAll()
+    {
+        var result = new List<Income>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, IncomeDate, IncomeType, Title, Amount, Note, CollectedBy, StudentCount, PricePerLesson, SalaryPerLesson, CreatedAt, CreatedBy FROM Incomes ORDER BY IncomeDate DESC, Id DESC;";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(ReadIncome(reader));
+        }
+
+        return result;
+    }
+
     public List<Income> GetByYearMonth(int year, int? month = null)
     {
         var result = new List<Income>();

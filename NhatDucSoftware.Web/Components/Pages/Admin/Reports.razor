@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject UserSession Session
 @inject ReportService ReportService
+@inject IncomeService IncomeService
 @inject LoadingService Loading
 @inject NavigationManager Nav
 @using NhatDucSoftware.Core.Models
@@ -26,8 +27,40 @@ else
     <div class="card">
         <div class="summary-box">
             <span>Tổng học viên: @_summary.TotalStudents</span>
-            <span>Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)</span>
-            <span>Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng doanh thu: @MoneyHelper.FormatCurrency(_summary.TotalRevenue)
+                <span class="summary-tooltip summary-tooltip-list" role="tooltip">
+                    <span>Học phí đã thu: @MoneyHelper.FormatCurrency(_summary.TuitionCollected)</span>
+                    @if (_revenueIncomes.Count == 0)
+                    {
+                        <span>Chưa có khoản thu thêm.</span>
+                    }
+                    else
+                    {
+                        @foreach (var income in _revenueIncomes)
+                        {
+                            <span>@FormatIncomeDate(income.IncomeDate) · @income.IncomeType · @income.Title: @MoneyHelper.FormatCurrency(income.Amount)</span>
+                        }
+                    }
+                </span>
+            </span>
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(SelectedYearIncomeTotal)
+                <span class="summary-tooltip summary-tooltip-list" role="tooltip">
+                    <span>Học phí từ điểm danh: @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
+                    @if (IncomesForSelectedYear.Count == 0)
+                    {
+                        <span>Chưa có khoản thu thêm trong năm @_selectedYear.</span>
+                    }
+                    else
+                    {
+                        @foreach (var income in IncomesForSelectedYear)
+                        {
+                            <span>@FormatIncomeDate(income.IncomeDate) · @income.IncomeType · @income.Title: @MoneyHelper.FormatCurrency(income.Amount)</span>
+                        }
+                    }
+                </span>
+            </span>
             <span class="summary-tooltip-wrap" tabindex="0">
                 Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)
                 <span class="summary-tooltip" role="tooltip">
@@ -237,6 +270,7 @@ else
     private enum DetailType { Expense, Tuition }
 
     private ReportSummary _summary = new();
+    private List<Income> _revenueIncomes = new();
     private List<RevenueByYearStat> _revenueByYear = new();
     private List<RevenueByMonthStat> _revenueByMonth = new();
     private List<MonthlyAmountStat> _expenseByMonth = new();
@@ -263,6 +297,7 @@ else
         try
         {
             _summary = await Task.Run(ReportService.GetSummary);
+            _revenueIncomes = await Task.Run(IncomeService.GetAll);
             _revenueByYear = await Task.Run(ReportService.GetRevenueByYear);
             BindYears();
             await LoadAllReportsAsync(showLoading: false);
@@ -276,6 +311,15 @@ else
             Loading.Hide();
         }
     }
+
+    private static string FormatIncomeDate(string value) =>
+        DateTime.TryParse(value, out var date) ? date.ToString("dd/MM/yyyy") : value;
+
+    private List<Income> IncomesForSelectedYear =>
+        _revenueIncomes.Where(income => DateTime.TryParse(income.IncomeDate, out var date) && date.Year == _selectedYear).ToList();
+
+    private decimal SelectedYearIncomeTotal =>
+        _summary.TotalTuitionEarned + IncomesForSelectedYear.Sum(income => income.Amount);
 
     private void BindYears()
     {

@@ -43,7 +43,11 @@ public class ReportService
 
         using var revenueCmd = connection.CreateCommand();
         revenueCmd.CommandText = "SELECT COALESCE(SUM(Amount), 0) FROM RevenueLedger;";
-        result.TotalRevenue = Convert.ToDecimal(revenueCmd.ExecuteScalar());
+        result.TuitionCollected = Convert.ToDecimal(revenueCmd.ExecuteScalar());
+
+        using var incomeCmd = connection.CreateCommand();
+        incomeCmd.CommandText = "SELECT COALESCE(SUM(Amount), 0) FROM Incomes;";
+        result.TotalRevenue = result.TuitionCollected + Convert.ToDecimal(incomeCmd.ExecuteScalar());
 
         using var classCmd = connection.CreateCommand();
         classCmd.CommandText = "SELECT COUNT(1) FROM Classes WHERE Status = 'Active';";
@@ -93,14 +97,7 @@ public class ReportService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT CAST(LEFT(PaymentDate::text, 4) AS INTEGER) AS RevenueYear,
-       COALESCE(SUM(Amount), 0) AS TotalRevenue
-FROM RevenueLedger
-WHERE LENGTH(PaymentDate::text) >= 4
-  AND LEFT(PaymentDate::text, 4) ~ '^\d{4}$'
-GROUP BY LEFT(PaymentDate::text, 4)
-ORDER BY RevenueYear DESC;";
+        command.CommandText = "SELECT RevenueYear, COALESCE(SUM(Amount), 0) AS TotalRevenue FROM (SELECT CAST(LEFT(PaymentDate::text, 4) AS INTEGER) AS RevenueYear, Amount FROM RevenueLedger WHERE LENGTH(PaymentDate::text) >= 4 AND LEFT(PaymentDate::text, 4) ~ '^[0-9]{4}$' UNION ALL SELECT CAST(LEFT(IncomeDate, 4) AS INTEGER) AS RevenueYear, Amount FROM Incomes WHERE LENGTH(IncomeDate) >= 4 AND LEFT(IncomeDate, 4) ~ '^[0-9]{4}$') AS revenue GROUP BY RevenueYear ORDER BY RevenueYear DESC;";
 
         using var reader = command.ExecuteReader();
         while (reader.Read())
@@ -123,15 +120,7 @@ ORDER BY RevenueYear DESC;";
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"
-SELECT CAST(SUBSTRING(PaymentDate::text FROM 6 FOR 2) AS INTEGER) AS Month,
-       COALESCE(SUM(Amount), 0) AS TotalRevenue
-FROM RevenueLedger
-WHERE LEFT(PaymentDate::text, 4) = @yearText
-  AND LENGTH(PaymentDate::text) >= 7
-  AND SUBSTRING(PaymentDate::text FROM 6 FOR 2) ~ '^\d{2}$'
-GROUP BY SUBSTRING(PaymentDate::text FROM 6 FOR 2)
-ORDER BY Month;";
+        command.CommandText = "SELECT Month, COALESCE(SUM(Amount), 0) AS TotalRevenue FROM (SELECT CAST(SUBSTRING(PaymentDate::text FROM 6 FOR 2) AS INTEGER) AS Month, Amount FROM RevenueLedger WHERE LEFT(PaymentDate::text, 4) = @yearText AND LENGTH(PaymentDate::text) >= 7 AND SUBSTRING(PaymentDate::text FROM 6 FOR 2) ~ '^[0-9]{2}$' UNION ALL SELECT CAST(SUBSTRING(IncomeDate FROM 6 FOR 2) AS INTEGER) AS Month, Amount FROM Incomes WHERE LEFT(IncomeDate, 4) = @yearText AND LENGTH(IncomeDate) >= 7 AND SUBSTRING(IncomeDate FROM 6 FOR 2) ~ '^[0-9]{2}$') AS revenue GROUP BY Month ORDER BY Month;";
         command.Parameters.AddWithValue("@yearText", year.ToString());
 
         using var reader = command.ExecuteReader();

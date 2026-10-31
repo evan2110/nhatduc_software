@@ -691,6 +691,13 @@ a.brand-link:hover,
     flex: none;
 }
 
+.summary-tooltip.summary-tooltip-list {
+    white-space: normal;
+    max-width: 24rem;
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
 .summary-tooltip-wrap:hover .summary-tooltip,
 .summary-tooltip-wrap:focus-within .summary-tooltip {
     display: block;
