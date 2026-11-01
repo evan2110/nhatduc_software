@@ -12,11 +12,13 @@ public class GeminiGradeParserTests
         Assert.Contains("Đáp án A", written);
 
         var speaking = GeminiGradePrompt.Build("Speaking", "Grade 2A", "Unit 3", "An", "Đề", null);
+        Assert.Contains("PHIẾU CHẤM BÀI NÓI", speaking);
         Assert.Contains("phát âm", speaking);
         Assert.Contains("độ trôi chảy", speaking);
         Assert.Contains("ngữ pháp", speaking);
         Assert.Contains("từ vựng", speaking);
         Assert.Contains("nội dung", speaking);
+        Assert.Contains("không phải object", speaking);
     }
 
     [Fact]
@@ -32,5 +34,16 @@ public class GeminiGradeParserTests
         Assert.True(bad.ScoreMissing);
         Assert.Equal("Xem lại", bad.ShortComment);
         Assert.Equal("Phiếu", bad.ReportText);
+    }
+
+    [Fact]
+    public void Parse_TurnsASpeakingCriteriaObjectIntoReadableText()
+    {
+        var draft = GeminiGradeParser.Parse("""
+            {"score":"8","shortComment":"Khá","report":{"phát âm":"Rõ từ \"show\".","độ trôi chảy":"Chậm."}}
+            """);
+
+        Assert.Equal(8m, draft.Score);
+        Assert.Equal("PHIẾU CHẤM BÀI NÓI\n\nĐiểm: 8\n\nPhát âm: Rõ từ \"show\".\n\nĐộ trôi chảy: Chậm.", draft.ReportText);
     }
 }

@@ -598,7 +598,7 @@ else
         var row = SelectedRow;
         _scoreText = row?.Score?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
         _comment = row?.ShortComment ?? "";
-        _report = row?.ReportText ?? "";
+        _report = GeminiGradeParser.NormalizeReport(row?.ReportText, _scoreText);
     }
 
     private async Task CopyAnnouncement()
