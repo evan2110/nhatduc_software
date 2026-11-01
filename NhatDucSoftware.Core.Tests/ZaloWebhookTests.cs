@@ -76,6 +76,14 @@ public class ZaloWebhookTests
         Assert.DoesNotContain("owner-chat", handler.Bodies[0]);
     }
 
+    [Fact]
+    public void UnlinkByChat_ClearsOnlyTheMatchingGroup()
+    {
+        Assert.Contains("SET ZaloChatId = NULL", ZaloChatSql.UnlinkByChat);
+        Assert.Contains("WHERE ZaloChatId = @chatId", ZaloChatSql.UnlinkByChat);
+        Assert.DoesNotContain("\n", ZaloChatSql.UnlinkByChat);
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public List<string> Bodies { get; } = new();

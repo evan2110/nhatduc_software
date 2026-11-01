@@ -10,6 +10,23 @@ public static class ZaloWebhookEndpoint
     public static string LinkedAck(string className) =>
         $"Đã gắn nhóm này với lớp {className}. Bài tập của lớp sẽ được gửi vào đây.";
 
+    public const string NotLinkedAck = "Nhóm này chưa gắn với lớp nào.";
+
+    public static string UnlinkedAck(IReadOnlyList<string> classNames)
+    {
+        if (classNames.Count == 0)
+        {
+            return NotLinkedAck;
+        }
+
+        if (classNames.Count == 1)
+        {
+            return $"Đã hủy gắn nhóm này với lớp {classNames[0]}.";
+        }
+
+        return "Đã hủy gắn nhóm này với các lớp " + string.Join(", ", classNames) + ".";
+    }
+
     public static async Task<IResult> Handle(
         HttpContext context,
         ZaloBotClient zalo,
@@ -43,12 +60,19 @@ public static class ZaloWebhookEndpoint
             try
             {
                 chats.Remember(update.ChatId, "GROUP");
-                var names = classes.GetAll().Select(item => (item.Id, item.ClassName));
-                var match = ZaloClassLink.Match(names, update.Text);
-                if (match is ZaloClassMatch linked)
+                if (ZaloClassLink.IsCancel(update.Text))
                 {
-                    chats.LinkClass(linked.Id, update.ChatId);
-                    reply = LinkedAck(linked.Name);
+                    reply = UnlinkedAck(chats.UnlinkByChat(update.ChatId));
+                }
+                else
+                {
+                    var names = classes.GetAll().Select(item => (item.Id, item.ClassName));
+                    var match = ZaloClassLink.Match(names, update.Text);
+                    if (match is ZaloClassMatch linked)
+                    {
+                        chats.LinkClass(linked.Id, update.ChatId);
+                        reply = LinkedAck(linked.Name);
+                    }
                 }
             }
             catch (Exception ex)

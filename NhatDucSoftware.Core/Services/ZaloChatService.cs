@@ -9,6 +9,7 @@ public static class ZaloChatSql
     public const string Remember = "INSERT INTO ZaloChats(ChatId, ChatType, UpdatedAt) VALUES(@chatId, @chatType, @updatedAt) ON CONFLICT (ChatId) DO UPDATE SET ChatType = EXCLUDED.ChatType, UpdatedAt = EXCLUDED.UpdatedAt;";
     public const string AddClassColumn = "ALTER TABLE Classes ADD COLUMN IF NOT EXISTS ZaloChatId TEXT;";
     public const string LinkClass = "UPDATE Classes SET ZaloChatId = @chatId WHERE Id = @classId;";
+    public const string UnlinkByChat = "UPDATE Classes SET ZaloChatId = NULL WHERE ZaloChatId = @chatId RETURNING COALESCE(ClassName, '');";
     public const string GetChatId = "SELECT ZaloChatId FROM Classes WHERE Id = @id;";
 }
 
@@ -35,6 +36,30 @@ public sealed class ZaloChatService
         command.Parameters.AddWithValue("@chatId", chatId);
         command.Parameters.AddWithValue("@classId", classId);
         command.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<string> UnlinkByChat(string chatId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = ZaloChatSql.UnlinkByChat;
+        command.Parameters.AddWithValue("@chatId", chatId);
+        var names = new List<string>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(0))
+            {
+                var name = reader.GetString(0).Trim();
+                if (name.Length > 0)
+                {
+                    names.Add(name);
+                }
+            }
+        }
+
+        return names;
     }
 
     public string? GetChatId(int classId)

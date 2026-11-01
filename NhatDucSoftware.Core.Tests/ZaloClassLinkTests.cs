@@ -43,4 +43,22 @@ public class ZaloClassLinkTests
         Assert.Null(ZaloClassLink.Match(classes, "  "));
         Assert.Null(ZaloClassLink.Match(classes, "A"));
     }
+
+    [Theory]
+    [InlineData("@Bot Nhật Đức Cancel")]
+    [InlineData("cancel")]
+    [InlineData("CANCEL lớp này")]
+    public void IsCancel_AcceptsTheCancelWord(string text)
+    {
+        Assert.True(ZaloClassLink.IsCancel(text));
+    }
+
+    [Theory]
+    [InlineData("TOÁN THCS LỚP 6")]
+    [InlineData("cancellation")]
+    [InlineData("")]
+    public void IsCancel_IgnoresOtherText(string text)
+    {
+        Assert.False(ZaloClassLink.IsCancel(text));
+    }
 }

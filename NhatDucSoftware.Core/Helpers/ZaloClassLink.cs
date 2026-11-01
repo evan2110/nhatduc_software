@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace NhatDucSoftware.Core.Helpers;
 
 public readonly record struct ZaloClassMatch(int Id, string Name);
@@ -40,5 +42,15 @@ public static class ZaloClassLink
         }
 
         return ambiguous || bestLength == 0 ? null : new ZaloClassMatch(bestId, bestName);
+    }
+
+    public static bool IsCancel(string? messageText)
+    {
+        if (string.IsNullOrWhiteSpace(messageText))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(messageText, @"\bcancel\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 }
