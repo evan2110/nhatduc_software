@@ -31,7 +31,11 @@ public class HomeworkSqlTests
     public void AddedStatements_AreSingleLine()
     {
         Assert.DoesNotContain("\n", HomeworkSql.ListForTeacher);
+        Assert.DoesNotContain("c.CourseCode", HomeworkSql.ListForTeacher);
+        Assert.Contains("co.Code", HomeworkSql.ListForTeacher);
         Assert.DoesNotContain("\n", HomeworkSql.GetAssignment);
+        Assert.DoesNotContain("c.CourseCode", HomeworkSql.GetAssignment);
+        Assert.Contains("co.Code", HomeworkSql.GetAssignment);
         Assert.DoesNotContain("\n", HomeworkSql.ListRows);
         Assert.DoesNotContain("\n", HomeworkSql.StudentInClass);
         Assert.DoesNotContain("\n", HomeworkSql.SetDriveFolder);
