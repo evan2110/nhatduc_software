@@ -14,4 +14,7 @@ public static class HomeworkSql
     public const string SetDriveFolder = "UPDATE HomeworkAssignments SET DriveFolderId = @driveFolderId WHERE Id = @id AND DriveFolderId IS NULL;";
     public const string ReplaceAnswerKeyFile = "UPDATE HomeworkAssignments SET AnswerKeyFileName = @fileName, AnswerKeyDriveFileId = @driveFileId, AnswerKeyDriveWebViewLink = @webViewLink WHERE Id = @id AND TeacherId = @teacherId;";
     public const string UpdateAnswerKeyText = "UPDATE HomeworkAssignments SET AnswerKeyText = @answerKeyText WHERE Id = @id AND TeacherId = @teacherId;";
+    public const string DeleteSubmissions = "DELETE FROM HomeworkSubmissions WHERE AssignmentId IN (SELECT Id FROM HomeworkAssignments WHERE Id = @id AND TeacherId = @teacherId);";
+    public const string DeleteAssignment = "DELETE FROM HomeworkAssignments WHERE Id = @id AND TeacherId = @teacherId;";
+    public const string ListDriveFileIds = "SELECT AnswerKeyDriveFileId FROM HomeworkAssignments WHERE Id = @id AND TeacherId = @teacherId AND AnswerKeyDriveFileId IS NOT NULL UNION ALL SELECT s.DriveFileId FROM HomeworkSubmissions s INNER JOIN HomeworkAssignments a ON a.Id = s.AssignmentId WHERE a.Id = @id AND a.TeacherId = @teacherId AND s.DriveFileId IS NOT NULL UNION ALL SELECT s.PendingDriveFileId FROM HomeworkSubmissions s INNER JOIN HomeworkAssignments a ON a.Id = s.AssignmentId WHERE a.Id = @id AND a.TeacherId = @teacherId AND s.PendingDriveFileId IS NOT NULL;";
 }

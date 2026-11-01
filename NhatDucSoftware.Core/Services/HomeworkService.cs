@@ -75,6 +75,51 @@ public class HomeworkService
         return result;
     }
 
+    public async Task DeleteAssignment(int teacherId, int assignmentId)
+    {
+        var assignment = RequireAssignment(teacherId, assignmentId);
+        EnsureTeaches(teacherId, assignment.ClassId);
+        var fileIds = ListDriveFileIds(teacherId, assignmentId);
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        using (var deleteSubs = connection.CreateCommand())
+        {
+            deleteSubs.Transaction = transaction;
+            deleteSubs.CommandText = HomeworkSql.DeleteSubmissions;
+            deleteSubs.Parameters.AddWithValue("@id", assignmentId);
+            deleteSubs.Parameters.AddWithValue("@teacherId", teacherId);
+            deleteSubs.ExecuteNonQuery();
+        }
+
+        using var deleteAssignment = connection.CreateCommand();
+        deleteAssignment.Transaction = transaction;
+        deleteAssignment.CommandText = HomeworkSql.DeleteAssignment;
+        deleteAssignment.Parameters.AddWithValue("@id", assignmentId);
+        deleteAssignment.Parameters.AddWithValue("@teacherId", teacherId);
+        if (deleteAssignment.ExecuteNonQuery() == 0)
+        {
+            transaction.Rollback();
+            throw new InvalidOperationException("Không tìm thấy bài tập.");
+        }
+
+        transaction.Commit();
+
+        foreach (var fileId in fileIds.Distinct(StringComparer.Ordinal))
+        {
+            try
+            {
+                await _drive.DeleteFileAsync(fileId);
+            }
+            catch (Exception)
+            {
+                // The assignment row is already gone. A leftover Drive file can be removed later.
+            }
+        }
+    }
+
     public HomeworkAssignment? GetAssignment(int teacherId, int assignmentId)
     {
         using var connection = DbContext.CreateConnection();
@@ -300,6 +345,31 @@ public class HomeworkService
     {
         return GetAssignment(teacherId, assignmentId)
             ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
+    }
+
+    private static List<string> ListDriveFileIds(int teacherId, int assignmentId)
+    {
+        var result = new List<string>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.ListDriveFileIds;
+        command.Parameters.AddWithValue("@id", assignmentId);
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(0))
+            {
+                var fileId = Convert.ToString(reader.GetValue(0), CultureInfo.InvariantCulture);
+                if (!string.IsNullOrWhiteSpace(fileId))
+                {
+                    result.Add(fileId);
+                }
+            }
+        }
+
+        return result;
     }
 
     private static bool IsStudentInClass(int classId, int studentId)

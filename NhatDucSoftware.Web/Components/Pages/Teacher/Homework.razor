@@ -125,7 +125,10 @@ else
                                 <td>@a.Title</td>
                                 <td>@a.AssignedOn.ToString("dd/MM/yyyy")</td>
                                 <td>@KindLabel(a.Kind)</td>
-                                <td><button class="btn btn-secondary btn-sm" @onclick="() => SelectAssignment(assignmentId)">Mở</button></td>
+                                <td>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => SelectAssignment(assignmentId)">Mở</button>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteAssignmentAsync(assignmentId)">Xóa</button>
+                                </td>
                             </tr>
                         }
                     }
@@ -453,6 +456,37 @@ else
         catch (Exception ex)
         {
             ShowFailure(ex, "Không tạo được bài tập.");
+        }
+    }
+
+    private async Task DeleteAssignmentAsync(int assignmentId)
+    {
+        if (TeacherId is not int teacherId)
+        {
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Xóa bài tập này cùng bài làm và phiếu chấm? Thao tác không hoàn tác.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _message = null;
+        try
+        {
+            await HomeworkService.DeleteAssignment(teacherId, assignmentId);
+            if (_assignment?.Id == assignmentId)
+            {
+                ClearSelection();
+            }
+
+            LoadAssignments(teacherId);
+            ShowSuccess("Đã xóa bài tập.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không xóa được bài tập.");
         }
     }
 

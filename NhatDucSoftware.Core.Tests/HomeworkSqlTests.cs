@@ -41,5 +41,11 @@ public class HomeworkSqlTests
         Assert.DoesNotContain("\n", HomeworkSql.SetDriveFolder);
         Assert.DoesNotContain("\n", HomeworkSql.ReplaceAnswerKeyFile);
         Assert.DoesNotContain("\n", HomeworkSql.UpdateAnswerKeyText);
+        Assert.DoesNotContain("\n", HomeworkSql.DeleteSubmissions);
+        Assert.DoesNotContain("\n", HomeworkSql.DeleteAssignment);
+        Assert.Contains("TeacherId = @teacherId", HomeworkSql.DeleteSubmissions);
+        Assert.Contains("TeacherId = @teacherId", HomeworkSql.DeleteAssignment);
+        Assert.Contains("HomeworkSubmissions", HomeworkSql.DeleteSubmissions);
+        Assert.DoesNotContain("\n", HomeworkSql.ListDriveFileIds);
     }
 }
