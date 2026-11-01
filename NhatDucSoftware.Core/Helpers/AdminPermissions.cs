@@ -44,4 +44,7 @@ public static class AdminPermissions
 
     public static bool CanManageTuitionDiscount(AuthenticatedUser? user) =>
         IsAdmin(user) && !IsRestrictedAdmin(user);
+
+    public static bool CanEditTuitionDiscountManagement(AuthenticatedUser? user) =>
+        IsAdmin(user) && string.Equals(user!.Username, "nhatduck", StringComparison.OrdinalIgnoreCase);
 }

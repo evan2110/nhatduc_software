@@ -42,6 +42,7 @@ else
             </select>
             <a class="btn btn-success" href="@($"/api/export/payments/{_month}/{_year}/{_classId}")" target="_blank">Xuất Excel</a>
             <a class="btn btn-success" href="@ClassTuitionExportUrl" target="_blank">Xuất Excel theo lớp</a>
+            <button class="btn btn-secondary" @onclick="OpenDiscountManager">Quản lý giảm phí</button>
             <button class="btn btn-primary" @onclick="OpenFinalizeConfirm" disabled="@IsFinalizeButtonDisabled">
                 @(_classId <= 0 ? "Chốt hàng loạt" : "Chốt số liệu")
             </button>
@@ -316,6 +317,113 @@ else
         </div>
     }
 
+    @if (_showDiscountManager)
+    {
+        <div class="modal-backdrop" @onclick="CloseDiscountManager">
+            <div class="modal-content modal-tuition" @onclick:stopPropagation="true">
+                <h3>Quản lý giảm phí tháng @_month.ToString("D2")/@_year</h3>
+                <p class="text-muted">Danh sách học viên đang được giảm phí. Chỉ tài khoản nhatduck được chỉnh sửa.</p>
+                @if (!string.IsNullOrEmpty(_discountManagerMessage))
+                {
+                    <div class="alert @(_discountManagerIsError ? "alert-danger" : "alert-success")">@_discountManagerMessage</div>
+                }
+                @if (_discountManagerRows.Count == 0)
+                {
+                    <p class="text-muted">Không có học viên được giảm phí trong tháng này.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="data-table compact">
+                            <thead>
+                                <tr>
+                                    <th>Họ tên</th>
+                                    <th>Lớp</th>
+                                    <th>% giảm</th>
+                                    <th>Ghi chú</th>
+                                    <th>Học phí tháng</th>
+                                    <th>Nợ chuyển</th>
+                                    <th>Tiền giảm</th>
+                                    <th>Cần đóng</th>
+                                    <th>Đã đóng</th>
+                                    <th>Còn lại</th>
+                                    <th>Người tạo</th>
+                                    <th>Thời gian</th>
+                                    @if (Session.CanEditTuitionDiscountManagement)
+                                    {
+                                        <th></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _discountManagerRows)
+                                {
+                                    var editing = _editingDiscountStudentId == item.StudentId;
+                                    <tr>
+                                        <td>@item.StudentName</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.ClassNames) ? "-" : item.ClassNames)</td>
+                                        <td>
+                                            @if (editing)
+                                            {
+                                                <input type="number" min="0" max="100" step="0.5" @bind="_editDiscountPercentText" />
+                                            }
+                                            else
+                                            {
+                                                @FormatPercent(item.DiscountPercent)
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (editing)
+                                            {
+                                                <input @bind="_editDiscountNote" />
+                                            }
+                                            else
+                                            {
+                                                @(string.IsNullOrWhiteSpace(item.Note) ? "-" : item.Note)
+                                            }
+                                        </td>
+                                        <td>@MoneyHelper.FormatCurrency(item.TotalGrossAttendance)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.TotalCarryOver)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.TotalDiscountAmount)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.TotalDueAfterDiscount)</td>
+                                        <td>@MoneyHelper.FormatCurrency(item.TotalPaid)</td>
+                                        <td class="amount-remaining">@MoneyHelper.FormatCurrency(item.TotalRemainingAfterDiscount)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.CreatedByUsername) ? "-" : item.CreatedByUsername)</td>
+                                        <td>@FormatDiscountCreatedAt(item.CreatedAt)</td>
+                                        @if (Session.CanEditTuitionDiscountManagement)
+                                        {
+                                            <td>
+                                                @if (item.IsLocked)
+                                                {
+                                                    <span class="text-muted">Đã chốt</span>
+                                                }
+                                                else if (editing)
+                                                {
+                                                    <div class="table-actions">
+                                                        <button class="btn btn-primary btn-sm" @onclick="() => SaveManagedDiscount(item.StudentId)">Lưu</button>
+                                                        <button class="btn btn-secondary btn-sm" @onclick="CancelEditManagedDiscount">Hủy</button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="table-actions">
+                                                        <button class="btn btn-secondary btn-sm" @onclick="() => BeginEditManagedDiscount(item)">Sửa</button>
+                                                        <button class="btn btn-danger btn-sm" @onclick="() => ClearManagedDiscount(item)">Xóa giảm</button>
+                                                    </div>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                <button class="btn btn-secondary" @onclick="CloseDiscountManager">Đóng</button>
+            </div>
+        </div>
+    }
+
     @if (_showDiscountModal)
     {
         <div class="modal-backdrop" @onclick="CloseDiscountModal">
@@ -438,6 +546,13 @@ else
     private List<ClassTuitionMonthDetail> _monthClassDetails = new();
     private string ClassTuitionExportUrl => $"/api/export/payments-by-class/{_month}/{_year}/{_classId}";
     private bool _showDiscountModal;
+    private bool _showDiscountManager;
+    private List<StudentTuitionDiscountListItem> _discountManagerRows = new();
+    private int? _editingDiscountStudentId;
+    private string _editDiscountPercentText = "0";
+    private string _editDiscountNote = "";
+    private string? _discountManagerMessage;
+    private bool _discountManagerIsError;
     private bool _showFinalizeConfirm;
     private int _detailStudentId;
     private int _discountStudentId;
@@ -639,6 +754,108 @@ else
         }
         if (carryOverFallback > 0) _needText += $" (nợ chuyển từ tháng trước: {MoneyHelper.FormatCurrency(carryOverFallback)})";
     }
+
+    private void OpenDiscountManager()
+    {
+        _editingDiscountStudentId = null;
+        _discountManagerMessage = null;
+        _discountManagerIsError = false;
+        LoadDiscountManager();
+        _showDiscountManager = true;
+    }
+
+    private void CloseDiscountManager() => _showDiscountManager = false;
+
+    private void LoadDiscountManager()
+    {
+        _discountManagerRows = PaymentService.GetTuitionDiscountsForMonth(_classId, _month, _year);
+    }
+
+    private void BeginEditManagedDiscount(StudentTuitionDiscountListItem item)
+    {
+        if (!Session.CanEditTuitionDiscountManagement)
+        {
+            _discountManagerMessage = "Chỉ tài khoản nhatduck mới được chỉnh sửa giảm phí.";
+            _discountManagerIsError = true;
+            return;
+        }
+
+        _editingDiscountStudentId = item.StudentId;
+        _editDiscountPercentText = item.DiscountPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        _editDiscountNote = item.Note;
+        _discountManagerMessage = null;
+    }
+
+    private void CancelEditManagedDiscount()
+    {
+        _editingDiscountStudentId = null;
+        _discountManagerMessage = null;
+    }
+
+    private void SaveManagedDiscount(int studentId)
+    {
+        if (!TrySaveManagedDiscount(studentId, _editDiscountPercentText, _editDiscountNote))
+        {
+            return;
+        }
+
+        _editingDiscountStudentId = null;
+        _discountManagerMessage = "Đã cập nhật giảm phí.";
+        _discountManagerIsError = false;
+        LoadDiscountManager();
+        LoadGrid();
+    }
+
+    private void ClearManagedDiscount(StudentTuitionDiscountListItem item)
+    {
+        if (!TrySaveManagedDiscount(item.StudentId, "0", ""))
+        {
+            return;
+        }
+
+        _editingDiscountStudentId = null;
+        _discountManagerMessage = $"Đã xóa giảm phí của {item.StudentName}.";
+        _discountManagerIsError = false;
+        LoadDiscountManager();
+        LoadGrid();
+    }
+
+    private bool TrySaveManagedDiscount(int studentId, string percentText, string? note)
+    {
+        if (!Session.CanEditTuitionDiscountManagement || Session.CurrentUser is null)
+        {
+            _discountManagerMessage = "Chỉ tài khoản nhatduck mới được chỉnh sửa giảm phí.";
+            _discountManagerIsError = true;
+            return false;
+        }
+
+        if (!decimal.TryParse(percentText.Trim().Replace(',', '.'),
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent))
+        {
+            _discountManagerMessage = "Phần trăm giảm không hợp lệ.";
+            _discountManagerIsError = true;
+            return false;
+        }
+
+        try
+        {
+            PaymentService.SaveManagedTuitionDiscount(studentId, _month, _year, percent, Session.CurrentUser.Id, note);
+            _message = "Đã cập nhật giảm phí.";
+            _isError = false;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _discountManagerMessage = ex.Message;
+            _discountManagerIsError = true;
+            return false;
+        }
+    }
+
+    private static string FormatDiscountCreatedAt(string value) =>
+        DateTime.TryParse(value, out var date) ? date.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : value;
 
     private void OpenDiscountModal(PaymentClassListRow row)
     {

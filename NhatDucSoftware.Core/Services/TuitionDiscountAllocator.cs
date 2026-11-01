@@ -79,6 +79,24 @@ public sealed class TuitionClassAllocation
     public decimal TotalDue => Math.Max(0, DiscountableBase - DiscountAllocated);
 }
 
+public sealed class StudentTuitionDiscountListItem
+{
+    public int StudentId { get; set; }
+    public string StudentName { get; set; } = "";
+    public string ClassNames { get; set; } = "";
+    public decimal DiscountPercent { get; set; }
+    public string Note { get; set; } = "";
+    public string CreatedAt { get; set; } = "";
+    public string CreatedByUsername { get; set; } = "";
+    public decimal TotalGrossAttendance { get; set; }
+    public decimal TotalCarryOver { get; set; }
+    public decimal TotalDiscountAmount { get; set; }
+    public decimal TotalDueAfterDiscount { get; set; }
+    public decimal TotalPaid { get; set; }
+    public decimal TotalRemainingAfterDiscount { get; set; }
+    public bool IsLocked { get; set; }
+}
+
 public sealed class StudentTuitionDiscountInfo
 {
     public decimal DiscountPercent { get; set; }

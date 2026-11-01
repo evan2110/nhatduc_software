@@ -178,6 +178,62 @@ WHERE cs.StudentId = @studentId;";
         };
     }
 
+    public List<StudentTuitionDiscountListItem> GetTuitionDiscountsForMonth(int classId, int month, int year)
+    {
+        var result = new List<StudentTuitionDiscountListItem>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT d.StudentId, s.FullName, d.DiscountPercent, COALESCE(d.Note, ''), d.CreatedAt, COALESCE(u.Username, ''), COALESCE((SELECT STRING_AGG(c.ClassName, ', ' ORDER BY c.ClassName) FROM ClassStudents cs INNER JOIN Classes c ON c.Id = cs.ClassId WHERE cs.StudentId = d.StudentId), '') FROM StudentTuitionDiscounts d INNER JOIN Students s ON s.Id = d.StudentId LEFT JOIN Users u ON u.Id = d.CreatedBy WHERE d.Month = @month AND d.Year = @year AND d.DiscountPercent > 0 AND (@classId = 0 OR EXISTS (SELECT 1 FROM ClassStudents csf WHERE csf.StudentId = d.StudentId AND csf.ClassId = @classId)) ORDER BY s.FullName;";
+        command.Parameters.AddWithValue("@classId", classId);
+        command.Parameters.AddWithValue("@month", month);
+        command.Parameters.AddWithValue("@year", year);
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new StudentTuitionDiscountListItem
+            {
+                StudentId = Convert.ToInt32(reader.GetValue(0)),
+                StudentName = reader.GetString(1),
+                DiscountPercent = ReadDecimal(reader, 2),
+                Note = reader.GetString(3),
+                CreatedAt = reader.IsDBNull(4) ? "" : reader.GetValue(4)?.ToString() ?? "",
+                CreatedByUsername = reader.GetString(5),
+                ClassNames = reader.GetString(6)
+            });
+        }
+
+        reader.Close();
+
+        foreach (var item in result)
+        {
+            var preview = GetStudentTuitionDiscountPreview(item.StudentId, month, year);
+            item.TotalGrossAttendance = preview.TotalGrossAttendance;
+            item.TotalCarryOver = preview.TotalCarryOver;
+            item.TotalDiscountAmount = preview.TotalDiscountAmount;
+            item.TotalDueAfterDiscount = preview.TotalDueAfterDiscount;
+            item.TotalPaid = preview.TotalPaid;
+            item.TotalRemainingAfterDiscount = preview.TotalRemainingAfterDiscount;
+            item.IsLocked = preview.IsLocked;
+        }
+
+        return result;
+    }
+
+    public void SaveManagedTuitionDiscount(
+        int studentId,
+        int month,
+        int year,
+        decimal discountPercent,
+        int createdBy,
+        string? note = null)
+    {
+        EnsureCanEditTuitionDiscountManagement(createdBy);
+        SetStudentTuitionDiscount(studentId, month, year, discountPercent, createdBy, note);
+    }
+
     public void SetStudentTuitionDiscount(
         int studentId,
         int month,
@@ -267,6 +323,34 @@ DO UPDATE SET DiscountPercent = EXCLUDED.DiscountPercent,
         if (!AdminPermissions.CanManageTuitionDiscount(user))
         {
             throw new InvalidOperationException("Bạn không có quyền giảm phí học viên.");
+        }
+    }
+
+    private static void EnsureCanEditTuitionDiscountManagement(int userId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Username, Role FROM Users WHERE Id = @userId LIMIT 1;";
+        command.Parameters.AddWithValue("@userId", userId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            throw new InvalidOperationException("Không tìm thấy tài khoản thực hiện thao tác.");
+        }
+
+        var user = new AuthenticatedUser
+        {
+            Id = userId,
+            Username = reader.GetString(0),
+            Role = reader.GetString(1)
+        };
+
+        if (!AdminPermissions.CanEditTuitionDiscountManagement(user))
+        {
+            throw new InvalidOperationException("Chỉ tài khoản nhatduck mới được chỉnh sửa giảm phí.");
         }
     }
 
