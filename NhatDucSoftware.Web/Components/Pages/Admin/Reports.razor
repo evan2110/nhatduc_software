@@ -25,6 +25,7 @@ else
     }
 
     <div class="card">
+        <h2 class="report-scope-title">Từ trước đến nay</h2>
         <div class="summary-box">
             <span>Tổng học viên: @_summary.TotalStudents</span>
             <span class="summary-tooltip-wrap" tabindex="0">
@@ -45,7 +46,64 @@ else
                 </span>
             </span>
             <span class="summary-tooltip-wrap" tabindex="0">
-                Tổng thu (@_selectedYear): @MoneyHelper.FormatCurrency(SelectedYearIncomeTotal)
+                Tổng thu: @MoneyHelper.FormatCurrency(LifetimeIncomeTotal)
+                <span class="summary-tooltip summary-tooltip-list" role="tooltip">
+                    <span>Học phí từ điểm danh: @MoneyHelper.FormatCurrency(_lifetimeTuitionEarned)</span>
+                    @if (_revenueIncomes.Count == 0)
+                    {
+                        <span>Chưa có khoản thu thêm.</span>
+                    }
+                    else
+                    {
+                        @foreach (var income in _revenueIncomes)
+                        {
+                            <span>@FormatIncomeDate(income.IncomeDate) · @income.IncomeType · @income.Title: @MoneyHelper.FormatCurrency(income.Amount)</span>
+                        }
+                    }
+                </span>
+            </span>
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng chi: @MoneyHelper.FormatCurrency(LifetimeExpenseTotal)
+                <span class="summary-tooltip" role="tooltip">
+                    <span>Chi lương: @MoneyHelper.FormatCurrency(_lifetimeSalaryExpense)</span>
+                    <span>Chi khác: @MoneyHelper.FormatCurrency(_lifetimeManualExpense)</span>
+                </span>
+            </span>
+            <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <label>Chọn năm</label>
+            <select @bind="_selectedYear" @bind:after="OnYearChanged">
+                @foreach (var y in _years)
+                {
+                    <option value="@y">@y</option>
+                }
+            </select>
+        </div>
+        <h2 class="report-scope-title">Năm @_selectedYear</h2>
+        <div class="summary-box summary-box-flush">
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng doanh thu: @MoneyHelper.FormatCurrency(SelectedYearRevenue)
+                <span class="summary-tooltip summary-tooltip-list" role="tooltip">
+                    <span>Học phí đã thu: @MoneyHelper.FormatCurrency(SelectedYearCollectedTuition)</span>
+                    @if (IncomesForSelectedYear.Count == 0)
+                    {
+                        <span>Chưa có khoản thu thêm trong năm @_selectedYear.</span>
+                    }
+                    else
+                    {
+                        @foreach (var income in IncomesForSelectedYear)
+                        {
+                            <span>@FormatIncomeDate(income.IncomeDate) · @income.IncomeType · @income.Title: @MoneyHelper.FormatCurrency(income.Amount)</span>
+                        }
+                    }
+                </span>
+            </span>
+            <span class="summary-tooltip-wrap" tabindex="0">
+                Tổng thu: @MoneyHelper.FormatCurrency(SelectedYearIncomeTotal)
                 <span class="summary-tooltip summary-tooltip-list" role="tooltip">
                     <span>Học phí từ điểm danh: @MoneyHelper.FormatCurrency(_summary.TotalTuitionEarned)</span>
                     @if (IncomesForSelectedYear.Count == 0)
@@ -62,25 +120,12 @@ else
                 </span>
             </span>
             <span class="summary-tooltip-wrap" tabindex="0">
-                Tổng chi (@_selectedYear): @MoneyHelper.FormatCurrency(_summary.TotalExpense)
+                Tổng chi: @MoneyHelper.FormatCurrency(_summary.TotalExpense)
                 <span class="summary-tooltip" role="tooltip">
                     <span>Chi lương: @MoneyHelper.FormatCurrency(_summary.TotalSalaryExpense)</span>
                     <span>Chi khác: @MoneyHelper.FormatCurrency(_summary.TotalManualExpense)</span>
                 </span>
             </span>
-            <span>Lớp đang hoạt động: @_summary.ActiveClasses</span>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="toolbar">
-            <label>Chọn năm</label>
-            <select @bind="_selectedYear" @bind:after="OnYearChanged">
-                @foreach (var y in _years)
-                {
-                    <option value="@y">@y</option>
-                }
-            </select>
         </div>
     </div>
 
@@ -270,6 +315,9 @@ else
     private enum DetailType { Expense, Tuition }
 
     private ReportSummary _summary = new();
+    private decimal _lifetimeTuitionEarned;
+    private decimal _lifetimeSalaryExpense;
+    private decimal _lifetimeManualExpense;
     private List<Income> _revenueIncomes = new();
     private List<RevenueByYearStat> _revenueByYear = new();
     private List<RevenueByMonthStat> _revenueByMonth = new();
@@ -300,6 +348,7 @@ else
             _revenueIncomes = await Task.Run(IncomeService.GetAll);
             _revenueByYear = await Task.Run(ReportService.GetRevenueByYear);
             BindYears();
+            await Task.Run(LoadLifetimeTotals);
             await LoadAllReportsAsync(showLoading: false);
         }
         catch (Exception ex)
@@ -320,6 +369,33 @@ else
 
     private decimal SelectedYearIncomeTotal =>
         _summary.TotalTuitionEarned + IncomesForSelectedYear.Sum(income => income.Amount);
+
+    private decimal LifetimeIncomeTotal =>
+        _lifetimeTuitionEarned + _revenueIncomes.Sum(income => income.Amount);
+
+    private decimal LifetimeExpenseTotal => _lifetimeSalaryExpense + _lifetimeManualExpense;
+
+    private decimal SelectedYearRevenue => _revenueByMonth.Sum(item => item.TotalRevenue);
+
+    private decimal SelectedYearCollectedTuition =>
+        SelectedYearRevenue - IncomesForSelectedYear.Sum(income => income.Amount);
+
+    private void LoadLifetimeTotals()
+    {
+        decimal tuition = 0;
+        decimal salary = 0;
+        decimal manual = 0;
+        foreach (var year in _years)
+        {
+            tuition += ReportService.GetTuitionEarnedByMonth(year).Sum(item => item.Amount);
+            salary += ReportService.GetExpenseByMonth(year).Sum(item => item.Amount);
+            manual += ReportService.GetManualExpenseByMonth(year).Sum(item => item.Amount);
+        }
+
+        _lifetimeTuitionEarned = tuition;
+        _lifetimeSalaryExpense = salary;
+        _lifetimeManualExpense = manual;
+    }
 
     private void BindYears()
     {

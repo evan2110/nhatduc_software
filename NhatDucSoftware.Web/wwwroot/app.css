@@ -654,6 +654,17 @@ a.brand-link:hover,
     font-size: clamp(0.85rem, 2.5vw, 1rem);
 }
 
+.summary-box-flush {
+    margin-bottom: 0;
+}
+
+.report-scope-title {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #334155;
+}
+
 .summary-box span {
     flex: 1 1 auto;
     min-width: min(100%, 200px);
