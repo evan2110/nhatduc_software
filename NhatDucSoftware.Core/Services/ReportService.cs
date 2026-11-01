@@ -261,6 +261,17 @@ WHERE c.Status = 'Active'
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
+    public int GetActiveClassCountByYear(int year)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(DISTINCT ats.ClassId) FROM AttendanceSessions ats INNER JOIN Classes c ON c.Id = ats.ClassId WHERE c.Status = 'Active' AND EXTRACT(YEAR FROM CAST(ats.SessionDate AS date)) = @year::numeric;";
+        command.Parameters.AddWithValue("@year", year);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
     private static List<MonthlyAmountStat> CreateEmptyMonthlyAmounts()
     {
         return Enumerable.Range(1, 12)
