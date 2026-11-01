@@ -1,4 +1,5 @@
 using NhatDucSoftware.Core.Helpers;
+using NhatDucSoftware.Core.Services;
 
 namespace NhatDucSoftware.Core.Data;
 
@@ -73,6 +74,14 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateAnnouncementsTable(connection);
         MigratePlaintextPasswords(connection);
         MigrateHomeworkTables(connection);
+        MigrateZaloChatsTable(connection);
+    }
+
+    private static void MigrateZaloChatsTable(System.Data.Common.DbConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = ZaloChatSql.CreateTable;
+        command.ExecuteNonQuery();
     }
 
     private static void MigrateHomeworkTables(System.Data.Common.DbConnection connection)

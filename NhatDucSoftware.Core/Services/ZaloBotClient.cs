@@ -10,6 +10,9 @@ public static class ZaloBotRequest
 {
     public static string SendMessageEndpoint(string token) =>
         $"https://bot-api.zaloplatforms.com/bot{token}/sendMessage";
+
+    public static string SetWebhookEndpoint(string token) =>
+        $"https://bot-api.zaloplatforms.com/bot{token}/setWebhook";
 }
 
 public sealed class ZaloBotClient
@@ -35,22 +38,58 @@ public sealed class ZaloBotClient
         _logger = logger;
     }
 
-    public async Task SendTextAsync(string text, CancellationToken cancellationToken = default)
+    public Task SendTextAsync(string text, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_token) || string.IsNullOrWhiteSpace(_chatId))
+        return SendTextToAsync(_chatId, text, cancellationToken);
+    }
+
+    public async Task SendTextToAsync(string chatId, string text, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_token) || string.IsNullOrWhiteSpace(chatId))
         {
             throw new InvalidOperationException(NotConfiguredMessage);
         }
 
         foreach (var chunk in HomeworkResultMessage.Split(text))
         {
-            await SendChunkAsync(chunk, cancellationToken);
+            await SendChunkAsync(chatId, chunk, cancellationToken);
         }
     }
 
-    private async Task SendChunkAsync(string text, CancellationToken cancellationToken)
+    public async Task SetWebhookAsync(string url, string secret, CancellationToken cancellationToken = default)
     {
-        var payload = JsonSerializer.Serialize(new { chat_id = _chatId, text }, JsonOptions);
+        if (string.IsNullOrWhiteSpace(_token))
+        {
+            throw new InvalidOperationException(NotConfiguredMessage);
+        }
+
+        if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Webhook URL phải là HTTPS công khai.");
+        }
+
+        if (string.IsNullOrWhiteSpace(secret) || secret.Length is < 8 or > 256)
+        {
+            throw new InvalidOperationException("secret_token phải dài từ 8 đến 256 ký tự.");
+        }
+
+        var payload = JsonSerializer.Serialize(new { url, secret_token = secret }, JsonOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Post, ZaloBotRequest.SetWebhookEndpoint(_token));
+        request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+        using var response = await _http.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var description = "";
+        var accepted = response.IsSuccessStatusCode && IsOk(body, out description);
+        if (!accepted)
+        {
+            _logger?.LogWarning("Zalo setWebhook failed with HTTP {StatusCode}: {Description}", (int)response.StatusCode, description);
+            throw new InvalidOperationException("Không đăng ký được webhook Zalo.");
+        }
+    }
+
+    private async Task SendChunkAsync(string chatId, string text, CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Serialize(new { chat_id = chatId, text }, JsonOptions);
         using var request = new HttpRequestMessage(HttpMethod.Post, ZaloBotRequest.SendMessageEndpoint(_token));
         request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
         using var response = await _http.SendAsync(request, cancellationToken);

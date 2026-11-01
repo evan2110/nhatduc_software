@@ -158,6 +158,7 @@ builder.Services.AddScoped(sp =>
         ?? "";
     return new ZaloBotClient(http, token, chatId, sp.GetService<ILogger<ZaloBotClient>>());
 });
+builder.Services.AddScoped<ZaloChatService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<TeacherTimesheetNotificationService>();
@@ -418,4 +419,36 @@ app.MapGet("/api/export/teacher-payroll-attendance", (
         attachment.FileName);
 }).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
+app.MapPost("/api/zalo/webhook", ZaloWebhookEndpoint.Handle).DisableAntiforgery();
+
+await RegisterZaloWebhookAsync(app);
 app.Run();
+
+static async Task RegisterZaloWebhookAsync(WebApplication app)
+{
+    var url = Environment.GetEnvironmentVariable("ZALO_WEBHOOK_URL") ?? "";
+    var secret = Environment.GetEnvironmentVariable("ZALO_WEBHOOK_SECRET") ?? "";
+    var token = Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN") ?? "";
+    if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(token))
+    {
+        return;
+    }
+
+    if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+    {
+        app.Logger.LogWarning("ZALO_WEBHOOK_URL phải là HTTPS công khai. Bỏ qua đăng ký webhook.");
+        return;
+    }
+
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var zalo = scope.ServiceProvider.GetRequiredService<ZaloBotClient>();
+        await zalo.SetWebhookAsync(url, secret);
+        app.Logger.LogInformation("Đã đăng ký Zalo webhook.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Không đăng ký được Zalo webhook.");
+    }
+}
