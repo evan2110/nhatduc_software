@@ -19,6 +19,15 @@ public class HomeworkSqlTests
     }
 
     [Fact]
+    public void SaveWrittenGradeTextOnly_IsSingleLineAndLeavesFilesAlone()
+    {
+        Assert.DoesNotContain("\n", HomeworkSql.SaveWrittenGradeTextOnly);
+        Assert.DoesNotContain("\r", HomeworkSql.SaveWrittenGradeTextOnly);
+        Assert.DoesNotContain("DriveFileId", HomeworkSql.SaveWrittenGradeTextOnly);
+        Assert.DoesNotContain("Pending", HomeworkSql.SaveWrittenGradeTextOnly);
+    }
+
+    [Fact]
     public void AddedStatements_AreSingleLine()
     {
         Assert.DoesNotContain("\n", HomeworkSql.ListForTeacher);

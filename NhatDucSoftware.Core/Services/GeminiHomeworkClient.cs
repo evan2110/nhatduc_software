@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using NhatDucSoftware.Core.Helpers;
 
 namespace NhatDucSoftware.Core.Services;
@@ -16,9 +17,11 @@ public sealed class GeminiHomeworkClient
     private readonly HttpClient _http;
     private readonly string _apiKey;
     private readonly string _model;
+    private readonly ILogger<GeminiHomeworkClient>? _logger;
 
-    public GeminiHomeworkClient(HttpClient http, string apiKey, string model)
+    public GeminiHomeworkClient(HttpClient http, string apiKey, string model, ILogger<GeminiHomeworkClient>? logger = null)
     {
+        _logger = logger;
         _http = http;
         _apiKey = apiKey;
         _model = string.IsNullOrWhiteSpace(model) ? "gemini-2.5-flash" : model;
@@ -42,6 +45,12 @@ public sealed class GeminiHomeworkClient
             throw new InvalidOperationException("Chưa cấu hình GEMINI_API_KEY.");
         }
 
+        if (!GeminiInlineFileRules.IsWithinLimit(studentFile.LongLength, out var sizeError)
+            || (answerKeyFile is not null && !GeminiInlineFileRules.IsWithinLimit(answerKeyFile.LongLength, out sizeError)))
+        {
+            throw new InvalidOperationException(sizeError);
+        }
+
         var text = GeminiGradePrompt.Build(kind, className, title, studentName, prompt, answerKeyText);
         var parts = new List<object> { new { text } };
         if (answerKeyFile is { Length: > 0 })
@@ -58,6 +67,7 @@ public sealed class GeminiHomeworkClient
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            _logger?.LogWarning("Gemini returned HTTP {StatusCode}. Response body: {ResponseBody}", (int)response.StatusCode, payload);
             throw new InvalidOperationException("Gemini không chấm được bài. Hãy thử lại.");
         }
 

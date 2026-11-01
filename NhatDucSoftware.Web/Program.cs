@@ -146,7 +146,7 @@ builder.Services.AddScoped(sp =>
     var model = Environment.GetEnvironmentVariable("GEMINI_MODEL")
         ?? config["Gemini:Model"]
         ?? "gemini-2.5-flash";
-    return new GeminiHomeworkClient(http, key, model);
+    return new GeminiHomeworkClient(http, key, model, sp.GetService<ILogger<GeminiHomeworkClient>>());
 });
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();

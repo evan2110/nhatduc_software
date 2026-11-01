@@ -210,7 +210,7 @@ public class HomeworkService
         }
     }
 
-    public async Task SaveGrade(int teacherId, int assignmentId, int studentId, decimal? score, string? shortComment, string reportText)
+    public async Task SaveGrade(int teacherId, int assignmentId, int studentId, decimal? score, string? shortComment, string reportText, bool promotePendingFile = false)
     {
         var assignment = RequireAssignment(teacherId, assignmentId);
         EnsureStudentAccess(teacherId, assignment, studentId);
@@ -234,21 +234,25 @@ public class HomeworkService
             return;
         }
 
-        var existing = ListRows(teacherId, assignmentId).FirstOrDefault(r => r.StudentId == studentId);
-        var commit = HomeworkSubmissionState.Commit(
-            existing?.SavedDriveFileId,
-            existing?.PendingDriveFileId,
-            null,
-            null,
-            null,
-            null);
+        var commit = new HomeworkFileCommit(null, null, null, null);
+        if (promotePendingFile)
+        {
+            var existing = ListRows(teacherId, assignmentId).FirstOrDefault(r => r.StudentId == studentId);
+            commit = HomeworkSubmissionState.Commit(
+                existing?.SavedDriveFileId,
+                existing?.PendingDriveFileId,
+                null,
+                null,
+                null,
+                null);
+        }
 
         using (var connection = DbContext.CreateConnection())
         {
             connection.Open();
 
             using var command = connection.CreateCommand();
-            command.CommandText = HomeworkSql.SaveWrittenGrade;
+            command.CommandText = promotePendingFile ? HomeworkSql.SaveWrittenGrade : HomeworkSql.SaveWrittenGradeTextOnly;
             AddGradeParameters(command, assignmentId, studentId, score, shortComment, reportText, gradedAt);
             if (command.ExecuteNonQuery() == 0)
             {

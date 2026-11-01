@@ -296,6 +296,9 @@ else
     private int _inputVersion;
 
     private int _selectedStudentId;
+    // Student whose current file was just graded by Chấm; Lưu may promote that student's pending file only then.
+    private int _gradedFileStudentId;
+    private int _fileChangeCounter;
     private string _scoreText = "";
     private string _comment = "";
     private string _report = "";
@@ -372,6 +375,7 @@ else
         _assignment = null;
         _rows = new();
         _selectedStudentId = 0;
+        _gradedFileStudentId = 0;
         _scoreText = "";
         _comment = "";
         _report = "";
@@ -474,6 +478,7 @@ else
         }
 
         _selectedStudentId = studentId;
+        _gradedFileStudentId = 0;
         LoadDraftFromSaved();
     }
 
@@ -592,6 +597,12 @@ else
 
         var file = e.File;
         _message = null;
+        _fileChangeCounter++;
+        if (_gradedFileStudentId == studentId)
+        {
+            _gradedFileStudentId = 0;
+        }
+
         if (!HomeworkFileRules.IsAccepted(_assignment.Kind, file.Name, file.Size, out var fileError))
         {
             ShowError(fileError);
@@ -635,7 +646,6 @@ else
         {
             ShowError(fileError);
             _speakingFiles.Remove(studentId);
-            _inputVersion++;
             return;
         }
 
@@ -651,6 +661,8 @@ else
         }
 
         SelectStudent(studentId);
+        _gradedFileStudentId = 0;
+        var fileChangeAtStart = _fileChangeCounter;
         _message = null;
 
         var assignment = _assignment;
@@ -687,6 +699,12 @@ else
                     return;
                 }
 
+                if (!GeminiInlineFileRules.IsWithinLimit(speakingFile.Size, out var inlineError))
+                {
+                    ShowError(inlineError);
+                    return;
+                }
+
                 await using var stream = speakingFile.OpenReadStream(HomeworkFileRules.MaxBytes);
                 using var memory = new MemoryStream();
                 await stream.CopyToAsync(memory);
@@ -715,6 +733,18 @@ else
                 answerKeyMime = MimeFromFileName(assignment.AnswerKeyFileName);
             }
 
+            if (!GeminiInlineFileRules.IsWithinLimit(studentBytes.LongLength, out var studentSizeError))
+            {
+                ShowError(studentSizeError);
+                return;
+            }
+
+            if (answerKeyBytes is not null && !GeminiInlineFileRules.IsWithinLimit(answerKeyBytes.LongLength, out var answerKeySizeError))
+            {
+                ShowError(answerKeySizeError);
+                return;
+            }
+
             var draft = await Gemini.GradeAsync(
                 assignment.Kind,
                 assignment.ClassName,
@@ -733,6 +763,11 @@ else
             if (_selectedStudentId != studentId)
             {
                 return;
+            }
+
+            if (_fileChangeCounter == fileChangeAtStart)
+            {
+                _gradedFileStudentId = studentId;
             }
 
             _comment = draft.ShortComment;
@@ -783,7 +818,9 @@ else
         var shortComment = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim();
         try
         {
-            await HomeworkService.SaveGrade(teacherId, _assignment.Id, _selectedStudentId, score, shortComment, _report ?? "");
+            var promotePending = _gradedFileStudentId == _selectedStudentId;
+            await HomeworkService.SaveGrade(teacherId, _assignment.Id, _selectedStudentId, score, shortComment, _report ?? "", promotePending);
+            _gradedFileStudentId = 0;
             ReloadRows(teacherId);
             LoadDraftFromSaved();
             ShowSuccess("Đã lưu phiếu chấm.");
