@@ -15,6 +15,18 @@ public class GoogleDriveUploadResult
     public string? WebViewLink { get; set; }
 }
 
+public sealed class GoogleDriveHomeworkUpload
+{
+    public string FileId { get; set; } = "";
+    public string? WebViewLink { get; set; }
+    public string AssignmentFolderId { get; set; } = "";
+}
+
+public static class HomeworkDriveFolderChoice
+{
+    public static bool UseExisting(string? existingFolderId) => !string.IsNullOrWhiteSpace(existingFolderId);
+}
+
 public class GoogleDriveService
 {
     // drive.file KHÔNG truy cập được folder tạo thủ công trên Drive UI.
@@ -207,6 +219,93 @@ public class GoogleDriveService
             FileId = uploaded.Id,
             WebViewLink = uploaded.WebViewLink
         };
+    }
+
+    public async Task<GoogleDriveHomeworkUpload> UploadHomeworkFileAsync(
+        string? existingFolderId,
+        string teacherName,
+        string subjectName,
+        string assignmentFolderName,
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            throw new InvalidOperationException($"Google Drive chưa được cấu hình. {ConfigurationHint}");
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.HomeworkRootFolderId))
+        {
+            throw new InvalidOperationException("Chưa cấu hình GOOGLE_DRIVE_HOMEWORK_ROOT_FOLDER_ID.");
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+        string folderId;
+        if (HomeworkDriveFolderChoice.UseExisting(existingFolderId))
+        {
+            folderId = existingFolderId!.Trim();
+        }
+        else
+        {
+            var teacherId = await GetOrCreateChildFolderAsync(drive, _settings.HomeworkRootFolderId, teacherName.Trim(), cancellationToken);
+            var subjectId = await GetOrCreateChildFolderAsync(drive, teacherId, subjectName.Trim(), cancellationToken);
+            folderId = await GetOrCreateChildFolderAsync(drive, subjectId, assignmentFolderName.Trim(), cancellationToken);
+        }
+
+        var fileMetadata = new GoogleFile
+        {
+            Name = fileName.Trim(),
+            Parents = [folderId]
+        };
+        var request = drive.Files.Create(fileMetadata, fileStream, contentType);
+        request.Fields = "id, webViewLink";
+        var uploadResult = await request.UploadAsync(cancellationToken);
+        if (uploadResult.Status != UploadStatus.Completed)
+        {
+            var detail = uploadResult.Exception?.Message ?? "Upload lên Google Drive thất bại.";
+            throw new InvalidOperationException(TranslateDriveError(detail));
+        }
+
+        var uploaded = request.ResponseBody
+            ?? throw new InvalidOperationException("Google Drive không trả về thông tin file.");
+        return new GoogleDriveHomeworkUpload
+        {
+            FileId = uploaded.Id,
+            WebViewLink = uploaded.WebViewLink,
+            AssignmentFolderId = folderId
+        };
+    }
+
+    public async Task DeleteFileAsync(string? fileId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(fileId) || !IsConfigured)
+        {
+            return;
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+        try
+        {
+            await drive.Files.Delete(fileId).ExecuteAsync(cancellationToken);
+        }
+        catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+        }
+    }
+
+    public async Task<byte[]> DownloadFileAsync(string fileId, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            throw new InvalidOperationException($"Google Drive chưa được cấu hình. {ConfigurationHint}");
+        }
+
+        var drive = await GetDriveServiceAsync(cancellationToken);
+        using var stream = new MemoryStream();
+        await drive.Files.Get(fileId).DownloadAsync(stream, cancellationToken);
+        return stream.ToArray();
     }
 
     private async Task<DriveService> GetDriveServiceAsync(CancellationToken cancellationToken)
