@@ -1,6 +1,7 @@
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
+using Google.Apis.Download;
 using Google.Apis.Drive.v3;
 using Google.Apis.Http;
 using Google.Apis.Services;
@@ -304,7 +305,13 @@ public class GoogleDriveService
 
         var drive = await GetDriveServiceAsync(cancellationToken);
         using var stream = new MemoryStream();
-        await drive.Files.Get(fileId).DownloadAsync(stream, cancellationToken);
+        var downloadResult = await drive.Files.Get(fileId).DownloadAsync(stream, cancellationToken);
+        if (downloadResult.Status != DownloadStatus.Completed)
+        {
+            var detail = downloadResult.Exception?.Message ?? "Tải file từ Google Drive thất bại.";
+            throw new InvalidOperationException(TranslateDriveError(detail));
+        }
+
         return stream.ToArray();
     }
 
