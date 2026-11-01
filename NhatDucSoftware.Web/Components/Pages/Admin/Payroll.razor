@@ -315,18 +315,22 @@ else
                 {
                     <div class="alert @(_payAdjustmentIsError ? "alert-danger" : "alert-success")">@_payAdjustmentMessage</div>
                 }
-                @if (_payAdjustmentRemainingShifts == 0)
+                @if (_payAdjustmentRemainingShifts == 0 && _editingAdjustmentId is null)
                 {
-                    <div class="alert alert-info">Đã điều chỉnh hết @_payAdjustmentTotalShifts ca trong tháng. Xóa bản ghi trong lịch sử nếu cần điều chỉnh lại.</div>
+                    <div class="alert alert-info">Đã điều chỉnh hết @_payAdjustmentTotalShifts ca trong tháng. Sửa hoặc xóa bản ghi trong lịch sử nếu cần điều chỉnh lại.</div>
                 }
                 else
                 {
+                    @if (_editingAdjustmentId is not null)
+                    {
+                        <p class="text-muted">Đang sửa một bản ghi đã lưu. Số ca có thể đặt: @EditableShiftLimit.</p>
+                    }
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Số ca điều chỉnh</label>
                             <input type="number"
                                    min="1"
-                                   max="@_payAdjustmentRemainingShifts"
+                                   max="@EditableShiftLimit"
                                    @bind="_payAdjustmentShiftCount" />
                         </div>
                         <div class="form-group">
@@ -348,7 +352,11 @@ else
                             <strong>@MoneyHelper.FormatCurrency(EstimatedAdjustedPay)</strong>
                         </p>
                     }
-                    <button class="btn btn-primary" @onclick="SavePayAdjustment">Lưu điều chỉnh</button>
+                    <button class="btn btn-primary" @onclick="SavePayAdjustment">@(_editingAdjustmentId is null ? "Lưu điều chỉnh" : "Cập nhật điều chỉnh")</button>
+                    @if (_editingAdjustmentId is not null)
+                    {
+                        <button class="btn btn-secondary" @onclick="CancelEditPayAdjustment">Hủy sửa</button>
+                    }
                 }
                 <button class="btn btn-secondary" @onclick="ClosePayAdjustment">Đóng</button>
 
@@ -374,14 +382,17 @@ else
                         <tbody>
                             @foreach (var item in _payAdjustmentHistory)
                             {
-                                <tr>
+                                <tr class="@(_editingAdjustmentId == item.Id ? "selected" : null)">
                                     <td>@item.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                                     <td>@item.ShiftCount</td>
                                     <td>@MoneyHelper.FormatCurrency(item.PayPerShift)</td>
                                     <td>@(string.IsNullOrWhiteSpace(item.Note) ? "-" : item.Note)</td>
                                     <td>@item.CreatedByUsername</td>
                                     <td>
-                                        <button class="btn btn-danger btn-sm" @onclick="() => DeletePayAdjustment(item.Id)">Xóa</button>
+                                        <div class="table-actions">
+                                            <button class="btn btn-secondary btn-sm" @onclick="() => BeginEditPayAdjustment(item)">Sửa</button>
+                                            <button class="btn btn-danger btn-sm" @onclick="() => DeletePayAdjustment(item.Id)">Xóa</button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -661,6 +672,12 @@ else
     private string? _payAdjustmentMessage;
     private bool _payAdjustmentIsError;
     private List<TeacherPayAdjustment> _payAdjustmentHistory = new();
+    private long? _editingAdjustmentId;
+    private int _editingOriginalShiftCount;
+    private int EditableShiftLimit =>
+        _editingAdjustmentId is null
+            ? _payAdjustmentRemainingShifts
+            : _payAdjustmentRemainingShifts + _editingOriginalShiftCount;
 
     private string? DetailFilterDateString =>
         _detailFilterDate?.ToString("yyyy-MM-dd");
@@ -972,6 +989,8 @@ else
         _payAdjustmentNote = "";
         _payAdjustmentMessage = null;
         _payAdjustmentIsError = false;
+        _editingAdjustmentId = null;
+        _editingOriginalShiftCount = 0;
         RefreshPayAdjustmentFormState();
         _showPayAdjustment = true;
     }
@@ -996,8 +1015,29 @@ else
             _payAdjustmentTeacherId,
             _year,
             _month,
-            Math.Min(_payAdjustmentShiftCount, _payAdjustmentRemainingShifts),
-            _payAdjustmentPayPerShift);
+            Math.Min(_payAdjustmentShiftCount, EditableShiftLimit),
+            _payAdjustmentPayPerShift,
+            _editingAdjustmentId);
+
+    private void BeginEditPayAdjustment(TeacherPayAdjustment item)
+    {
+        _editingAdjustmentId = item.Id;
+        _editingOriginalShiftCount = item.ShiftCount;
+        _payAdjustmentShiftCount = item.ShiftCount;
+        _payAdjustmentPayPerShift = item.PayPerShift;
+        _payAdjustmentNote = item.Note ?? "";
+        _payAdjustmentMessage = null;
+        _payAdjustmentIsError = false;
+    }
+
+    private void CancelEditPayAdjustment()
+    {
+        _editingAdjustmentId = null;
+        _editingOriginalShiftCount = 0;
+        _payAdjustmentNote = "";
+        _payAdjustmentMessage = null;
+        RefreshPayAdjustmentFormState();
+    }
 
     private void SavePayAdjustment()
     {
@@ -1017,19 +1057,40 @@ else
 
         try
         {
-            TimesheetService.SavePayAdjustment(
-                _payAdjustmentTeacherId,
-                _year,
-                _month,
-                _payAdjustmentShiftCount,
-                _payAdjustmentPayPerShift,
-                string.IsNullOrWhiteSpace(_payAdjustmentNote) ? null : _payAdjustmentNote.Trim(),
-                Session.CurrentUser.Id,
-                Session.CurrentUser.Username,
-                Session.CurrentUser);
-            _payAdjustmentMessage = "Đã lưu điều chỉnh lương.";
+            var note = string.IsNullOrWhiteSpace(_payAdjustmentNote) ? null : _payAdjustmentNote.Trim();
+            if (_editingAdjustmentId is long adjustmentId)
+            {
+                TimesheetService.UpdatePayAdjustment(
+                    adjustmentId,
+                    _payAdjustmentTeacherId,
+                    _year,
+                    _month,
+                    _payAdjustmentShiftCount,
+                    _payAdjustmentPayPerShift,
+                    note,
+                    Session.CurrentUser);
+                _payAdjustmentMessage = "Đã cập nhật điều chỉnh lương.";
+                _message = $"Đã cập nhật điều chỉnh lương cho {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
+                _editingAdjustmentId = null;
+                _editingOriginalShiftCount = 0;
+            }
+            else
+            {
+                TimesheetService.SavePayAdjustment(
+                    _payAdjustmentTeacherId,
+                    _year,
+                    _month,
+                    _payAdjustmentShiftCount,
+                    _payAdjustmentPayPerShift,
+                    note,
+                    Session.CurrentUser.Id,
+                    Session.CurrentUser.Username,
+                    Session.CurrentUser);
+                _payAdjustmentMessage = "Đã lưu điều chỉnh lương.";
+                _message = $"Đã điều chỉnh lương cho {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
+            }
+
             _payAdjustmentIsError = false;
-            _message = $"Đã điều chỉnh lương cho {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";
             _payAdjustmentNote = "";
             RefreshPayAdjustmentFormState();
             LoadPayroll();
@@ -1061,6 +1122,12 @@ else
         try
         {
             TimesheetService.DeletePayAdjustment(adjustmentId, _payAdjustmentTeacherId, _year, _month, Session.CurrentUser!);
+            if (_editingAdjustmentId == adjustmentId)
+            {
+                _editingAdjustmentId = null;
+                _editingOriginalShiftCount = 0;
+                _payAdjustmentNote = "";
+            }
             _payAdjustmentMessage = "Đã xóa bản ghi điều chỉnh.";
             _payAdjustmentIsError = false;
             _message = $"Đã xóa điều chỉnh lương của {_payAdjustmentTeacherName} tháng {_month:D2}/{_year}.";

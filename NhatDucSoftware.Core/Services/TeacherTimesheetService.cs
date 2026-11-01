@@ -574,7 +574,8 @@ ORDER BY TeacherId, Month, CreatedAt, Id;";
         int year,
         int month,
         int additionalShiftCount,
-        decimal additionalPayPerShift)
+        decimal additionalPayPerShift,
+        long? excludeAdjustmentId = null)
     {
         var presentShifts = GetPresentShiftsOrdered(teacherId, year, month);
         if (presentShifts.Count == 0)
@@ -584,6 +585,11 @@ ORDER BY TeacherId, Month, CreatedAt, Id;";
 
         var defaultRate = GetTeacherPayPerShift(teacherId);
         var adjustments = GetPayAdjustmentsOrdered(teacherId, year, month);
+        if (excludeAdjustmentId is long excludedId)
+        {
+            adjustments = adjustments.Where(adjustment => adjustment.Id != excludedId).ToList();
+        }
+
         return CalculatePayFromAdjustments(
             presentShifts.Count,
             adjustments,
@@ -723,6 +729,54 @@ VALUES(@teacherId, @year, @month, @shiftCount, @payPerShift, @note, @createdByUs
         command.Parameters.AddWithValue("@createdByUsername", createdByUsername);
         command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
         command.ExecuteNonQuery();
+    }
+
+    public void UpdatePayAdjustment(
+        long adjustmentId,
+        int teacherId,
+        int year,
+        int month,
+        int shiftCount,
+        decimal payPerShift,
+        string? note,
+        AuthenticatedUser actor)
+    {
+        PermissionGuard.Ensure(actor, AdminPermissions.CanAdjustMonthlyPay, "Bạn không có quyền điều chỉnh lương.");
+
+        if (payPerShift <= 0)
+        {
+            throw new InvalidOperationException("Lương mỗi ca phải lớn hơn 0.");
+        }
+
+        var existing = GetPayAdjustmentHistory(teacherId, year, month).FirstOrDefault(item => item.Id == adjustmentId);
+        if (existing is null)
+        {
+            throw new InvalidOperationException("Không tìm thấy bản ghi điều chỉnh.");
+        }
+
+        var maxShifts = GetRemainingAdjustableShifts(teacherId, year, month) + existing.ShiftCount;
+        if (shiftCount <= 0 || shiftCount > maxShifts)
+        {
+            throw new InvalidOperationException($"Số ca điều chỉnh phải từ 1 đến {maxShifts}.");
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE TeacherPayAdjustments SET ShiftCount = @shiftCount, PayPerShift = @payPerShift, Note = @note WHERE Id = @id AND TeacherId = @teacherId AND Year = @year AND Month = @month;";
+        command.Parameters.AddWithValue("@shiftCount", shiftCount);
+        command.Parameters.AddWithValue("@payPerShift", payPerShift);
+        command.Parameters.AddWithValue("@note", (object?)note ?? DBNull.Value);
+        command.Parameters.AddWithValue("@id", adjustmentId);
+        command.Parameters.AddWithValue("@teacherId", teacherId);
+        command.Parameters.AddWithValue("@year", year);
+        command.Parameters.AddWithValue("@month", month);
+
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy bản ghi điều chỉnh.");
+        }
     }
 
     public void DeletePayAdjustment(long adjustmentId, int teacherId, int year, int month, AuthenticatedUser actor)
