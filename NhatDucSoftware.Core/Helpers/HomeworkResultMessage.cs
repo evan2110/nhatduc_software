@@ -8,12 +8,17 @@ public static class HomeworkResultMessage
 
     public static string Build(string className, string title, string studentName, decimal? score, string? shortComment, string? report)
     {
+        var slip = (report ?? "").Trim();
+        if (slip.Length > 0)
+        {
+            return slip;
+        }
+
         var scoreText = score is null
             ? "Chưa có điểm"
             : score.Value.ToString("0.##", CultureInfo.InvariantCulture);
         var lines = new List<string>
         {
-            "KẾT QUẢ BÀI TẬP",
             $"Lớp: {className.Trim()}",
             $"Bài: {title.Trim()}",
             $"Học viên: {studentName.Trim()}",
@@ -24,9 +29,7 @@ public static class HomeworkResultMessage
             lines.Add($"Nhận xét: {shortComment.Trim()}");
         }
 
-        lines.Add("");
-        lines.Add((report ?? "").Trim());
-        return string.Join(Environment.NewLine, lines).TrimEnd();
+        return string.Join(Environment.NewLine, lines);
     }
 
     public static IReadOnlyList<string> Split(string text)

@@ -8,26 +8,23 @@ namespace NhatDucSoftware.Core.Tests;
 public class HomeworkResultMessageTests
 {
     [Fact]
-    public void Build_IncludesClassTitleStudentScoreCommentAndReport()
+    public void Build_SendsOnlyTheSlipWhenAReportExists()
     {
-        var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", 8.5m, "Đọc rõ", "Sửa câu 2.");
+        var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", 8.5m, "Đọc rõ", "PHIẾU CHẤM & SỬA BÀI\nĐiểm: 10/10");
 
-        Assert.Contains("KẾT QUẢ BÀI TẬP", text);
-        Assert.Contains("Lớp: Grade 2A", text);
-        Assert.Contains("Bài: Unit 3", text);
-        Assert.Contains("Học viên: Ngân Hà", text);
-        Assert.Contains("Điểm: 8.5", text);
-        Assert.Contains("Nhận xét: Đọc rõ", text);
-        Assert.Contains("Sửa câu 2.", text);
+        Assert.Equal("PHIẾU CHẤM & SỬA BÀI\nĐiểm: 10/10", text);
+        Assert.DoesNotContain("KẾT QUẢ BÀI TẬP", text);
         Assert.DoesNotContain("Đáp án", text);
     }
 
     [Fact]
-    public void Build_OmitsBlankCommentAndShowsMissingScore()
+    public void Build_UsesAShortFallbackWhenTheSlipIsEmpty()
     {
         var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", null, "  ", "");
 
+        Assert.Contains("Lớp: Grade 2A", text);
         Assert.Contains("Điểm: Chưa có điểm", text);
+        Assert.DoesNotContain("KẾT QUẢ BÀI TẬP", text);
         Assert.DoesNotContain("Nhận xét:", text);
     }
 
