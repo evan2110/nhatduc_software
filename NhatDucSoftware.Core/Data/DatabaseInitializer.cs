@@ -72,6 +72,17 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateCourseFeeHistoryTable(connection);
         MigrateAnnouncementsTable(connection);
         MigratePlaintextPasswords(connection);
+        MigrateHomeworkTables(connection);
+    }
+
+    private static void MigrateHomeworkTables(System.Data.Common.DbConnection connection)
+    {
+        foreach (var statement in HomeworkSchema.CreateTables.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = statement;
+            command.ExecuteNonQuery();
+        }
     }
 
     private static void MigrateAnnouncementsTable(System.Data.Common.DbConnection connection)

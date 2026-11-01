@@ -1,0 +1,9 @@
+namespace NhatDucSoftware.Core.Services;
+
+public static class HomeworkSql
+{
+    public const string InsertAssignment = "INSERT INTO HomeworkAssignments(ClassId, TeacherId, Title, AssignedOn, Kind, Prompt, AnswerKeyText, AnswerKeyFileName, AnswerKeyDriveFileId, AnswerKeyDriveWebViewLink, DriveFolderId, CreatedAt) VALUES(@classId, @teacherId, @title, @assignedOn, @kind, @prompt, @answerKeyText, @answerKeyFileName, @answerKeyDriveFileId, @answerKeyDriveWebViewLink, @driveFolderId, @createdAt) RETURNING Id;";
+    public const string UpsertPendingFile = "INSERT INTO HomeworkSubmissions(AssignmentId, StudentId, PendingFileName, PendingDriveFileId, PendingDriveWebViewLink) VALUES(@assignmentId, @studentId, @pendingFileName, @pendingDriveFileId, @pendingDriveWebViewLink) ON CONFLICT (AssignmentId, StudentId) DO UPDATE SET PendingFileName = EXCLUDED.PendingFileName, PendingDriveFileId = EXCLUDED.PendingDriveFileId, PendingDriveWebViewLink = EXCLUDED.PendingDriveWebViewLink;";
+    public const string SaveWrittenGrade = "UPDATE HomeworkSubmissions SET Score = @score, ShortComment = @shortComment, ReportText = @reportText, FileName = COALESCE(PendingFileName, FileName), DriveFileId = COALESCE(PendingDriveFileId, DriveFileId), DriveWebViewLink = COALESCE(PendingDriveWebViewLink, DriveWebViewLink), PendingFileName = NULL, PendingDriveFileId = NULL, PendingDriveWebViewLink = NULL, GradedAt = @gradedAt WHERE AssignmentId = @assignmentId AND StudentId = @studentId;";
+    public const string SaveSpeakingGrade = "INSERT INTO HomeworkSubmissions(AssignmentId, StudentId, Score, ShortComment, ReportText, GradedAt) VALUES(@assignmentId, @studentId, @score, @shortComment, @reportText, @gradedAt) ON CONFLICT (AssignmentId, StudentId) DO UPDATE SET Score = EXCLUDED.Score, ShortComment = EXCLUDED.ShortComment, ReportText = EXCLUDED.ReportText, GradedAt = EXCLUDED.GradedAt;";
+}

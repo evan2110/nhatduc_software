@@ -160,6 +160,9 @@ builder.Services.AddScoped<GoogleDriveService>(sp =>
         ExpenseRootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_EXPENSE_ROOT_FOLDER_ID")
             ?? config["GoogleDrive:ExpenseRootFolderId"]
             ?? "1Hh5whYpr638YxI9JMO8Y8R_Zyiy7wS6T",
+        HomeworkRootFolderId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_HOMEWORK_ROOT_FOLDER_ID")
+            ?? config["GoogleDrive:HomeworkRootFolderId"]
+            ?? "1i9Y9XjhW2emcYJzC5F3Ho1HzFzDLLIiU",
         ServiceAccountJson = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON")
             ?? config["GoogleDrive:ServiceAccountJson"],
         ClientId = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CLIENT_ID")
