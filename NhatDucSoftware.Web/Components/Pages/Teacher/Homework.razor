@@ -6,6 +6,7 @@
 @inject HomeworkService HomeworkService
 @inject GeminiHomeworkClient Gemini
 @inject ZaloBotClient Zalo
+@inject ZaloChatService ZaloChats
 @inject GoogleDriveService DriveService
 @inject IJSRuntime JS
 @inject LoadingService Loading
@@ -58,6 +59,10 @@ else
                             <option value="@c.Id">@c.ClassName</option>
                         }
                     </select>
+                    @if (!_classHasZalo)
+                    {
+                        <p class="text-muted">Lớp này chưa gắn nhóm Zalo. Trong nhóm của lớp, nhắc Bot Nhật Đức và gửi đúng tên lớp.</p>
+                    }
                 </div>
                 <div class="form-group">
                     <label>Tên bài</label>
@@ -87,7 +92,7 @@ else
                 }
             </div>
             <div class="toolbar">
-                <button class="btn btn-primary" @onclick="CreateAssignment">Tạo bài tập</button>
+                <button class="btn btn-primary" @onclick="CreateAssignmentAsync">Tạo bài tập</button>
             </div>
         }
     </div>
@@ -308,6 +313,7 @@ else
     private string? _message;
     private string _messageClass = "alert-success";
     private string? _clipboardFallback;
+    private bool _classHasZalo;
 
     private int? TeacherId => Session.CurrentUser?.TeacherId;
 
@@ -328,6 +334,7 @@ else
             {
                 _classId = _classes[0].Id;
                 LoadAssignments(teacherId);
+                RefreshClassZalo();
             }
         }
         catch (InvalidOperationException ex)
@@ -372,6 +379,11 @@ else
         _assignments = HomeworkService.ListForTeacher(teacherId, _classId);
     }
 
+    private void RefreshClassZalo()
+    {
+        _classHasZalo = _classId != 0 && !string.IsNullOrWhiteSpace(ZaloChats.GetChatId(_classId));
+    }
+
     private void ClearSelection()
     {
         _assignment = null;
@@ -398,6 +410,7 @@ else
         try
         {
             LoadAssignments(teacherId);
+            RefreshClassZalo();
         }
         catch (Exception ex)
         {
@@ -407,7 +420,7 @@ else
 
     private void CloseFallback() => _clipboardFallback = null;
 
-    private void CreateAssignment()
+    private async Task CreateAssignmentAsync()
     {
         if (TeacherId is not int teacherId)
         {
@@ -415,16 +428,27 @@ else
         }
 
         _message = null;
+        var classId = _classId;
+        var className = _classes.FirstOrDefault(item => item.Id == classId)?.ClassName ?? "";
+        var title = _title;
+        var assignedOn = _assignedOn;
+        var prompt = _prompt;
         try
         {
             var answerKey = _kind == HomeworkKind.Speaking ? null : _newAnswerKey;
-            var id = HomeworkService.CreateAssignment(teacherId, _classId, _title, _assignedOn, _kind, _prompt, answerKey);
+            var id = HomeworkService.CreateAssignment(teacherId, classId, title, assignedOn, _kind, prompt, answerKey);
             _title = "";
             _prompt = "";
             _newAnswerKey = "";
             LoadAssignments(teacherId);
             LoadAssignment(teacherId, id);
-            ShowSuccess("Đã tạo bài tập.");
+            var text = HomeworkAnnouncement.Build(className, title, assignedOn, prompt);
+            await SendToClassAsync(
+                classId,
+                text,
+                "Đã tạo bài tập và gửi đề vào nhóm Zalo của lớp.",
+                "Đã tạo bài tập. Lớp chưa gắn nhóm Zalo. Trong nhóm của lớp, nhắc Bot Nhật Đức và gửi đúng tên lớp.",
+                "Đã tạo bài tập. Zalo chưa nhận được đề bài.");
         }
         catch (Exception ex)
         {
@@ -826,7 +850,22 @@ else
             _gradedFileStudentId = 0;
             ReloadRows(teacherId);
             LoadDraftFromSaved();
-            await SendResultToOwnerAsync(studentName, score, shortComment);
+            if (_assignment is not null)
+            {
+                var text = HomeworkResultMessage.Build(
+                    _assignment.ClassName,
+                    _assignment.Title,
+                    studentName,
+                    score,
+                    shortComment,
+                    _report ?? "");
+                await SendToClassAsync(
+                    _assignment.ClassId,
+                    text,
+                    "Đã lưu phiếu và gửi kết quả vào nhóm Zalo của lớp.",
+                    "Đã lưu phiếu. Lớp chưa gắn nhóm Zalo nên chưa gửi được phiếu.",
+                    "Đã lưu phiếu. Zalo chưa nhận được phiếu trong nhóm.");
+            }
         }
         catch (Exception ex)
         {
@@ -834,33 +873,29 @@ else
         }
     }
 
-    private async Task SendResultToOwnerAsync(string studentName, decimal? score, string? shortComment)
+    private async Task SendToClassAsync(int classId, string text, string sent, string missing, string failed)
     {
-        if (_assignment is null)
+        var chatId = ZaloChats.GetChatId(classId);
+        RefreshClassZalo();
+        if (string.IsNullOrWhiteSpace(chatId))
         {
+            ShowWarning(missing);
             return;
         }
 
         try
         {
-            var text = HomeworkResultMessage.Build(
-                _assignment.ClassName,
-                _assignment.Title,
-                studentName,
-                score,
-                shortComment,
-                _report ?? "");
-            await Zalo.SendTextAsync(text);
-            ShowSuccess("Đã lưu phiếu và gửi kết quả vào Zalo.");
+            await Zalo.SendTextToAsync(chatId, text);
+            ShowSuccess(sent);
         }
         catch (InvalidOperationException ex) when (ex.Message == ZaloBotClient.NotConfiguredMessage)
         {
-            ShowWarning("Đã lưu phiếu. Chưa cấu hình Zalo Bot để gửi kết quả.");
+            ShowWarning("Chưa cấu hình Zalo Bot nên chưa gửi được tin.");
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Đã lưu phiếu nhưng không gửi được kết quả qua Zalo.");
-            ShowWarning("Đã lưu phiếu. Zalo chưa nhận được tin kết quả.");
+            Logger.LogWarning(ex, "Không gửi được tin Zalo cho lớp {ClassId}.", classId);
+            ShowWarning(failed);
         }
     }
 

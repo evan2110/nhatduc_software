@@ -7,10 +7,14 @@ public static class ZaloWebhookEndpoint
 {
     public const string GroupAck = "Bot đã nhận tin trong nhóm.";
 
+    public static string LinkedAck(string className) =>
+        $"Đã gắn nhóm này với lớp {className}. Bài tập của lớp sẽ được gửi vào đây.";
+
     public static async Task<IResult> Handle(
         HttpContext context,
         ZaloBotClient zalo,
         ZaloChatService chats,
+        ClassService classes,
         ILoggerFactory loggerFactory)
     {
         var logger = loggerFactory.CreateLogger("ZaloWebhook");
@@ -35,9 +39,17 @@ public static class ZaloWebhookEndpoint
         var update = ZaloWebhookEvent.Parse(body);
         if (string.Equals(update.ChatType, "GROUP", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(update.ChatId))
         {
+            var reply = GroupAck;
             try
             {
                 chats.Remember(update.ChatId, "GROUP");
+                var names = classes.GetAll().Select(item => (item.Id, item.ClassName));
+                var match = ZaloClassLink.Match(names, update.Text);
+                if (match is ZaloClassMatch linked)
+                {
+                    chats.LinkClass(linked.Id, update.ChatId);
+                    reply = LinkedAck(linked.Name);
+                }
             }
             catch (Exception ex)
             {
@@ -46,7 +58,7 @@ public static class ZaloWebhookEndpoint
 
             try
             {
-                await zalo.SendTextToAsync(update.ChatId, GroupAck);
+                await zalo.SendTextToAsync(update.ChatId, reply);
             }
             catch (Exception ex)
             {

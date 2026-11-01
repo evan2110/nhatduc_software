@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         using var command = connection.CreateCommand();
         command.CommandText = ZaloChatSql.CreateTable;
         command.ExecuteNonQuery();
+        using var addColumn = connection.CreateCommand();
+        addColumn.CommandText = ZaloChatSql.AddClassColumn;
+        addColumn.ExecuteNonQuery();
     }
 
     private static void MigrateHomeworkTables(System.Data.Common.DbConnection connection)
