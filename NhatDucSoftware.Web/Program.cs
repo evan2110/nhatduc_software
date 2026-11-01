@@ -136,6 +136,7 @@ builder.Services.AddScoped<TeacherService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
+builder.Services.AddScoped<HomeworkService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<TeacherTimesheetNotificationService>();

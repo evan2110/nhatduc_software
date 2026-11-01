@@ -17,4 +17,16 @@ public class HomeworkSqlTests
         Assert.Contains("COALESCE(PendingDriveFileId, DriveFileId)", HomeworkSql.SaveWrittenGrade);
         Assert.DoesNotContain("DriveFileId", HomeworkSql.SaveSpeakingGrade);
     }
+
+    [Fact]
+    public void AddedStatements_AreSingleLine()
+    {
+        Assert.DoesNotContain("\n", HomeworkSql.ListForTeacher);
+        Assert.DoesNotContain("\n", HomeworkSql.GetAssignment);
+        Assert.DoesNotContain("\n", HomeworkSql.ListRows);
+        Assert.DoesNotContain("\n", HomeworkSql.StudentInClass);
+        Assert.DoesNotContain("\n", HomeworkSql.SetDriveFolder);
+        Assert.DoesNotContain("\n", HomeworkSql.ReplaceAnswerKeyFile);
+        Assert.DoesNotContain("\n", HomeworkSql.UpdateAnswerKeyText);
+    }
 }
