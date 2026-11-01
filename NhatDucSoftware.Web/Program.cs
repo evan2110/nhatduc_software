@@ -137,6 +137,17 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
 builder.Services.AddScoped<HomeworkService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiHomeworkClient));
+    var key = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
+    var model = Environment.GetEnvironmentVariable("GEMINI_MODEL")
+        ?? config["Gemini:Model"]
+        ?? "gemini-2.5-flash";
+    return new GeminiHomeworkClient(http, key, model);
+});
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<TeacherTimesheetNotificationService>();
