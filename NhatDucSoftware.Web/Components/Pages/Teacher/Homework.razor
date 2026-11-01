@@ -50,7 +50,11 @@ else
         }
         else
         {
-            <div class="form-grid">
+            @if (!_classHasZalo)
+            {
+                <p class="text-muted hw-note">Chưa gắn nhóm Zalo. Trong nhóm, nhắc Bot Nhật Đức và gửi đúng tên lớp.</p>
+            }
+            <div class="hw-fields">
                 <div class="form-group">
                     <label>Lớp</label>
                     <select @bind="_classId" @bind:after="OnClassChanged">
@@ -59,17 +63,13 @@ else
                             <option value="@c.Id">@c.ClassName</option>
                         }
                     </select>
-                    @if (!_classHasZalo)
-                    {
-                        <p class="text-muted">Lớp này chưa gắn nhóm Zalo. Trong nhóm của lớp, nhắc Bot Nhật Đức và gửi đúng tên lớp.</p>
-                    }
                 </div>
                 <div class="form-group">
                     <label>Tên bài</label>
                     <input @bind="_title" />
                 </div>
                 <div class="form-group">
-                    <label>Ngày giao</label>
+                    <label>Ngày</label>
                     <input type="date" @bind="_assignedOn" @bind:format="yyyy-MM-dd" class="input-date" />
                 </div>
                 <div class="form-group">
@@ -79,21 +79,21 @@ else
                         <option value="@HomeworkKind.Speaking">Bài nói</option>
                     </select>
                 </div>
-                <div class="form-group span-2">
+            </div>
+            <div class="@(_kind == HomeworkKind.Written ? "hw-pair" : "hw-pair hw-pair-one")">
+                <div class="form-group">
                     <label>Đề bài</label>
-                    <textarea @bind="_prompt" rows="4"></textarea>
+                    <textarea @bind="_prompt" rows="2"></textarea>
                 </div>
                 @if (_kind == HomeworkKind.Written)
                 {
-                    <div class="form-group span-2">
-                        <label>Đáp án (chỉ giáo viên thấy, không đưa vào tin giao bài)</label>
-                        <textarea @bind="_newAnswerKey" rows="4"></textarea>
+                    <div class="form-group">
+                        <label>Đáp án</label>
+                        <textarea @bind="_newAnswerKey" rows="2"></textarea>
                     </div>
                 }
             </div>
-            <div class="toolbar">
-                <button class="btn btn-primary" @onclick="CreateAssignmentAsync">Tạo bài tập</button>
-            </div>
+            <button class="btn btn-primary" @onclick="CreateAssignmentAsync">Tạo</button>
         }
     </div>
 
@@ -121,13 +121,12 @@ else
                         @foreach (var a in _assignments)
                         {
                             var assignmentId = a.Id;
-                            <tr class="@(_assignment?.Id == a.Id ? "selected" : "")">
+                            <tr class="hw-row @(_assignment?.Id == a.Id ? "selected" : "")" @onclick="() => SelectAssignment(assignmentId)">
                                 <td>@a.Title</td>
                                 <td>@a.AssignedOn.ToString("dd/MM/yyyy")</td>
                                 <td>@KindLabel(a.Kind)</td>
                                 <td>
-                                    <button class="btn btn-secondary btn-sm" @onclick="() => SelectAssignment(assignmentId)">Mở</button>
-                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteAssignmentAsync(assignmentId)">Xóa</button>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteAssignmentAsync(assignmentId)" @onclick:stopPropagation="true">Xóa</button>
                                 </td>
                             </tr>
                         }
@@ -140,41 +139,41 @@ else
     @if (_assignment is not null)
     {
         <div class="card">
-            <h3>@_assignment.Title — @_assignment.ClassName</h3>
-            <p class="text-muted">@KindLabel(_assignment.Kind) · Giao ngày @_assignment.AssignedOn.ToString("dd/MM/yyyy")</p>
-            <p style="white-space:pre-wrap">@_assignment.Prompt</p>
-            <div class="toolbar">
-                <button class="btn btn-secondary" @onclick="CopyAnnouncement">Sao chép tin giao bài</button>
+            <div class="hw-head">
+                <div>
+                    <h3>@_assignment.Title</h3>
+                    <p class="text-muted hw-note">@_assignment.ClassName · @KindLabel(_assignment.Kind) · @_assignment.AssignedOn.ToString("dd/MM/yyyy")</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" @onclick="CopyAnnouncement">Chép tin</button>
             </div>
+            @if (!string.IsNullOrWhiteSpace(_assignment.Prompt))
+            {
+                <p class="hw-prompt">@_assignment.Prompt</p>
+            }
 
             @if (_assignment.Kind == HomeworkKind.Written)
             {
-                <div class="form-grid">
-                    <div class="form-group span-2">
-                        <label>Đáp án dạng chữ</label>
-                        <textarea @bind="_answerKeyText" rows="4"></textarea>
+                <div class="hw-key">
+                    <div class="form-group">
+                        <label>Đáp án</label>
+                        <textarea @bind="_answerKeyText" rows="2"></textarea>
                     </div>
-                    <div class="form-group span-2">
-                        <label>File đáp án (ảnh hoặc PDF)</label>
+                    <div class="form-group hw-key-file">
+                        <label>File đáp án</label>
                         @if (!string.IsNullOrWhiteSpace(_assignment.AnswerKeyFileName))
                         {
-                            <div>
-                                Đã lưu:
-                                @if (!string.IsNullOrWhiteSpace(_assignment.AnswerKeyDriveWebViewLink))
-                                {
-                                    <a href="@_assignment.AnswerKeyDriveWebViewLink" target="_blank" rel="noopener noreferrer">@_assignment.AnswerKeyFileName</a>
-                                }
-                                else
-                                {
-                                    @_assignment.AnswerKeyFileName
-                                }
-                            </div>
+                            @if (!string.IsNullOrWhiteSpace(_assignment.AnswerKeyDriveWebViewLink))
+                            {
+                                <a href="@_assignment.AnswerKeyDriveWebViewLink" target="_blank" rel="noopener noreferrer">@_assignment.AnswerKeyFileName</a>
+                            }
+                            else
+                            {
+                                <span>@_assignment.AnswerKeyFileName</span>
+                            }
                         }
                         <InputFile @key="@($"key-{_inputVersion}")" OnChange="OnAnswerKeyFile" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                        <button class="btn btn-primary btn-sm" @onclick="SaveAnswerKeyText">Lưu</button>
                     </div>
-                </div>
-                <div class="toolbar">
-                    <button class="btn btn-primary" @onclick="SaveAnswerKeyText">Lưu đáp án</button>
                 </div>
             }
         </div>
@@ -182,13 +181,13 @@ else
         <div class="card">
             <h3>Học viên</h3>
             <div class="table-responsive">
-                <table class="data-table compact">
+                <table class="data-table compact hw-students">
                     <thead>
                         <tr>
                             <th>Học viên</th>
-                            <th>@(_assignment.Kind == HomeworkKind.Written ? "Bài làm" : "File ghi âm / video")</th>
+                            <th>@(_assignment.Kind == HomeworkKind.Written ? "Bài làm" : "Ghi âm / video")</th>
                             <th>Điểm</th>
-                            <th>Nhận xét ngắn</th>
+                            <th>Nhận xét</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -204,15 +203,14 @@ else
                             @foreach (var row in _rows)
                             {
                                 var studentId = row.StudentId;
-                                <tr class="@(_selectedStudentId == studentId ? "selected" : "")">
-                                    <td>@row.StudentName</td>
-                                    <td>
+                                <tr class="hw-row @(_selectedStudentId == studentId ? "selected" : "")" @onclick="() => SelectStudent(studentId)">
+                                    <td class="hw-name">@row.StudentName</td>
+                                    <td class="hw-work" @onclick:stopPropagation="true">
                                         @if (_assignment.Kind == HomeworkKind.Written)
                                         {
                                             @if (!string.IsNullOrWhiteSpace(row.FileName))
                                             {
-                                                <div>
-                                                    Đã lưu:
+                                                <div class="hw-file-name">
                                                     @if (!string.IsNullOrWhiteSpace(row.DriveWebViewLink))
                                                     {
                                                         <a href="@row.DriveWebViewLink" target="_blank" rel="noopener noreferrer">@row.FileName</a>
@@ -225,25 +223,24 @@ else
                                             }
                                             @if (!string.IsNullOrWhiteSpace(row.PendingFileName))
                                             {
-                                                <div>Chờ chấm: @row.PendingFileName</div>
+                                                <div class="hw-file-name text-muted">@row.PendingFileName</div>
                                             }
-                                            <textarea rows="3" placeholder="Dán nội dung bài làm" value="@WorkTextOf(studentId)" @oninput="e => SetWorkText(studentId, e)" @onblur="() => SaveWorkTextAsync(studentId)"></textarea>
+                                            <textarea rows="2" placeholder="Nội dung" value="@WorkTextOf(studentId)" @oninput="e => SetWorkText(studentId, e)" @onblur="() => SaveWorkTextAsync(studentId)"></textarea>
                                             <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" />
                                         }
                                         else
                                         {
                                             @if (_speakingFiles.TryGetValue(studentId, out var staged))
                                             {
-                                                <div>Đã chọn: @staged.Name</div>
+                                                <div class="hw-file-name">@staged.Name</div>
                                             }
                                             <InputFile @key="@($"s-{studentId}-{_inputVersion}")" OnChange="@(e => OnSpeakingFile(studentId, e))" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
                                         }
                                     </td>
-                                    <td>@(row.Score is null ? "—" : row.Score.Value.ToString("0.##", CultureInfo.InvariantCulture))</td>
-                                    <td>@(string.IsNullOrWhiteSpace(row.ShortComment) ? "—" : row.ShortComment)</td>
-                                    <td>
-                                        <button class="btn btn-secondary btn-sm" @onclick="() => SelectStudent(studentId)">Chọn</button>
-                                        <button class="btn btn-primary btn-sm" @onclick="() => GradeAsync(studentId)">Chấm</button>
+                                    <td class="hw-score">@(row.Score is null ? "—" : row.Score.Value.ToString("0.##", CultureInfo.InvariantCulture))</td>
+                                    <td class="hw-comment">@(string.IsNullOrWhiteSpace(row.ShortComment) ? "—" : row.ShortComment)</td>
+                                    <td class="hw-actions">
+                                        <button class="btn btn-primary btn-sm" @onclick="() => GradeAsync(studentId)" @onclick:stopPropagation="true">Chấm</button>
                                     </td>
                                 </tr>
                             }
@@ -256,32 +253,33 @@ else
         @if (SelectedRow is { } selected)
         {
             <div class="card">
-                <h3>Phiếu chấm — @selected.StudentName</h3>
-                <p class="text-muted">Bản nháp chỉ nằm trên trang này cho tới khi bấm Lưu. Chọn học viên khác sẽ bỏ bản nháp.</p>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Điểm (0–10)</label>
-                        <input @bind="_scoreText" />
-                    </div>
-                    <div class="form-group span-2">
-                        <label>Nhận xét ngắn</label>
-                        <textarea @bind="_comment" rows="3"></textarea>
-                    </div>
-                    <div class="form-group span-2">
-                        <label>Phiếu nhận xét</label>
-                        <textarea @bind="_report" rows="10"></textarea>
+                <div class="hw-head">
+                    <h3>Phiếu — @selected.StudentName</h3>
+                    <div class="hw-slip-actions">
+                        <button class="btn btn-primary btn-sm" @onclick="SaveGradeAsync">Lưu</button>
+                        @if (!string.IsNullOrWhiteSpace(selected.ReportText))
+                        {
+                            <button class="btn btn-secondary btn-sm" @onclick="CopySlip">Chép phiếu</button>
+                        }
+                        @if (selected.Score is not null)
+                        {
+                            <button class="btn btn-secondary btn-sm" @onclick="PushToMonth">Đánh giá tháng</button>
+                        }
                     </div>
                 </div>
-                <div class="toolbar">
-                    <button class="btn btn-primary" @onclick="SaveGradeAsync">Lưu</button>
-                    @if (!string.IsNullOrWhiteSpace(selected.ReportText))
-                    {
-                        <button class="btn btn-secondary" @onclick="CopySlip">Sao chép phiếu</button>
-                    }
-                    @if (selected.Score is not null)
-                    {
-                        <button class="btn btn-secondary" @onclick="PushToMonth">Đưa vào đánh giá tháng</button>
-                    }
+                <div class="hw-slip">
+                    <div class="form-group">
+                        <label>Điểm</label>
+                        <input @bind="_scoreText" inputmode="decimal" />
+                    </div>
+                    <div class="form-group">
+                        <label>Nhận xét</label>
+                        <input @bind="_comment" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Phiếu nhận xét</label>
+                    <textarea @bind="_report" rows="6"></textarea>
                 </div>
             </div>
         }
