@@ -5,6 +5,7 @@
 @inject ClassService ClassService
 @inject HomeworkService HomeworkService
 @inject GeminiHomeworkClient Gemini
+@inject ZaloBotClient Zalo
 @inject GoogleDriveService DriveService
 @inject IJSRuntime JS
 @inject LoadingService Loading
@@ -12,6 +13,7 @@
 @using System.Globalization
 @using Microsoft.JSInterop
 @using NhatDucSoftware.Core.Helpers
+@using NhatDucSoftware.Core.Services
 
 <PageTitle>Bài tập</PageTitle>
 
@@ -816,6 +818,7 @@ else
         }
 
         var shortComment = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim();
+        var studentName = _rows.FirstOrDefault(r => r.StudentId == _selectedStudentId)?.StudentName ?? "";
         try
         {
             var promotePending = _gradedFileStudentId == _selectedStudentId;
@@ -823,11 +826,41 @@ else
             _gradedFileStudentId = 0;
             ReloadRows(teacherId);
             LoadDraftFromSaved();
-            ShowSuccess("Đã lưu phiếu chấm.");
+            await SendResultToOwnerAsync(studentName, score, shortComment);
         }
         catch (Exception ex)
         {
             ShowFailure(ex, "Không lưu được phiếu chấm.");
+        }
+    }
+
+    private async Task SendResultToOwnerAsync(string studentName, decimal? score, string? shortComment)
+    {
+        if (_assignment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var text = HomeworkResultMessage.Build(
+                _assignment.ClassName,
+                _assignment.Title,
+                studentName,
+                score,
+                shortComment,
+                _report ?? "");
+            await Zalo.SendTextAsync(text);
+            ShowSuccess("Đã lưu phiếu và gửi kết quả vào Zalo.");
+        }
+        catch (InvalidOperationException ex) when (ex.Message == ZaloBotClient.NotConfiguredMessage)
+        {
+            ShowWarning("Đã lưu phiếu. Chưa cấu hình Zalo Bot để gửi kết quả.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Đã lưu phiếu nhưng không gửi được kết quả qua Zalo.");
+            ShowWarning("Đã lưu phiếu. Zalo chưa nhận được tin kết quả.");
         }
     }
 

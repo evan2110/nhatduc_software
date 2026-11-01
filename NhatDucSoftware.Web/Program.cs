@@ -148,6 +148,16 @@ builder.Services.AddScoped(sp =>
         ?? "gemini-2.5-flash";
     return new GeminiHomeworkClient(http, key, model, sp.GetService<ILogger<GeminiHomeworkClient>>());
 });
+builder.Services.AddScoped(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ZaloBotClient));
+    var token = Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN") ?? "";
+    var chatId = Environment.GetEnvironmentVariable("ZALO_HOMEWORK_CHAT_ID")
+        ?? config["Zalo:HomeworkChatId"]
+        ?? "";
+    return new ZaloBotClient(http, token, chatId, sp.GetService<ILogger<ZaloBotClient>>());
+});
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<TeacherTimesheetService>();
 builder.Services.AddScoped<TeacherTimesheetNotificationService>();
