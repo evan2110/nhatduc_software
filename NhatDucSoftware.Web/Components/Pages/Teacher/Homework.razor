@@ -208,33 +208,45 @@ else
                                     <td class="hw-work" @onclick:stopPropagation="true">
                                         @if (_assignment.Kind == HomeworkKind.Written)
                                         {
-                                            @if (!string.IsNullOrWhiteSpace(row.FileName))
-                                            {
-                                                <div class="hw-file-name">
-                                                    @if (!string.IsNullOrWhiteSpace(row.DriveWebViewLink))
+                                            <textarea rows="2" placeholder="Dán nội dung" value="@WorkTextOf(studentId)" @oninput="e => SetWorkText(studentId, e)" @onblur="() => SaveWorkTextAsync(studentId)"></textarea>
+                                            <div class="hw-work-file">
+                                                <span class="hw-file-name">
+                                                    @if (!string.IsNullOrWhiteSpace(row.PendingFileName))
                                                     {
-                                                        <a href="@row.DriveWebViewLink" target="_blank" rel="noopener noreferrer">@row.FileName</a>
+                                                        @row.PendingFileName
                                                     }
-                                                    else
+                                                    else if (!string.IsNullOrWhiteSpace(row.FileName))
                                                     {
-                                                        @row.FileName
+                                                        @if (!string.IsNullOrWhiteSpace(row.DriveWebViewLink))
+                                                        {
+                                                            <a href="@row.DriveWebViewLink" target="_blank" rel="noopener noreferrer">@row.FileName</a>
+                                                        }
+                                                        else
+                                                        {
+                                                            @row.FileName
+                                                        }
                                                     }
-                                                </div>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(row.PendingFileName))
-                                            {
-                                                <div class="hw-file-name text-muted">@row.PendingFileName</div>
-                                            }
-                                            <textarea rows="2" placeholder="Nội dung" value="@WorkTextOf(studentId)" @oninput="e => SetWorkText(studentId, e)" @onblur="() => SaveWorkTextAsync(studentId)"></textarea>
-                                            <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" />
+                                                </span>
+                                                <label class="btn btn-secondary btn-sm hw-pick">
+                                                    Tải file
+                                                    <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" />
+                                                </label>
+                                            </div>
                                         }
                                         else
                                         {
-                                            @if (_speakingFiles.TryGetValue(studentId, out var staged))
-                                            {
-                                                <div class="hw-file-name">@staged.Name</div>
-                                            }
-                                            <InputFile @key="@($"s-{studentId}-{_inputVersion}")" OnChange="@(e => OnSpeakingFile(studentId, e))" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
+                                            <div class="hw-work-file">
+                                                <span class="hw-file-name">
+                                                    @if (_speakingFiles.TryGetValue(studentId, out var staged))
+                                                    {
+                                                        @staged.Name
+                                                    }
+                                                </span>
+                                                <label class="btn btn-secondary btn-sm hw-pick">
+                                                    Chọn file
+                                                    <InputFile @key="@($"s-{studentId}-{_inputVersion}")" OnChange="@(e => OnSpeakingFile(studentId, e))" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
+                                                </label>
+                                            </div>
                                         }
                                     </td>
                                     <td class="hw-score">@(row.Score is null ? "—" : row.Score.Value.ToString("0.##", CultureInfo.InvariantCulture))</td>
