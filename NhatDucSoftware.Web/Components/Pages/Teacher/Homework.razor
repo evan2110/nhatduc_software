@@ -1,0 +1,841 @@
+@page "/teacher/homework"
+@attribute [Authorize(Roles = "Teacher")]
+@rendermode InteractiveServer
+@inject UserSession Session
+@inject ClassService ClassService
+@inject HomeworkService HomeworkService
+@inject GeminiHomeworkClient Gemini
+@inject GoogleDriveService DriveService
+@inject IJSRuntime JS
+@inject LoadingService Loading
+@inject ILogger<Homework> Logger
+@using System.Globalization
+@using Microsoft.JSInterop
+@using NhatDucSoftware.Core.Helpers
+
+<PageTitle>Bài tập</PageTitle>
+
+@if (TeacherId is null)
+{
+    <div class="alert alert-danger">Tài khoản này chưa gắn với giáo viên. Không thể mở trang Bài tập.</div>
+}
+else
+{
+    <h1 class="page-title">Bài tập</h1>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @_messageClass">@_message</div>
+    }
+
+    @if (_clipboardFallback is not null)
+    {
+        <div class="card">
+            <div class="form-group">
+                <label>Không sao chép tự động được. Hãy chọn toàn bộ nội dung bên dưới và chép.</label>
+                <textarea rows="8" readonly value="@_clipboardFallback"></textarea>
+            </div>
+            <button class="btn btn-secondary" @onclick="CloseFallback">Đóng</button>
+        </div>
+    }
+
+    <div class="card">
+        <h3>Tạo bài tập</h3>
+        @if (_classes.Count == 0)
+        {
+            <p class="text-muted">Bạn chưa có lớp nào.</p>
+        }
+        else
+        {
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Lớp</label>
+                    <select @bind="_classId" @bind:after="OnClassChanged">
+                        @foreach (var c in _classes)
+                        {
+                            <option value="@c.Id">@c.ClassName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tên bài</label>
+                    <input @bind="_title" />
+                </div>
+                <div class="form-group">
+                    <label>Ngày giao</label>
+                    <InputDate @bind-Value="_assignedOn" class="input-date" />
+                </div>
+                <div class="form-group">
+                    <label>Loại</label>
+                    <select @bind="_kind">
+                        <option value="@HomeworkKind.Written">Bài viết</option>
+                        <option value="@HomeworkKind.Speaking">Bài nói</option>
+                    </select>
+                </div>
+                <div class="form-group span-2">
+                    <label>Đề bài</label>
+                    <textarea @bind="_prompt" rows="4"></textarea>
+                </div>
+                @if (_kind == HomeworkKind.Written)
+                {
+                    <div class="form-group span-2">
+                        <label>Đáp án (chỉ giáo viên thấy, không đưa vào tin giao bài)</label>
+                        <textarea @bind="_newAnswerKey" rows="4"></textarea>
+                    </div>
+                }
+            </div>
+            <div class="toolbar">
+                <button class="btn btn-primary" @onclick="CreateAssignment">Tạo bài tập</button>
+            </div>
+        }
+    </div>
+
+    <div class="card">
+        <h3>Bài tập của lớp</h3>
+        <div class="table-responsive">
+            <table class="data-table compact">
+                <thead>
+                    <tr>
+                        <th>Tên bài</th>
+                        <th>Ngày giao</th>
+                        <th>Loại</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_assignments.Count == 0)
+                    {
+                        <tr class="empty-row">
+                            <td colspan="4">Chưa có bài tập.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var a in _assignments)
+                        {
+                            var assignmentId = a.Id;
+                            <tr class="@(_assignment?.Id == a.Id ? "selected" : "")">
+                                <td>@a.Title</td>
+                                <td>@a.AssignedOn.ToString("dd/MM/yyyy")</td>
+                                <td>@KindLabel(a.Kind)</td>
+                                <td><button class="btn btn-secondary btn-sm" @onclick="() => SelectAssignment(assignmentId)">Mở</button></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_assignment is not null)
+    {
+        <div class="card">
+            <h3>@_assignment.Title — @_assignment.ClassName</h3>
+            <p class="text-muted">@KindLabel(_assignment.Kind) · Giao ngày @_assignment.AssignedOn.ToString("dd/MM/yyyy")</p>
+            <p style="white-space:pre-wrap">@_assignment.Prompt</p>
+            <div class="toolbar">
+                <button class="btn btn-secondary" @onclick="CopyAnnouncement">Sao chép tin giao bài</button>
+            </div>
+
+            @if (_assignment.Kind == HomeworkKind.Written)
+            {
+                <div class="form-grid">
+                    <div class="form-group span-2">
+                        <label>Đáp án dạng chữ</label>
+                        <textarea @bind="_answerKeyText" rows="4"></textarea>
+                    </div>
+                    <div class="form-group span-2">
+                        <label>File đáp án (ảnh hoặc PDF)</label>
+                        @if (!string.IsNullOrWhiteSpace(_assignment.AnswerKeyFileName))
+                        {
+                            <div>
+                                Đã lưu:
+                                @if (!string.IsNullOrWhiteSpace(_assignment.AnswerKeyDriveWebViewLink))
+                                {
+                                    <a href="@_assignment.AnswerKeyDriveWebViewLink" target="_blank" rel="noopener noreferrer">@_assignment.AnswerKeyFileName</a>
+                                }
+                                else
+                                {
+                                    @_assignment.AnswerKeyFileName
+                                }
+                            </div>
+                        }
+                        <InputFile @key="@($"key-{_inputVersion}")" OnChange="OnAnswerKeyFile" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button class="btn btn-primary" @onclick="SaveAnswerKeyText">Lưu đáp án</button>
+                </div>
+            }
+        </div>
+
+        <div class="card">
+            <h3>Học viên</h3>
+            <div class="table-responsive">
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            <th>Học viên</th>
+                            <th>@(_assignment.Kind == HomeworkKind.Written ? "Bài làm" : "File ghi âm / video")</th>
+                            <th>Điểm</th>
+                            <th>Nhận xét ngắn</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_rows.Count == 0)
+                        {
+                            <tr class="empty-row">
+                                <td colspan="5">Lớp chưa có học viên.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var row in _rows)
+                            {
+                                var studentId = row.StudentId;
+                                <tr class="@(_selectedStudentId == studentId ? "selected" : "")">
+                                    <td>@row.StudentName</td>
+                                    <td>
+                                        @if (_assignment.Kind == HomeworkKind.Written)
+                                        {
+                                            @if (!string.IsNullOrWhiteSpace(row.FileName))
+                                            {
+                                                <div>
+                                                    Đã lưu:
+                                                    @if (!string.IsNullOrWhiteSpace(row.DriveWebViewLink))
+                                                    {
+                                                        <a href="@row.DriveWebViewLink" target="_blank" rel="noopener noreferrer">@row.FileName</a>
+                                                    }
+                                                    else
+                                                    {
+                                                        @row.FileName
+                                                    }
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(row.PendingFileName))
+                                            {
+                                                <div>Chờ chấm: @row.PendingFileName</div>
+                                            }
+                                            <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                                        }
+                                        else
+                                        {
+                                            @if (_speakingFiles.TryGetValue(studentId, out var staged))
+                                            {
+                                                <div>Đã chọn: @staged.Name</div>
+                                            }
+                                            <InputFile @key="@($"s-{studentId}-{_inputVersion}")" OnChange="@(e => OnSpeakingFile(studentId, e))" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
+                                        }
+                                    </td>
+                                    <td>@(row.Score is null ? "—" : row.Score.Value.ToString("0.##", CultureInfo.InvariantCulture))</td>
+                                    <td>@(string.IsNullOrWhiteSpace(row.ShortComment) ? "—" : row.ShortComment)</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm" @onclick="() => SelectStudent(studentId)">Chọn</button>
+                                        <button class="btn btn-primary btn-sm" @onclick="() => GradeAsync(studentId)">Chấm</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (SelectedRow is { } selected)
+        {
+            <div class="card">
+                <h3>Phiếu chấm — @selected.StudentName</h3>
+                <p class="text-muted">Bản nháp chỉ nằm trên trang này cho tới khi bấm Lưu. Chọn học viên khác sẽ bỏ bản nháp.</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Điểm (0–10)</label>
+                        <input @bind="_scoreText" />
+                    </div>
+                    <div class="form-group span-2">
+                        <label>Nhận xét ngắn</label>
+                        <textarea @bind="_comment" rows="3"></textarea>
+                    </div>
+                    <div class="form-group span-2">
+                        <label>Phiếu nhận xét</label>
+                        <textarea @bind="_report" rows="10"></textarea>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <button class="btn btn-primary" @onclick="SaveGradeAsync">Lưu</button>
+                    @if (!string.IsNullOrWhiteSpace(selected.ReportText))
+                    {
+                        <button class="btn btn-secondary" @onclick="CopySlip">Sao chép phiếu</button>
+                    }
+                    @if (selected.Score is not null)
+                    {
+                        <button class="btn btn-secondary" @onclick="PushToMonth">Đưa vào đánh giá tháng</button>
+                    }
+                </div>
+            </div>
+        }
+    }
+}
+
+@code {
+    private readonly Dictionary<int, IBrowserFile> _speakingFiles = new();
+
+    private List<ClassInfo> _classes = new();
+    private List<HomeworkAssignment> _assignments = new();
+    private List<HomeworkSubmissionRow> _rows = new();
+    private HomeworkAssignment? _assignment;
+
+    private int _classId;
+    private string _title = "";
+    private DateTime _assignedOn = DateTime.Today;
+    private string _kind = HomeworkKind.Written;
+    private string _prompt = "";
+    private string _newAnswerKey = "";
+
+    private string _answerKeyText = "";
+    private int _inputVersion;
+
+    private int _selectedStudentId;
+    private string _scoreText = "";
+    private string _comment = "";
+    private string _report = "";
+
+    private string? _message;
+    private string _messageClass = "alert-success";
+    private string? _clipboardFallback;
+
+    private int? TeacherId => Session.CurrentUser?.TeacherId;
+
+    private HomeworkSubmissionRow? SelectedRow =>
+        _selectedStudentId == 0 ? null : _rows.FirstOrDefault(r => r.StudentId == _selectedStudentId);
+
+    protected override void OnInitialized()
+    {
+        if (TeacherId is not int teacherId)
+        {
+            return;
+        }
+
+        try
+        {
+            _classes = ClassService.GetClassesByTeacher(teacherId);
+            if (_classes.Count > 0)
+            {
+                _classId = _classes[0].Id;
+                LoadAssignments(teacherId);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            ShowError(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Không tải được danh sách bài tập.");
+            ShowError("Không tải được danh sách bài tập. Hãy thử lại.");
+        }
+    }
+
+    private void ShowSuccess(string text) => SetMessage(text, "alert-success");
+
+    private void ShowWarning(string text) => SetMessage(text, "alert-warning");
+
+    private void ShowError(string text) => SetMessage(text, "alert-danger");
+
+    private void SetMessage(string text, string cssClass)
+    {
+        _message = text;
+        _messageClass = cssClass;
+    }
+
+    private void ShowFailure(Exception ex, string context)
+    {
+        if (ex is InvalidOperationException)
+        {
+            ShowError(ex.Message);
+            return;
+        }
+
+        Logger.LogError(ex, "{Context}", context);
+        ShowError("Có lỗi xảy ra. Hãy thử lại.");
+    }
+
+    private static string KindLabel(string kind) => kind == HomeworkKind.Speaking ? "Bài nói" : "Bài viết";
+
+    private void LoadAssignments(int teacherId)
+    {
+        _assignments = HomeworkService.ListForTeacher(teacherId, _classId);
+    }
+
+    private void ClearSelection()
+    {
+        _assignment = null;
+        _rows = new();
+        _selectedStudentId = 0;
+        _scoreText = "";
+        _comment = "";
+        _report = "";
+        _answerKeyText = "";
+        _speakingFiles.Clear();
+        _inputVersion++;
+    }
+
+    private void OnClassChanged()
+    {
+        if (TeacherId is not int teacherId)
+        {
+            return;
+        }
+
+        _message = null;
+        ClearSelection();
+        try
+        {
+            LoadAssignments(teacherId);
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không tải được bài tập của lớp.");
+        }
+    }
+
+    private void CloseFallback() => _clipboardFallback = null;
+
+    private void CreateAssignment()
+    {
+        if (TeacherId is not int teacherId)
+        {
+            return;
+        }
+
+        _message = null;
+        try
+        {
+            var answerKey = _kind == HomeworkKind.Speaking ? null : _newAnswerKey;
+            var id = HomeworkService.CreateAssignment(teacherId, _classId, _title, _assignedOn, _kind, _prompt, answerKey);
+            _title = "";
+            _prompt = "";
+            _newAnswerKey = "";
+            LoadAssignments(teacherId);
+            LoadAssignment(teacherId, id);
+            ShowSuccess("Đã tạo bài tập.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không tạo được bài tập.");
+        }
+    }
+
+    private void SelectAssignment(int assignmentId)
+    {
+        if (TeacherId is not int teacherId)
+        {
+            return;
+        }
+
+        _message = null;
+        try
+        {
+            LoadAssignment(teacherId, assignmentId);
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không mở được bài tập.");
+        }
+    }
+
+    private void LoadAssignment(int teacherId, int assignmentId)
+    {
+        var assignment = HomeworkService.GetAssignment(teacherId, assignmentId)
+            ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
+        var rows = HomeworkService.ListRows(teacherId, assignmentId);
+
+        ClearSelection();
+        _assignment = assignment;
+        _rows = rows;
+        _answerKeyText = assignment.AnswerKeyText ?? "";
+    }
+
+    private void ReloadRows(int teacherId)
+    {
+        if (_assignment is null)
+        {
+            return;
+        }
+
+        _rows = HomeworkService.ListRows(teacherId, _assignment.Id);
+    }
+
+    private void SelectStudent(int studentId)
+    {
+        if (_selectedStudentId == studentId)
+        {
+            return;
+        }
+
+        _selectedStudentId = studentId;
+        LoadDraftFromSaved();
+    }
+
+    // Switching student drops the unsaved draft and shows what ListRows returned.
+    private void LoadDraftFromSaved()
+    {
+        var row = SelectedRow;
+        _scoreText = row?.Score?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
+        _comment = row?.ShortComment ?? "";
+        _report = row?.ReportText ?? "";
+    }
+
+    private async Task CopyAnnouncement()
+    {
+        if (_assignment is null)
+        {
+            return;
+        }
+
+        var text = HomeworkAnnouncement.Build(_assignment.ClassName, _assignment.Title, _assignment.AssignedOn, _assignment.Prompt);
+        await CopyText(text, "Đã sao chép tin giao bài.");
+    }
+
+    private async Task CopySlip()
+    {
+        var saved = SelectedRow?.ReportText;
+        if (string.IsNullOrWhiteSpace(saved))
+        {
+            ShowError("Hãy lưu phiếu trước khi sao chép.");
+            return;
+        }
+
+        await CopyText(saved, "Đã sao chép phiếu.");
+    }
+
+    private async Task CopyText(string text, string successMessage)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            _clipboardFallback = null;
+            ShowSuccess(successMessage);
+        }
+        catch (Exception)
+        {
+            _clipboardFallback = text;
+            ShowWarning("Trình duyệt không cho sao chép tự động. Hãy chép từ ô bên dưới.");
+        }
+    }
+
+    private void SaveAnswerKeyText()
+    {
+        if (TeacherId is not int teacherId || _assignment is null)
+        {
+            return;
+        }
+
+        _message = null;
+        try
+        {
+            HomeworkService.UpdateAnswerKeyText(teacherId, _assignment.Id, _answerKeyText);
+            _assignment = HomeworkService.GetAssignment(teacherId, _assignment.Id) ?? _assignment;
+            _answerKeyText = _assignment.AnswerKeyText ?? "";
+            ShowSuccess("Đã lưu đáp án.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không lưu được đáp án.");
+        }
+    }
+
+    private async Task OnAnswerKeyFile(InputFileChangeEventArgs e)
+    {
+        if (TeacherId is not int teacherId || _assignment is null)
+        {
+            return;
+        }
+
+        var file = e.File;
+        _message = null;
+        if (!HomeworkFileRules.IsAccepted(HomeworkKind.Written, file.Name, file.Size, out var fileError))
+        {
+            ShowError(fileError);
+            return;
+        }
+
+        Loading.Show("Đang tải file đáp án...");
+        try
+        {
+            await using var stream = file.OpenReadStream(HomeworkFileRules.MaxBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            await HomeworkService.ReplaceAnswerKeyFile(teacherId, _assignment.Id, memory, file.Name, ContentTypeFor(file));
+            _assignment = HomeworkService.GetAssignment(teacherId, _assignment.Id) ?? _assignment;
+            ShowSuccess($"Đã lưu file đáp án \"{file.Name}\".");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không tải được file đáp án.");
+        }
+        finally
+        {
+            _inputVersion++;
+            Loading.Hide();
+        }
+    }
+
+    private async Task OnWrittenFile(int studentId, InputFileChangeEventArgs e)
+    {
+        if (TeacherId is not int teacherId || _assignment is null)
+        {
+            return;
+        }
+
+        var file = e.File;
+        _message = null;
+        if (!HomeworkFileRules.IsAccepted(_assignment.Kind, file.Name, file.Size, out var fileError))
+        {
+            ShowError(fileError);
+            _inputVersion++;
+            return;
+        }
+
+        Loading.Show("Đang tải bài làm...");
+        try
+        {
+            await using var stream = file.OpenReadStream(HomeworkFileRules.MaxBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            memory.Position = 0;
+
+            await HomeworkService.StoreWrittenFile(teacherId, _assignment.Id, studentId, memory, file.Name, ContentTypeFor(file));
+            ReloadRows(teacherId);
+            ShowSuccess($"Đã tải bài làm \"{file.Name}\". Bấm Chấm để chấm bài.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không tải được bài làm.");
+        }
+        finally
+        {
+            _inputVersion++;
+            Loading.Hide();
+        }
+    }
+
+    private void OnSpeakingFile(int studentId, InputFileChangeEventArgs e)
+    {
+        if (_assignment is null)
+        {
+            return;
+        }
+
+        var file = e.File;
+        _message = null;
+        if (!HomeworkFileRules.IsAccepted(_assignment.Kind, file.Name, file.Size, out var fileError))
+        {
+            ShowError(fileError);
+            _speakingFiles.Remove(studentId);
+            _inputVersion++;
+            return;
+        }
+
+        _speakingFiles[studentId] = file;
+        ShowSuccess($"Đã chọn \"{file.Name}\". Bấm Chấm để chấm bài nói.");
+    }
+
+    private async Task GradeAsync(int studentId)
+    {
+        if (TeacherId is not int teacherId || _assignment is null)
+        {
+            return;
+        }
+
+        SelectStudent(studentId);
+        _message = null;
+
+        var assignment = _assignment;
+        var row = _rows.FirstOrDefault(r => r.StudentId == studentId);
+        if (row is null)
+        {
+            ShowError("Không tìm thấy học viên.");
+            return;
+        }
+
+        if (!HomeworkGradingRules.CanGrade(assignment.Kind, assignment.AnswerKeyText, assignment.AnswerKeyDriveFileId, out var gradeError))
+        {
+            ShowError(gradeError);
+            return;
+        }
+
+        byte[] studentBytes = Array.Empty<byte>();
+        byte[]? answerKeyBytes = null;
+        Loading.Show("Đang chấm bài...");
+        try
+        {
+            string studentMime;
+            if (assignment.Kind == HomeworkKind.Speaking)
+            {
+                if (!_speakingFiles.TryGetValue(studentId, out var speakingFile))
+                {
+                    ShowError("Hãy chọn file ghi âm hoặc video của học viên trước khi chấm.");
+                    return;
+                }
+
+                if (!HomeworkFileRules.IsAccepted(assignment.Kind, speakingFile.Name, speakingFile.Size, out var fileError))
+                {
+                    ShowError(fileError);
+                    return;
+                }
+
+                await using var stream = speakingFile.OpenReadStream(HomeworkFileRules.MaxBytes);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory);
+                studentBytes = memory.ToArray();
+                studentMime = ContentTypeFor(speakingFile);
+            }
+            else
+            {
+                var hasPending = !string.IsNullOrWhiteSpace(row.PendingDriveFileId);
+                var driveFileId = hasPending ? row.PendingDriveFileId : row.SavedDriveFileId;
+                if (string.IsNullOrWhiteSpace(driveFileId))
+                {
+                    ShowError("Hãy tải bài làm của học viên trước khi chấm.");
+                    return;
+                }
+
+                var studentFileName = hasPending ? row.PendingFileName : row.FileName;
+                studentBytes = await DriveService.DownloadFileAsync(driveFileId);
+                studentMime = MimeFromFileName(studentFileName);
+            }
+
+            string? answerKeyMime = null;
+            if (!string.IsNullOrWhiteSpace(assignment.AnswerKeyDriveFileId))
+            {
+                answerKeyBytes = await DriveService.DownloadFileAsync(assignment.AnswerKeyDriveFileId);
+                answerKeyMime = MimeFromFileName(assignment.AnswerKeyFileName);
+            }
+
+            var draft = await Gemini.GradeAsync(
+                assignment.Kind,
+                assignment.ClassName,
+                assignment.Title,
+                row.StudentName,
+                assignment.Prompt,
+                assignment.AnswerKeyText,
+                answerKeyBytes,
+                answerKeyMime,
+                studentBytes,
+                studentMime);
+
+            studentBytes = Array.Empty<byte>();
+            answerKeyBytes = null;
+
+            if (_selectedStudentId != studentId)
+            {
+                return;
+            }
+
+            _comment = draft.ShortComment;
+            _report = draft.ReportText;
+            if (draft.ScoreMissing || draft.Score is null)
+            {
+                _scoreText = "";
+                ShowWarning("Gemini chưa đưa ra điểm. Hãy tự nhập điểm rồi bấm Lưu.");
+            }
+            else
+            {
+                _scoreText = draft.Score.Value.ToString("0.##", CultureInfo.InvariantCulture);
+                ShowSuccess("Gemini đã chấm nháp. Kiểm tra lại rồi bấm Lưu.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Chấm bài thất bại.");
+        }
+        finally
+        {
+            studentBytes = Array.Empty<byte>();
+            answerKeyBytes = null;
+            Loading.Hide();
+        }
+    }
+
+    private async Task SaveGradeAsync()
+    {
+        if (TeacherId is not int teacherId || _assignment is null || _selectedStudentId == 0)
+        {
+            return;
+        }
+
+        _message = null;
+        decimal? score = null;
+        if (!string.IsNullOrWhiteSpace(_scoreText))
+        {
+            if (!HomeworkScoreParser.TryParse(_scoreText, out var parsed))
+            {
+                ShowError("Điểm phải là số từ 0 đến 10.");
+                return;
+            }
+
+            score = parsed;
+        }
+
+        var shortComment = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim();
+        try
+        {
+            await HomeworkService.SaveGrade(teacherId, _assignment.Id, _selectedStudentId, score, shortComment, _report ?? "");
+            ReloadRows(teacherId);
+            LoadDraftFromSaved();
+            ShowSuccess("Đã lưu phiếu chấm.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không lưu được phiếu chấm.");
+        }
+    }
+
+    private void PushToMonth()
+    {
+        if (TeacherId is not int teacherId || _assignment is null || _selectedStudentId == 0)
+        {
+            return;
+        }
+
+        _message = null;
+        try
+        {
+            HomeworkService.PushToMonth(teacherId, _assignment.Id, _selectedStudentId);
+            ShowSuccess("Đã đưa điểm và nhận xét đã lưu vào đánh giá tháng.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không đưa được vào đánh giá tháng.");
+        }
+    }
+
+    private static string ContentTypeFor(IBrowserFile file)
+    {
+        return string.IsNullOrWhiteSpace(file.ContentType)
+            ? MimeFromFileName(file.Name)
+            : file.ContentType;
+    }
+
+    private static string MimeFromFileName(string? fileName)
+    {
+        var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
+        return ext switch
+        {
+            "jpg" or "jpeg" => "image/jpeg",
+            "png" => "image/png",
+            "webp" => "image/webp",
+            "pdf" => "application/pdf",
+            "mp3" => "audio/mpeg",
+            "m4a" => "audio/mp4",
+            "wav" => "audio/wav",
+            "mp4" => "video/mp4",
+            "webm" => "video/webm",
+            "mov" => "video/quicktime",
+            _ => "application/octet-stream"
+        };
+    }
+}
