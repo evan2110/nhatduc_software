@@ -38,6 +38,7 @@ public sealed class GeminiHomeworkClient
         string? answerKeyMime,
         byte[] studentFile,
         string studentMime,
+        string? studentWorkText = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_apiKey))
@@ -45,20 +46,28 @@ public sealed class GeminiHomeworkClient
             throw new InvalidOperationException("Chưa cấu hình GEMINI_API_KEY.");
         }
 
-        if (!GeminiInlineFileRules.IsWithinLimit(studentFile.LongLength, out var sizeError)
+        if ((studentFile.Length > 0 && !GeminiInlineFileRules.IsWithinLimit(studentFile.LongLength, out var sizeError))
             || (answerKeyFile is not null && !GeminiInlineFileRules.IsWithinLimit(answerKeyFile.LongLength, out sizeError)))
         {
             throw new InvalidOperationException(sizeError);
         }
 
-        var text = GeminiGradePrompt.Build(kind, className, title, studentName, prompt, answerKeyText);
+        if (studentFile.Length == 0 && string.IsNullOrWhiteSpace(studentWorkText))
+        {
+            throw new InvalidOperationException("Hãy nhập nội dung hoặc tải file bài làm trước khi chấm.");
+        }
+
+        var text = GeminiGradePrompt.Build(kind, className, title, studentName, prompt, answerKeyText, studentWorkText);
         var parts = new List<object> { new { text } };
         if (answerKeyFile is { Length: > 0 })
         {
             parts.Add(new { inline_data = new { mime_type = answerKeyMime, data = Convert.ToBase64String(answerKeyFile) } });
         }
 
-        parts.Add(new { inline_data = new { mime_type = studentMime, data = Convert.ToBase64String(studentFile) } });
+        if (studentFile.Length > 0)
+        {
+            parts.Add(new { inline_data = new { mime_type = studentMime, data = Convert.ToBase64String(studentFile) } });
+        }
         var body = JsonSerializer.Serialize(new { contents = new[] { new { parts } } });
         using var request = new HttpRequestMessage(HttpMethod.Post, GeminiHomeworkRequest.Endpoint(_model));
         request.Headers.Add("x-goog-api-key", _apiKey);

@@ -10,6 +10,9 @@ public class HomeworkFileRulesTests
     [InlineData("Written", "bai.png")]
     [InlineData("Written", "bai.webp")]
     [InlineData("Written", "bai.pdf")]
+    [InlineData("Written", "bai.txt")]
+    [InlineData("Written", "bai.docx")]
+    [InlineData("Written", "bai")]
     [InlineData("Speaking", "noi.mp3")]
     [InlineData("Speaking", "noi.m4a")]
     [InlineData("Speaking", "noi.wav")]
@@ -22,9 +25,8 @@ public class HomeworkFileRulesTests
     }
 
     [Theory]
-    [InlineData("Written", "noi.mp4")]
     [InlineData("Speaking", "bai.pdf")]
-    [InlineData("Written", "bai.docx")]
+    [InlineData("Speaking", "bai.txt")]
     public void IsAccepted_RejectsTheOtherKind(string kind, string fileName)
     {
         Assert.False(HomeworkFileRules.IsAccepted(kind, fileName, 1024, out var error));

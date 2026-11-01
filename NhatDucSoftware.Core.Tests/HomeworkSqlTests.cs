@@ -37,6 +37,8 @@ public class HomeworkSqlTests
         Assert.DoesNotContain("c.CourseCode", HomeworkSql.GetAssignment);
         Assert.Contains("co.Code", HomeworkSql.GetAssignment);
         Assert.DoesNotContain("\n", HomeworkSql.ListRows);
+        Assert.Contains("WorkText", HomeworkSql.ListRows);
+        Assert.DoesNotContain("\n", HomeworkSql.UpsertWorkText);
         Assert.DoesNotContain("\n", HomeworkSql.StudentInClass);
         Assert.DoesNotContain("\n", HomeworkSql.SetDriveFolder);
         Assert.DoesNotContain("\n", HomeworkSql.ReplaceAnswerKeyFile);

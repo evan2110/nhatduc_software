@@ -12,9 +12,13 @@ public sealed class GeminiGradeDraft
 
 public static class GeminiGradePrompt
 {
-    public static string Build(string kind, string className, string title, string studentName, string prompt, string? answerKeyText)
+    public static string Build(string kind, string className, string title, string studentName, string prompt, string? answerKeyText, string? studentWorkText = null)
     {
         var shared = $"Trả về JSON thuần với các khóa score, shortComment, report. score là điểm trên thang 10 hoặc chuỗi rỗng nếu không chấm được. Học viên: {studentName}. Lớp: {className}. Bài: {title}. Đề: {prompt}.";
+        if (!string.IsNullOrWhiteSpace(studentWorkText))
+        {
+            shared += " Bài làm dạng chữ: " + studentWorkText.Trim();
+        }
         if (kind == "Speaking")
         {
             return shared + " Đây là bài nói. report gồm điểm và nhận xét phát âm, độ trôi chảy, ngữ pháp, từ vựng, nội dung.";

@@ -227,7 +227,8 @@ else
                                             {
                                                 <div>Chờ chấm: @row.PendingFileName</div>
                                             }
-                                            <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" accept=".jpg,.jpeg,.png,.webp,.pdf" />
+                                            <textarea rows="3" placeholder="Dán nội dung bài làm" value="@WorkTextOf(studentId)" @oninput="e => SetWorkText(studentId, e)" @onblur="() => SaveWorkTextAsync(studentId)"></textarea>
+                                            <InputFile @key="@($"w-{studentId}-{_inputVersion}")" OnChange="@(e => OnWrittenFile(studentId, e))" />
                                         }
                                         else
                                         {
@@ -289,6 +290,7 @@ else
 
 @code {
     private readonly Dictionary<int, IBrowserFile> _speakingFiles = new();
+    private readonly Dictionary<int, string> _workTexts = new();
 
     private List<ClassInfo> _classes = new();
     private List<HomeworkAssignment> _assignments = new();
@@ -398,7 +400,44 @@ else
         _report = "";
         _answerKeyText = "";
         _speakingFiles.Clear();
+        _workTexts.Clear();
         _inputVersion++;
+    }
+
+    private string WorkTextOf(int studentId)
+    {
+        return _workTexts.TryGetValue(studentId, out var text) ? text : "";
+    }
+
+    private void SetWorkText(int studentId, ChangeEventArgs e)
+    {
+        _workTexts[studentId] = e.Value?.ToString() ?? "";
+    }
+
+    private void LoadWorkTexts()
+    {
+        _workTexts.Clear();
+        foreach (var row in _rows)
+        {
+            _workTexts[row.StudentId] = row.WorkText ?? "";
+        }
+    }
+
+    private async Task SaveWorkTextAsync(int studentId)
+    {
+        if (TeacherId is not int teacherId || _assignment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            HomeworkService.SaveWorkText(teacherId, _assignment.Id, studentId, WorkTextOf(studentId));
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không lưu được nội dung bài làm.");
+        }
     }
 
     private void OnClassChanged()
@@ -518,6 +557,7 @@ else
         _assignment = assignment;
         _rows = rows;
         _answerKeyText = assignment.AnswerKeyText ?? "";
+        LoadWorkTexts();
     }
 
     private void ReloadRows(int teacherId)
@@ -773,17 +813,26 @@ else
             }
             else
             {
+                var workText = WorkTextOf(studentId);
+                HomeworkService.SaveWorkText(teacherId, assignment.Id, studentId, workText);
                 var hasPending = !string.IsNullOrWhiteSpace(row.PendingDriveFileId);
                 var driveFileId = hasPending ? row.PendingDriveFileId : row.SavedDriveFileId;
-                if (string.IsNullOrWhiteSpace(driveFileId))
+                if (string.IsNullOrWhiteSpace(driveFileId) && string.IsNullOrWhiteSpace(workText))
                 {
-                    ShowError("Hãy tải bài làm của học viên trước khi chấm.");
+                    ShowError("Hãy nhập nội dung hoặc tải file bài làm trước khi chấm.");
                     return;
                 }
 
-                var studentFileName = hasPending ? row.PendingFileName : row.FileName;
-                studentBytes = await DriveService.DownloadFileAsync(driveFileId);
-                studentMime = MimeFromFileName(studentFileName);
+                if (!string.IsNullOrWhiteSpace(driveFileId))
+                {
+                    var studentFileName = hasPending ? row.PendingFileName : row.FileName;
+                    studentBytes = await DriveService.DownloadFileAsync(driveFileId);
+                    studentMime = MimeFromFileName(studentFileName);
+                }
+                else
+                {
+                    studentMime = "text/plain";
+                }
             }
 
             string? answerKeyMime = null;
@@ -815,7 +864,8 @@ else
                 answerKeyBytes,
                 answerKeyMime,
                 studentBytes,
-                studentMime);
+                studentMime,
+                assignment.Kind == HomeworkKind.Written ? WorkTextOf(studentId) : null);
 
             studentBytes = Array.Empty<byte>();
             answerKeyBytes = null;
@@ -968,6 +1018,9 @@ else
             "png" => "image/png",
             "webp" => "image/webp",
             "pdf" => "application/pdf",
+            "txt" => "text/plain",
+            "doc" => "application/msword",
+            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "mp3" => "audio/mpeg",
             "m4a" => "audio/mp4",
             "wav" => "audio/wav",

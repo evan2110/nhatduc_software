@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateAnnouncementsTable(connection);
         MigratePlaintextPasswords(connection);
         MigrateHomeworkTables(connection);
+        MigrateHomeworkWorkText(connection);
         MigrateZaloChatsTable(connection);
     }
 
@@ -85,6 +86,13 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         using var addColumn = connection.CreateCommand();
         addColumn.CommandText = ZaloChatSql.AddClassColumn;
         addColumn.ExecuteNonQuery();
+    }
+
+    private static void MigrateHomeworkWorkText(System.Data.Common.DbConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "ALTER TABLE HomeworkSubmissions ADD COLUMN IF NOT EXISTS WorkText TEXT;";
+        command.ExecuteNonQuery();
     }
 
     private static void MigrateHomeworkTables(System.Data.Common.DbConnection connection)

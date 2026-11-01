@@ -37,4 +37,5 @@ public sealed class HomeworkSubmissionRow
     public string? PendingFileName { get; set; }
     public string? SavedDriveFileId { get; set; }
     public string? PendingDriveFileId { get; set; }
+    public string? WorkText { get; set; }
 }

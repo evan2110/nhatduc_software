@@ -161,11 +161,27 @@ public class HomeworkService
                 DriveWebViewLink = ReadString(reader, 6),
                 PendingFileName = ReadString(reader, 7),
                 SavedDriveFileId = ReadString(reader, 8),
-                PendingDriveFileId = ReadString(reader, 9)
+                PendingDriveFileId = ReadString(reader, 9),
+                WorkText = ReadString(reader, 10)
             });
         }
 
         return result;
+    }
+
+    public void SaveWorkText(int teacherId, int assignmentId, int studentId, string? workText)
+    {
+        var assignment = RequireAssignment(teacherId, assignmentId);
+        EnsureStudentAccess(teacherId, assignment, studentId);
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.UpsertWorkText;
+        command.Parameters.AddWithValue("@assignmentId", assignmentId);
+        command.Parameters.AddWithValue("@studentId", studentId);
+        command.Parameters.AddWithValue("@workText", string.IsNullOrWhiteSpace(workText) ? DBNull.Value : workText.Trim());
+        command.ExecuteNonQuery();
     }
 
     public void UpdateAnswerKeyText(int teacherId, int assignmentId, string? answerKeyText)
