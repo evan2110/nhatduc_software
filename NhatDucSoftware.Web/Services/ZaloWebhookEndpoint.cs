@@ -32,6 +32,9 @@ public static class ZaloWebhookEndpoint
         ZaloBotClient zalo,
         ZaloChatService chats,
         ClassService classes,
+        HomeworkService homework,
+        GeminiHomeworkClient gemini,
+        GoogleDriveService drive,
         ILoggerFactory loggerFactory)
     {
         var logger = loggerFactory.CreateLogger("ZaloWebhook");
@@ -60,7 +63,12 @@ public static class ZaloWebhookEndpoint
             try
             {
                 chats.Remember(update.ChatId, "GROUP");
-                if (ZaloClassLink.IsCancel(update.Text))
+                var graded = await ZaloHomeworkAutoGrade.TryReplyAsync(update.Text, update.ChatId, chats, homework, gemini, drive, logger);
+                if (graded is not null)
+                {
+                    reply = graded;
+                }
+                else if (ZaloClassLink.IsCancel(update.Text))
                 {
                     reply = UnlinkedAck(chats.UnlinkByChat(update.ChatId));
                 }

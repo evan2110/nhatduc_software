@@ -11,6 +11,7 @@ public static class ZaloChatSql
     public const string LinkClass = "UPDATE Classes SET ZaloChatId = @chatId WHERE Id = @classId;";
     public const string UnlinkByChat = "UPDATE Classes SET ZaloChatId = NULL WHERE ZaloChatId = @chatId RETURNING COALESCE(ClassName, '');";
     public const string GetChatId = "SELECT ZaloChatId FROM Classes WHERE Id = @id;";
+    public const string ListLinkedClasses = "SELECT Id, COALESCE(ClassName, '') FROM Classes WHERE ZaloChatId = @chatId ORDER BY Id ASC;";
 }
 
 public sealed class ZaloChatService
@@ -77,5 +78,22 @@ public sealed class ZaloChatService
 
         var text = Convert.ToString(value, CultureInfo.InvariantCulture);
         return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    public List<(int Id, string Name)> ListLinkedClasses(string chatId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = ZaloChatSql.ListLinkedClasses;
+        command.Parameters.AddWithValue("@chatId", chatId);
+        var result = new List<(int Id, string Name)>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add((Convert.ToInt32(reader.GetValue(0), CultureInfo.InvariantCulture), reader.IsDBNull(1) ? "" : reader.GetString(1)));
+        }
+
+        return result;
     }
 }

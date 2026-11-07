@@ -134,6 +134,51 @@ public class HomeworkService
         return reader.Read() ? MapAssignment(reader) : null;
     }
 
+    public List<ZaloHomeworkStudent> ListClassStudents(int classId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.ListClassStudents;
+        command.Parameters.AddWithValue("@classId", classId);
+        var result = new List<ZaloHomeworkStudent>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new ZaloHomeworkStudent(
+                Convert.ToInt32(reader.GetValue(0), CultureInfo.InvariantCulture),
+                ReadString(reader, 1) ?? ""));
+        }
+
+        return result;
+    }
+
+    public List<ZaloHomeworkAssignmentRef> ListClassAssignments(int classId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.ListClassAssignments;
+        command.Parameters.AddWithValue("@classId", classId);
+        var result = new List<ZaloHomeworkAssignmentRef>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var assignedOnText = ReadString(reader, 3) ?? "";
+            var assignedOn = DateTime.TryParseExact(assignedOnText, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+                ? parsed
+                : DateTime.TryParse(assignedOnText, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed) ? parsed : default;
+            result.Add(new ZaloHomeworkAssignmentRef(
+                Convert.ToInt32(reader.GetValue(0), CultureInfo.InvariantCulture),
+                Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture),
+                ReadString(reader, 2) ?? "",
+                assignedOn,
+                ReadString(reader, 4) ?? HomeworkKind.Written));
+        }
+
+        return result;
+    }
+
     public List<HomeworkSubmissionRow> ListRows(int teacherId, int assignmentId)
     {
         var assignment = RequireAssignment(teacherId, assignmentId);

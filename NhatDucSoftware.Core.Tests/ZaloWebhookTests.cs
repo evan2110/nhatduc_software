@@ -82,6 +82,8 @@ public class ZaloWebhookTests
         Assert.Contains("SET ZaloChatId = NULL", ZaloChatSql.UnlinkByChat);
         Assert.Contains("WHERE ZaloChatId = @chatId", ZaloChatSql.UnlinkByChat);
         Assert.DoesNotContain("\n", ZaloChatSql.UnlinkByChat);
+        Assert.DoesNotContain("\n", ZaloChatSql.ListLinkedClasses);
+        Assert.Contains("ZaloChatId = @chatId", ZaloChatSql.ListLinkedClasses);
     }
 
     private sealed class RecordingHandler : HttpMessageHandler
