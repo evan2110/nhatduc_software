@@ -33,12 +33,12 @@ public sealed class HomeworkLinkSubmit
     {
         if (string.IsNullOrWhiteSpace(studentName))
         {
-            return "Hãy nhập họ và tên.";
+            return "Hãy nhập họ và tên học viên.";
         }
 
         if (string.IsNullOrWhiteSpace(answer))
         {
-            return "Hãy nhập bài làm.";
+            return "Hãy nhập đáp án.";
         }
 
         var assignment = _homework.GetByPublicToken(token);
@@ -52,20 +52,22 @@ public sealed class HomeworkLinkSubmit
             return "Bài nói không nộp trên trang này.";
         }
 
-        var (target, failure) = ZaloHomeworkMatch.Find(
-            [
-                new ZaloHomeworkClass(
-                    assignment.ClassId,
-                    assignment.ClassName,
-                    _homework.ListClassStudents(assignment.ClassId),
-                    [new ZaloHomeworkAssignmentRef(assignment.Id, assignment.TeacherId, assignment.Title, assignment.AssignedOn, assignment.Kind)])
-            ],
-            studentName,
-            assignment.Title);
-        if (target is null)
+        var (student, nameError) = ZaloHomeworkMatch.VerifyStudent(
+            _homework.ListClassStudents(assignment.ClassId),
+            studentName);
+        if (student is null)
         {
-            return failure ?? "Không thấy học viên.";
+            return nameError ?? ZaloHomeworkMatch.StudentNotInClass;
         }
+
+        var target = new ZaloHomeworkTarget(
+            assignment.ClassId,
+            assignment.ClassName,
+            student.Id,
+            student.Name,
+            assignment.Id,
+            assignment.TeacherId,
+            assignment.Kind);
 
         if (!HomeworkGradingRules.CanGrade(assignment.Kind, assignment.AnswerKeyText, assignment.AnswerKeyDriveFileId, out _))
         {

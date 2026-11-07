@@ -23,6 +23,21 @@ public static class ZaloHomeworkMatch
 {
     public const string NotLinked = "Nhóm này chưa gắn với lớp nào.";
     public const string Ambiguous = "Nhóm đang gắn với nhiều lớp có cùng học viên và bài này.";
+    public const string StudentNotInClass = "Họ và tên không có trong danh sách học viên của lớp.";
+    public const string DuplicateStudent = "Có nhiều học viên trùng họ và tên này.";
+
+    public static (ZaloHomeworkStudent? Student, string? Message) VerifyStudent(
+        IReadOnlyList<ZaloHomeworkStudent> students,
+        string typedName)
+    {
+        var matches = students.Where(item => Same(item.Name, typedName)).ToList();
+        if (matches.Count == 1)
+        {
+            return (matches[0], null);
+        }
+
+        return (null, matches.Count == 0 ? StudentNotInClass : DuplicateStudent);
+    }
 
     public static (ZaloHomeworkTarget? Target, string? Message) Find(
         IReadOnlyList<ZaloHomeworkClass> classes,

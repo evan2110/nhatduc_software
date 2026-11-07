@@ -1,10 +1,14 @@
+@page "/b/{Token}"
 @page "/bai-tap/{Token}"
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
 @inject HomeworkService HomeworkService
 @inject HomeworkLinkSubmit SubmitService
 
-<PageTitle>@(_view?.Title ?? "Bài tập")</PageTitle>
+<PageTitle>Bài tập</PageTitle>
+<HeadContent>
+    <meta property="og:title" content="Bài tập" />
+</HeadContent>
 
 <div class="hw-public">
     <div class="card">
@@ -23,15 +27,17 @@
                 {
                     <div class="alert @_messageClass">@_message</div>
                 }
-                <div class="form-group">
-                    <label>Họ và tên</label>
-                    <input @bind="_studentName" />
-                </div>
-                <div class="form-group">
-                    <label>Bài làm</label>
-                    <textarea @bind="_answer" rows="6"></textarea>
-                </div>
-                <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_busy">Nộp bài</button>
+                <form @onsubmit="SubmitAsync" @onsubmit:preventDefault>
+                    <div class="form-group">
+                        <label for="hw-name">Họ và tên học viên</label>
+                        <input id="hw-name" required @bind="_studentName" />
+                    </div>
+                    <div class="form-group">
+                        <label for="hw-answer">Đáp án</label>
+                        <textarea id="hw-answer" required rows="6" @bind="_answer"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">Nộp bài</button>
+                </form>
             }
             else
             {

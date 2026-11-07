@@ -77,4 +77,22 @@ public class ZaloHomeworkReplyTests
         Assert.Contains("Không thấy học viên", ZaloHomeworkMatch.Find(classes, "Bình", "Làm toán").Message);
         Assert.Contains("Không thấy bài", ZaloHomeworkMatch.Find(classes, "An", "Luyện nói").Message);
     }
+
+    [Fact]
+    public void VerifyStudent_MatchesTheClassRosterIgnoringCase()
+    {
+        var students = new[]
+        {
+            new ZaloHomeworkStudent(9, "NGUYỄN THỊ NHƯ Ý")
+        };
+
+        var (student, message) = ZaloHomeworkMatch.VerifyStudent(students, "nguyễn thị như ý");
+        Assert.Null(message);
+        Assert.Equal(9, student?.Id);
+        Assert.Equal("NGUYỄN THỊ NHƯ Ý", student?.Name);
+
+        var missing = ZaloHomeworkMatch.VerifyStudent(students, "Lê Gia Huy");
+        Assert.Null(missing.Student);
+        Assert.Equal(ZaloHomeworkMatch.StudentNotInClass, missing.Message);
+    }
 }

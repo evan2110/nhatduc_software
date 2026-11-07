@@ -6,6 +6,6 @@ public static class HomeworkPublicToken
 {
     public static string Create()
     {
-        return Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        return Convert.ToHexString(RandomNumberGenerator.GetBytes(4)).ToLowerInvariant();
     }
 }

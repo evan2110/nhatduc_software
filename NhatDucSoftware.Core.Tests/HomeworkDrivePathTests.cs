@@ -34,4 +34,12 @@ public class HomeworkDrivePathTests
         Assert.Contains("Đề bài: https://nhatduc.example/bai-tap/abc", text);
         Assert.DoesNotContain("đáp án", text, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void PublicToken_IsEightHexCharacters()
+    {
+        var token = HomeworkPublicToken.Create();
+        Assert.Equal(8, token.Length);
+        Assert.Matches("^[0-9a-f]{8}$", token);
+    }
 }
