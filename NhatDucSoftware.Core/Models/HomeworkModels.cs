@@ -23,7 +23,10 @@ public sealed class HomeworkAssignment
     public string? AnswerKeyDriveFileId { get; set; }
     public string? AnswerKeyDriveWebViewLink { get; set; }
     public string? DriveFolderId { get; set; }
+    public string PublicToken { get; set; } = "";
 }
+
+public sealed record HomeworkPublicView(string ClassName, string Title, DateTime AssignedOn, string Kind, string Prompt);
 
 public sealed class HomeworkSubmissionRow
 {

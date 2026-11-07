@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigratePlaintextPasswords(connection);
         MigrateHomeworkTables(connection);
         MigrateHomeworkWorkText(connection);
+        MigrateHomeworkPublicToken(connection);
         MigrateZaloChatsTable(connection);
     }
 
@@ -86,6 +87,39 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         using var addColumn = connection.CreateCommand();
         addColumn.CommandText = ZaloChatSql.AddClassColumn;
         addColumn.ExecuteNonQuery();
+    }
+
+    private static void MigrateHomeworkPublicToken(Npgsql.NpgsqlConnection connection)
+    {
+        using (var addColumn = connection.CreateCommand())
+        {
+            addColumn.CommandText = "ALTER TABLE HomeworkAssignments ADD COLUMN IF NOT EXISTS PublicToken TEXT;";
+            addColumn.ExecuteNonQuery();
+        }
+
+        var ids = new List<int>();
+        using (var list = connection.CreateCommand())
+        {
+            list.CommandText = HomeworkSql.ListMissingPublicTokens;
+            using var reader = list.ExecuteReader();
+            while (reader.Read())
+            {
+                ids.Add(Convert.ToInt32(reader.GetValue(0)));
+            }
+        }
+
+        foreach (var id in ids)
+        {
+            using var update = connection.CreateCommand();
+            update.CommandText = HomeworkSql.SetPublicToken;
+            update.Parameters.AddWithValue("@token", HomeworkPublicToken.Create());
+            update.Parameters.AddWithValue("@id", id);
+            update.ExecuteNonQuery();
+        }
+
+        using var index = connection.CreateCommand();
+        index.CommandText = HomeworkSql.PublicTokenIndex;
+        index.ExecuteNonQuery();
     }
 
     private static void MigrateHomeworkWorkText(System.Data.Common.DbConnection connection)

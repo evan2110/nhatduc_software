@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS HomeworkAssignments (
     AnswerKeyDriveFileId TEXT NULL,
     AnswerKeyDriveWebViewLink TEXT NULL,
     DriveFolderId TEXT NULL,
+    PublicToken TEXT NULL,
     CreatedAt TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS HomeworkSubmissions (

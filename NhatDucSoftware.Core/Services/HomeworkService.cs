@@ -51,6 +51,7 @@ public class HomeworkService
         command.Parameters.AddWithValue("@answerKeyDriveFileId", DBNull.Value);
         command.Parameters.AddWithValue("@answerKeyDriveWebViewLink", DBNull.Value);
         command.Parameters.AddWithValue("@driveFolderId", DBNull.Value);
+        command.Parameters.AddWithValue("@publicToken", HomeworkPublicToken.Create());
         command.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
         return Convert.ToInt32(command.ExecuteScalar());
     }
@@ -132,6 +133,30 @@ public class HomeworkService
 
         using var reader = command.ExecuteReader();
         return reader.Read() ? MapAssignment(reader) : null;
+    }
+
+    public HomeworkAssignment? GetByPublicToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.GetByPublicToken;
+        command.Parameters.AddWithValue("@token", token.Trim());
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? MapAssignment(reader) : null;
+    }
+
+    public HomeworkPublicView? GetPublicView(string? token)
+    {
+        var assignment = GetByPublicToken(token);
+        return assignment is null
+            ? null
+            : new HomeworkPublicView(assignment.ClassName, assignment.Title, assignment.AssignedOn, assignment.Kind, assignment.Prompt);
     }
 
     public List<ZaloHomeworkStudent> ListClassStudents(int classId)
@@ -506,7 +531,8 @@ public class HomeworkService
             AnswerKeyFileName = ReadString(reader, 11),
             AnswerKeyDriveFileId = ReadString(reader, 12),
             AnswerKeyDriveWebViewLink = ReadString(reader, 13),
-            DriveFolderId = ReadString(reader, 14)
+            DriveFolderId = ReadString(reader, 14),
+            PublicToken = ReadString(reader, 15) ?? ""
         };
     }
 

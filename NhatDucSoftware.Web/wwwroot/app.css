@@ -1975,6 +1975,12 @@ a.brand-link:hover,
     margin-bottom: 0.35rem;
 }
 
+.hw-public {
+    max-width: 40rem;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+}
+
 .hw-note {
     margin: 0 0 0.6rem;
     font-size: 0.85rem;

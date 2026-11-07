@@ -26,11 +26,12 @@ public class HomeworkDrivePathTests
     [Fact]
     public void Announcement_OmitsAnswerKey()
     {
-        var text = HomeworkAnnouncement.Build("Grade 2A", "Unit 3", new DateTime(2026, 11, 1), "Viết 5 câu.");
-        Assert.Contains("Grade 2A", text);
-        Assert.Contains("Unit 3", text);
-        Assert.Contains("01/11/2026", text);
-        Assert.Contains("Viết 5 câu.", text);
+        var text = HomeworkAnnouncement.Build("TOÁN THCS LỚP 7", "Trả lời câu tiếng Anh", new DateTime(2026, 11, 7), "https://nhatduc.example/bai-tap/abc");
+        Assert.Contains("BÀI TẬP", text);
+        Assert.Contains("Lớp: TOÁN THCS LỚP 7", text);
+        Assert.Contains("Bài: Trả lời câu tiếng Anh", text);
+        Assert.Contains("Ngày giao: 07/11/2026", text);
+        Assert.Contains("Đề bài: https://nhatduc.example/bai-tap/abc", text);
         Assert.DoesNotContain("đáp án", text, StringComparison.OrdinalIgnoreCase);
     }
 }

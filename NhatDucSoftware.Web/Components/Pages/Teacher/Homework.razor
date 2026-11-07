@@ -9,6 +9,7 @@
 @inject ZaloChatService ZaloChats
 @inject GoogleDriveService DriveService
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 @inject LoadingService Loading
 @inject ILogger<Homework> Logger
 @using System.Globalization
@@ -149,6 +150,10 @@ else
             @if (!string.IsNullOrWhiteSpace(_assignment.Prompt))
             {
                 <p class="hw-prompt">@_assignment.Prompt</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(AssignmentLink(_assignment)))
+            {
+                <p><a href="@AssignmentLink(_assignment)" target="_blank" rel="noopener noreferrer">Link bài</a></p>
             }
 
             @if (_assignment.Kind == HomeworkKind.Written)
@@ -494,7 +499,8 @@ else
             _newAnswerKey = "";
             LoadAssignments(teacherId);
             LoadAssignment(teacherId, id);
-            var text = HomeworkAnnouncement.Build(className, title, assignedOn, prompt);
+            var created = HomeworkService.GetAssignment(teacherId, id);
+            var text = HomeworkAnnouncement.Build(className, title, assignedOn, AssignmentLink(created));
             await SendToClassAsync(
                 classId,
                 text,
@@ -601,6 +607,16 @@ else
         _report = GeminiGradeParser.NormalizeReport(row?.ReportText, _scoreText);
     }
 
+    private string AssignmentLink(HomeworkAssignment? assignment)
+    {
+        if (string.IsNullOrWhiteSpace(assignment?.PublicToken))
+        {
+            return "";
+        }
+
+        return Nav.ToAbsoluteUri($"/bai-tap/{assignment.PublicToken}").AbsoluteUri;
+    }
+
     private async Task CopyAnnouncement()
     {
         if (_assignment is null)
@@ -608,7 +624,7 @@ else
             return;
         }
 
-        var text = HomeworkAnnouncement.Build(_assignment.ClassName, _assignment.Title, _assignment.AssignedOn, _assignment.Prompt);
+        var text = HomeworkAnnouncement.Build(_assignment.ClassName, _assignment.Title, _assignment.AssignedOn, AssignmentLink(_assignment));
         await CopyText(text, "Đã sao chép tin giao bài.");
     }
 

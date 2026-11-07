@@ -57,38 +57,7 @@ public static class ZaloHomeworkAutoGrade
                 return gradeError;
             }
 
-            homework.SaveWorkText(target.TeacherId, target.AssignmentId, target.StudentId, reply.Answer);
-
-            byte[]? answerKeyBytes = null;
-            string? answerKeyMime = null;
-            if (!string.IsNullOrWhiteSpace(assignment.AnswerKeyDriveFileId))
-            {
-                answerKeyBytes = await drive.DownloadFileAsync(assignment.AnswerKeyDriveFileId);
-                answerKeyMime = MimeFromFileName(assignment.AnswerKeyFileName);
-            }
-
-            var draft = await gemini.GradeAsync(
-                assignment.Kind,
-                assignment.ClassName,
-                assignment.Title,
-                target.StudentName,
-                assignment.Prompt,
-                assignment.AnswerKeyText,
-                answerKeyBytes,
-                answerKeyMime,
-                Array.Empty<byte>(),
-                "text/plain",
-                reply.Answer);
-            var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
-            var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
-            await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
-            return HomeworkResultMessage.Build(
-                assignment.ClassName,
-                assignment.Title,
-                target.StudentName,
-                draft.Score,
-                draft.ShortComment,
-                report);
+            return await GradeWrittenAsync(target, reply.Answer, homework, gemini, drive);
         }
         catch (InvalidOperationException ex)
         {
@@ -100,6 +69,54 @@ public static class ZaloHomeworkAutoGrade
             logger.LogWarning(ex, "Không chấm được bài Zalo trong nhóm {ChatId}.", chatId);
             return Failed;
         }
+    }
+
+    public static async Task<string> GradeWrittenAsync(
+        ZaloHomeworkTarget target,
+        string answer,
+        HomeworkService homework,
+        GeminiHomeworkClient gemini,
+        GoogleDriveService drive)
+    {
+        var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
+            ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
+        if (!HomeworkGradingRules.CanGrade(assignment.Kind, assignment.AnswerKeyText, assignment.AnswerKeyDriveFileId, out var gradeError))
+        {
+            throw new InvalidOperationException(gradeError);
+        }
+
+        homework.SaveWorkText(target.TeacherId, target.AssignmentId, target.StudentId, answer);
+
+        byte[]? answerKeyBytes = null;
+        string? answerKeyMime = null;
+        if (!string.IsNullOrWhiteSpace(assignment.AnswerKeyDriveFileId))
+        {
+            answerKeyBytes = await drive.DownloadFileAsync(assignment.AnswerKeyDriveFileId);
+            answerKeyMime = MimeFromFileName(assignment.AnswerKeyFileName);
+        }
+
+        var draft = await gemini.GradeAsync(
+            assignment.Kind,
+            assignment.ClassName,
+            assignment.Title,
+            target.StudentName,
+            assignment.Prompt,
+            assignment.AnswerKeyText,
+            answerKeyBytes,
+            answerKeyMime,
+            Array.Empty<byte>(),
+            "text/plain",
+            answer);
+        var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
+        await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
+        return HomeworkResultMessage.Build(
+            assignment.ClassName,
+            assignment.Title,
+            target.StudentName,
+            draft.Score,
+            draft.ShortComment,
+            report);
     }
 
     private static string MimeFromFileName(string? fileName)

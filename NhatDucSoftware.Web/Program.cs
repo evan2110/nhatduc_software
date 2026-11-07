@@ -137,6 +137,7 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
 builder.Services.AddScoped<HomeworkService>();
+builder.Services.AddScoped<HomeworkLinkSubmit>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped(sp =>
 {

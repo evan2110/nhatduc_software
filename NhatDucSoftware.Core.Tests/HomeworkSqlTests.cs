@@ -38,6 +38,10 @@ public class HomeworkSqlTests
         Assert.Contains("co.Code", HomeworkSql.GetAssignment);
         Assert.DoesNotContain("\n", HomeworkSql.ListRows);
         Assert.Contains("WorkText", HomeworkSql.ListRows);
+        Assert.Contains("PublicToken", HomeworkSql.InsertAssignment);
+        Assert.Contains("PublicToken", HomeworkSql.GetByPublicToken);
+        Assert.DoesNotContain("\n", HomeworkSql.GetByPublicToken);
+        Assert.DoesNotContain("\n", HomeworkSql.SetPublicToken);
         Assert.DoesNotContain("\n", HomeworkSql.UpsertWorkText);
         Assert.DoesNotContain("\n", HomeworkSql.ListClassStudents);
         Assert.DoesNotContain("\n", HomeworkSql.ListClassAssignments);

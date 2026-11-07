@@ -1,0 +1,84 @@
+@page "/bai-tap/{Token}"
+@attribute [AllowAnonymous]
+@rendermode InteractiveServer
+@inject HomeworkService HomeworkService
+@inject HomeworkLinkSubmit SubmitService
+
+<PageTitle>@(_view?.Title ?? "Bài tập")</PageTitle>
+
+<div class="hw-public">
+    <div class="card">
+        @if (_view is null)
+        {
+            <h1>Không tìm thấy bài tập</h1>
+        }
+        else
+        {
+            <h1>@_view.Title</h1>
+            <p class="text-muted hw-note">@_view.ClassName · @_view.AssignedOn.ToString("dd/MM/yyyy")</p>
+            <p class="hw-prompt">@_view.Prompt</p>
+            @if (_view.Kind == HomeworkKind.Written)
+            {
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <div class="alert @_messageClass">@_message</div>
+                }
+                <div class="form-group">
+                    <label>Họ và tên</label>
+                    <input @bind="_studentName" />
+                </div>
+                <div class="form-group">
+                    <label>Bài làm</label>
+                    <textarea @bind="_answer" rows="6"></textarea>
+                </div>
+                <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_busy">Nộp bài</button>
+            }
+            else
+            {
+                <p class="text-muted">Đây là bài nói. Gửi ghi âm cho giáo viên.</p>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Token { get; set; } = "";
+
+    private HomeworkPublicView? _view;
+    private string _studentName = "";
+    private string _answer = "";
+    private string? _message;
+    private string _messageClass = "alert-success";
+    private bool _busy;
+
+    protected override void OnParametersSet()
+    {
+        _view = HomeworkService.GetPublicView(Token);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        try
+        {
+            var message = await SubmitService.Submit(Token, _studentName, _answer);
+            var saved = message.StartsWith("Đã nộp", StringComparison.Ordinal) || message.StartsWith("Đã lưu", StringComparison.Ordinal);
+            _messageClass = saved ? "alert-success" : "alert-danger";
+            _message = message;
+            if (saved)
+            {
+                _answer = "";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
