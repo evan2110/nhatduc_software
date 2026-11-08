@@ -8,7 +8,7 @@ public static class HomeworkResultMessage
 
     public static string Build(string className, string title, string studentName, decimal? score, string? shortComment, string? report)
     {
-        var slip = (report ?? "").Trim();
+        var slip = WithoutWorkDetail(report);
         if (slip.Length > 0)
         {
             return slip;
@@ -30,6 +30,48 @@ public static class HomeworkResultMessage
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    public static string WithoutWorkDetail(string? report)
+    {
+        var text = (report ?? "").Replace("\r\n", "\n", StringComparison.Ordinal);
+        var detail = FindLine(text, "Chi tiết bài làm");
+        if (detail < 0)
+        {
+            return text.Trim();
+        }
+
+        var comment = FindLine(text, "Nhận xét chung", detail);
+        var head = text[..detail].TrimEnd();
+        if (comment < 0)
+        {
+            return head;
+        }
+
+        var tail = text[comment..].Trim();
+        return head.Length == 0 ? tail : head + "\n\n" + tail;
+    }
+
+    private static int FindLine(string text, string heading, int start = 0)
+    {
+        var index = start;
+        while (index < text.Length)
+        {
+            var found = text.IndexOf(heading, index, StringComparison.OrdinalIgnoreCase);
+            if (found < 0)
+            {
+                return -1;
+            }
+
+            if (found == 0 || text[found - 1] == '\n')
+            {
+                return found;
+            }
+
+            index = found + heading.Length;
+        }
+
+        return -1;
     }
 
     public static IReadOnlyList<string> Split(string text)

@@ -18,6 +18,34 @@ public class HomeworkResultMessageTests
     }
 
     [Fact]
+    public void Build_OmitsTheWorkDetailSoTheGroupDoesNotSeeTheAnswerKey()
+    {
+        var report = """
+            PHIẾU CHẤM & SỬA BÀI
+            Học viên: An
+            Điểm: 8.0/10
+
+            Chi tiết bài làm:
+
+            1. Đề bài: Were you at / in home.
+            Đáp án đúng: at
+            Kết quả: Đúng.
+
+            Nhận xét chung:
+            Làm tốt.
+            """;
+
+        var text = HomeworkResultMessage.Build("Lớp 7", "Homework", "An", 8m, "Tốt", report);
+
+        Assert.Contains("PHIẾU CHẤM & SỬA BÀI", text);
+        Assert.Contains("Điểm: 8.0/10", text);
+        Assert.Contains("Nhận xét chung:", text);
+        Assert.Contains("Làm tốt.", text);
+        Assert.DoesNotContain("Chi tiết bài làm", text);
+        Assert.DoesNotContain("Đáp án đúng", text);
+    }
+
+    [Fact]
     public void Build_UsesAShortFallbackWhenTheSlipIsEmpty()
     {
         var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", null, "  ", "");

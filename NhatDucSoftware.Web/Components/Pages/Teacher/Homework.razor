@@ -630,7 +630,7 @@ else
 
     private async Task CopySlip()
     {
-        var saved = SelectedRow?.ReportText;
+        var saved = HomeworkResultMessage.WithoutWorkDetail(SelectedRow?.ReportText);
         if (string.IsNullOrWhiteSpace(saved))
         {
             ShowError("Hãy lưu phiếu trước khi sao chép.");
