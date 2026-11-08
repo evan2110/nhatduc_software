@@ -39,9 +39,17 @@ DbContext.Configure(
     string.IsNullOrWhiteSpace(connectionString) ? null : connectionString,
     dbPassword);
 
-DatabaseInitializer.Initialize();
-
-SetEnvIfEmpty("NHATDUC_GMAIL_REFRESH_TOKEN", AppSettingsService.Get("NHATDUC_GMAIL_REFRESH_TOKEN"));
+Console.WriteLine("Đang kết nối database...");
+try
+{
+    DatabaseInitializer.Initialize();
+    Console.WriteLine("Database sẵn sàng.");
+    SetEnvIfEmpty("NHATDUC_GMAIL_REFRESH_TOKEN", AppSettingsService.Get("NHATDUC_GMAIL_REFRESH_TOKEN"));
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Database chưa kết nối được. Trang vẫn mở để không treo: {ex.Message}");
+}
 
 // Persist DP keys in Postgres so auth/antiforgery cookies survive Render restarts.
 builder.Services.AddDataProtection()
@@ -154,6 +162,7 @@ builder.Services.AddScoped(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ZaloBotClient));
+    http.Timeout = TimeSpan.FromSeconds(15);
     var token = Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN") ?? "";
     var chatId = Environment.GetEnvironmentVariable("ZALO_HOMEWORK_CHAT_ID")
         ?? config["Zalo:HomeworkChatId"]
@@ -423,7 +432,10 @@ app.MapGet("/api/export/teacher-payroll-attendance", (
 
 app.MapPost("/api/zalo/webhook", ZaloWebhookEndpoint.Handle).DisableAntiforgery();
 
-await RegisterZaloWebhookAsync(app);
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    _ = RegisterZaloWebhookAsync(app);
+});
 app.Run();
 
 static async Task RegisterZaloWebhookAsync(WebApplication app)

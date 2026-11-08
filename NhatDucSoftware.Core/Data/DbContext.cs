@@ -36,7 +36,12 @@ public static class DbContext
             Username = DefaultUsername,
             Password = dbPassword,
             SslMode = SslMode.Require,
-            TrustServerCertificate = true
+            TrustServerCertificate = true,
+            Timeout = 15,
+            CommandTimeout = 30,
+            KeepAlive = 30,
+            MaxPoolSize = 8,
+            ConnectionIdleLifetime = 60
         };
 
         _connectionString = builder.ConnectionString;
