@@ -2,6 +2,7 @@
 @page "/bai-tap/{Token}"
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
+@using NhatDucSoftware.Core.Helpers
 @inject HomeworkService HomeworkService
 @inject HomeworkLinkSubmit SubmitService
 
@@ -41,7 +42,28 @@
             }
             else
             {
-                <p class="text-muted">Đây là bài nói. Gửi ghi âm cho giáo viên.</p>
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <div class="alert @_messageClass">@_message</div>
+                }
+                <form @onsubmit="SubmitSpeakingAsync" @onsubmit:preventDefault>
+                    <div class="form-group">
+                        <label for="hw-name">Họ và tên học viên</label>
+                        <input id="hw-name" required @bind="_studentName" />
+                    </div>
+                    <div class="form-group">
+                        <label>Video hoặc ghi âm</label>
+                        <div class="hw-work-file">
+                            <span class="hw-file-name">@(_media?.Name ?? "")</span>
+                            <label class="btn btn-secondary btn-sm hw-pick">
+                                Chọn file
+                                <InputFile @key="@_fileVersion" OnChange="OnMedia" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
+                            </label>
+                        </div>
+                        <p class="text-muted hw-note">Tối đa 15MB.</p>
+                    </div>
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">@(_busy ? "Đang chấm..." : "Nộp bài")</button>
+                </form>
             }
         }
     </div>
@@ -53,6 +75,8 @@
     private HomeworkPublicView? _view;
     private string _studentName = "";
     private string _answer = "";
+    private IBrowserFile? _media;
+    private int _fileVersion;
     private string? _message;
     private string _messageClass = "alert-success";
     private bool _busy;
@@ -81,6 +105,63 @@
             {
                 _answer = "";
             }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OnMedia(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (!HomeworkSpeakingUpload.TryAccept(file.Name, file.Size, out var error))
+        {
+            _media = null;
+            _message = error;
+            _messageClass = "alert-danger";
+            return;
+        }
+
+        _media = file;
+        _message = null;
+    }
+
+    private async Task SubmitSpeakingAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        if (_media is null)
+        {
+            _message = HomeworkSpeakingUpload.MissingFile;
+            _messageClass = "alert-danger";
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        try
+        {
+            await using var stream = _media.OpenReadStream(HomeworkFileRules.MaxBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            var message = await SubmitService.SubmitSpeaking(Token, _studentName, memory.ToArray(), _media.Name);
+            var saved = message.StartsWith("Đã nộp", StringComparison.Ordinal) || message.StartsWith("Đã lưu", StringComparison.Ordinal);
+            _messageClass = saved ? "alert-success" : "alert-danger";
+            _message = message;
+            if (saved)
+            {
+                _media = null;
+                _fileVersion++;
+            }
+        }
+        catch (Exception)
+        {
+            _messageClass = "alert-danger";
+            _message = "Chưa chấm được bài. Hãy thử lại.";
         }
         finally
         {

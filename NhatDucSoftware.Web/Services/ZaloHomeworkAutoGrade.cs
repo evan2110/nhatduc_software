@@ -7,7 +7,7 @@ namespace NhatDucSoftware.Web.Services;
 public static class ZaloHomeworkAutoGrade
 {
     public const string EmptyAnswer = "Hãy gửi đáp án ở dòng bên dưới tên học viên và tên bài.";
-    public const string SpeakingNeedsTeacher = "Bài nói cần giáo viên chấm trên hệ thống.";
+    public const string SpeakingNeedsTeacher = "Bài nói nộp video trên link bài tập.";
     public const string Failed = "Chưa chấm được bài. Hãy thử lại.";
 
     public static async Task<string?> TryReplyAsync(
@@ -107,6 +107,43 @@ public static class ZaloHomeworkAutoGrade
             Array.Empty<byte>(),
             "text/plain",
             answer);
+        var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
+        await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
+        return HomeworkResultMessage.Build(
+            assignment.ClassName,
+            assignment.Title,
+            target.StudentName,
+            draft.Score,
+            draft.ShortComment,
+            report);
+    }
+
+    public static async Task<string> GradeSpeakingAsync(
+        ZaloHomeworkTarget target,
+        byte[] media,
+        string mime,
+        HomeworkService homework,
+        GeminiHomeworkClient gemini)
+    {
+        var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
+            ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
+        if (!HomeworkGradingRules.CanGrade(assignment.Kind, assignment.AnswerKeyText, assignment.AnswerKeyDriveFileId, out var gradeError))
+        {
+            throw new InvalidOperationException(gradeError);
+        }
+
+        var draft = await gemini.GradeAsync(
+            assignment.Kind,
+            assignment.ClassName,
+            assignment.Title,
+            target.StudentName,
+            assignment.Prompt,
+            null,
+            null,
+            null,
+            media,
+            mime);
         var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
         var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
         await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);

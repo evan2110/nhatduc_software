@@ -103,4 +103,83 @@ public sealed class HomeworkLinkSubmit
             return "Đã nộp bài. Zalo chưa nhận được phiếu.";
         }
     }
+
+    public async Task<string> SubmitSpeaking(string? token, string? studentName, byte[]? media, string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(studentName))
+        {
+            return "Hãy nhập họ và tên học viên.";
+        }
+
+        var assignment = _homework.GetByPublicToken(token);
+        if (assignment is null)
+        {
+            return "Không tìm thấy bài tập.";
+        }
+
+        if (assignment.Kind != HomeworkKind.Speaking)
+        {
+            return "Đây là bài viết. Hãy nhập đáp án.";
+        }
+
+        if (!HomeworkSpeakingUpload.TryAccept(fileName, media?.LongLength ?? 0, out var fileError))
+        {
+            return fileError;
+        }
+
+        var (student, nameError) = ZaloHomeworkMatch.VerifyStudent(
+            _homework.ListClassStudents(assignment.ClassId),
+            studentName);
+        if (student is null)
+        {
+            return nameError ?? ZaloHomeworkMatch.StudentNotInClass;
+        }
+
+        var target = new ZaloHomeworkTarget(
+            assignment.ClassId,
+            assignment.ClassName,
+            student.Id,
+            student.Name,
+            assignment.Id,
+            assignment.TeacherId,
+            assignment.Kind);
+
+        string slip;
+        try
+        {
+            slip = await ZaloHomeworkAutoGrade.GradeSpeakingAsync(
+                target,
+                media ?? Array.Empty<byte>(),
+                HomeworkSpeakingUpload.Mime(fileName),
+                _homework,
+                _gemini);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Không chấm được bài nói nộp từ link {Token}.", token);
+            return ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không chấm được bài nói nộp từ link {Token}.", token);
+            return "Chưa chấm được bài. Hãy thử lại.";
+        }
+
+        var chatId = _chats.GetChatId(assignment.ClassId);
+        if (string.IsNullOrWhiteSpace(chatId))
+        {
+            return "Đã nộp bài. Lớp chưa gắn nhóm Zalo.";
+        }
+
+        try
+        {
+            await _zalo.SendTextToAsync(chatId, slip);
+            return "Đã nộp bài. Phiếu đã gửi vào nhóm Zalo.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không gửi được phiếu bài nói từ link vào nhóm Zalo.");
+            return "Đã nộp bài. Zalo chưa nhận được phiếu.";
+        }
+    }
 }
