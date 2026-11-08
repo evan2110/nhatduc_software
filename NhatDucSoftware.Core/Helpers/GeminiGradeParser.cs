@@ -26,7 +26,7 @@ public static class GeminiGradePrompt
             return shared + " Đây là bài nói. report là chuỗi văn bản thuần, không phải object JSON. report bắt đầu bằng dòng PHIẾU CHẤM BÀI NÓI, rồi học viên, lớp, bài và điểm. Tiếp theo mỗi mục một đoạn tiếng Việt: Phát âm, Độ trôi chảy, Ngữ pháp, Từ vựng, Nội dung. Các mục bắt buộc là phát âm, độ trôi chảy, ngữ pháp, từ vựng, nội dung. Dẫn ví dụ bằng dấu ngoặc kép bình thường.";
         }
 
-        return shared + " Đây là bài viết. Đối chiếu với đáp án: " + (answerKeyText ?? "") + ". report bắt đầu bằng dòng PHIẾU CHẤM & SỬA BÀI, rồi tên học viên, lớp, tên bài, điểm, từng chỗ đúng hoặc sai kèm bài làm, đáp án đúng và câu sửa, cuối là nhận xét chung.";
+        return shared + " Đây là bài viết. Đối chiếu với đáp án: " + (answerKeyText ?? "") + ". report bắt đầu bằng dòng PHIẾU CHẤM & SỬA BÀI, rồi tên học viên, lớp, tên bài, điểm. Phần từng câu đứng sau đúng một dòng Chi tiết bài làm, gồm bài làm, đáp án đúng và câu sửa. Kết thúc bằng một dòng riêng bắt đầu bằng Nhận xét chung.";
     }
 }
 

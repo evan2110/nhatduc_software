@@ -46,6 +46,56 @@ public class HomeworkResultMessageTests
     }
 
     [Fact]
+    public void Build_OmitsAShortChiTietHeadingFromTheGroupSlip()
+    {
+        var report = """
+            PHIẾU CHẤM & SỬA BÀI
+            Học viên: NGUYỄN THỊ NHƯ Ý
+            Lớp: TOÁN THCS LỚP 7
+            Bài: Homework 07/11
+            Điểm: 10/10
+
+            Chi tiết:
+
+            1. Đề: Were you at / in home yesterday morning.
+            Bài làm: at
+            Đáp án đúng: at
+            Nhận xét: Đúng
+
+            Nhận xét chung: Học viên đã hoàn thành bài tập rất tốt.
+            """;
+
+        var text = HomeworkResultMessage.Build("TOÁN THCS LỚP 7", "Homework 07/11", "NGUYỄN THỊ NHƯ Ý", 10m, "Tốt", report);
+
+        Assert.Contains("PHIẾU CHẤM & SỬA BÀI", text);
+        Assert.Contains("Điểm: 10/10", text);
+        Assert.Contains("Nhận xét chung: Học viên đã hoàn thành bài tập rất tốt.", text);
+        Assert.DoesNotContain("Chi tiết", text);
+        Assert.DoesNotContain("Đáp án đúng", text);
+        Assert.DoesNotContain("Were you at", text);
+    }
+
+    [Fact]
+    public void Build_OmitsNumberedAnswerItemsWhenTheHeadingIsMissing()
+    {
+        var report = """
+            PHIẾU CHẤM & SỬA BÀI
+            Điểm: 9/10
+
+            1. Đề: Choose in or on.
+            Đáp án đúng: in
+
+            Nhận xét chung: Ổn.
+            """;
+
+        var text = HomeworkResultMessage.Build("Lớp 7", "Homework", "An", 9m, "Ổn", report);
+
+        Assert.Contains("Điểm: 9/10", text);
+        Assert.Contains("Nhận xét chung: Ổn.", text);
+        Assert.DoesNotContain("Đáp án đúng", text);
+    }
+
+    [Fact]
     public void Build_UsesAShortFallbackWhenTheSlipIsEmpty()
     {
         var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", null, "  ", "");

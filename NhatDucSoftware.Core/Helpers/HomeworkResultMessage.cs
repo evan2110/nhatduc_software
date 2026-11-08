@@ -35,7 +35,7 @@ public static class HomeworkResultMessage
     public static string WithoutWorkDetail(string? report)
     {
         var text = (report ?? "").Replace("\r\n", "\n", StringComparison.Ordinal);
-        var detail = FindLine(text, "Chi tiết bài làm");
+        var detail = FindDetailStart(text);
         if (detail < 0)
         {
             return text.Trim();
@@ -50,6 +50,46 @@ public static class HomeworkResultMessage
 
         var tail = text[comment..].Trim();
         return head.Length == 0 ? tail : head + "\n\n" + tail;
+    }
+
+    private static int FindDetailStart(string text)
+    {
+        var named = FindLine(text, "Chi tiết");
+        if (named >= 0)
+        {
+            return named;
+        }
+
+        if (FindLine(text, "Đáp án đúng") < 0)
+        {
+            return -1;
+        }
+
+        return FindNumberedLine(text);
+    }
+
+    private static int FindNumberedLine(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (i > 0 && text[i - 1] != '\n')
+            {
+                continue;
+            }
+
+            var end = i;
+            while (end < text.Length && char.IsDigit(text[end]))
+            {
+                end++;
+            }
+
+            if (end > i && end + 1 < text.Length && (text[end] == '.' || text[end] == ')') && text[end + 1] == ' ')
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static int FindLine(string text, string heading, int start = 0)
