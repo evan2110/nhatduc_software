@@ -45,11 +45,30 @@ public class AuthService
             return null;
         }
 
-        if (needsUpgrade)
+        if (teacherId is not null && !IsTeacherActive(connection, teacherId.Value))
+        {
+            return null;
+        }
+
+        if (needsUpgrade || string.Equals(role, "Teacher", StringComparison.OrdinalIgnoreCase))
         {
             using var update = connection.CreateCommand();
-            update.CommandText = "UPDATE Users SET PasswordHash = @hash WHERE Id = @id;";
-            update.Parameters.AddWithValue("@hash", PasswordHasher.Hash(password));
+            var rememberPassword = string.Equals(role, "Teacher", StringComparison.OrdinalIgnoreCase);
+            update.CommandText = needsUpgrade && rememberPassword
+                ? "UPDATE Users SET PasswordHash = @hash, PlainPassword = @plain WHERE Id = @id;"
+                : needsUpgrade
+                    ? "UPDATE Users SET PasswordHash = @hash WHERE Id = @id;"
+                    : "UPDATE Users SET PlainPassword = @plain WHERE Id = @id;";
+            if (needsUpgrade)
+            {
+                update.Parameters.AddWithValue("@hash", PasswordHasher.Hash(password));
+            }
+
+            if (rememberPassword)
+            {
+                update.Parameters.AddWithValue("@plain", password);
+            }
+
             update.Parameters.AddWithValue("@id", id);
             update.ExecuteNonQuery();
         }
@@ -61,5 +80,13 @@ public class AuthService
             Role = role,
             TeacherId = teacherId
         };
+    }
+
+    private static bool IsTeacherActive(Npgsql.NpgsqlConnection connection, int teacherId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT LOWER(COALESCE(Status, '')) FROM Teachers WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", teacherId);
+        return string.Equals(command.ExecuteScalar() as string, "active", StringComparison.Ordinal);
     }
 }

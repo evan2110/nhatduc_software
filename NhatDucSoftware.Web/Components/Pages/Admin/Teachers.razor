@@ -74,6 +74,7 @@ else
                 <button class="btn btn-danger" @onclick="DeleteTeacher" disabled="@(_selectedId is null)">Xóa</button>
             }
             <button class="btn btn-secondary" @onclick="ResetPassword" disabled="@(_selectedId is null)">Đổi mật khẩu</button>
+            <button class="btn btn-secondary" @onclick="DisableAccount" disabled="@(!CanDisable)">Khóa tài khoản</button>
         </div>
         @if (!string.IsNullOrEmpty(_accountInfo))
         {
@@ -85,7 +86,7 @@ else
         <div class="table-responsive">
         <table class="data-table">
             <thead>
-                <tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Trạng thái</th><th>Loại</th><th>Tài khoản</th></tr>
+                <tr><th>ID</th><th>Họ tên</th><th>SĐT</th><th>Email</th><th>Trạng thái</th><th>Loại</th><th>Tài khoản</th><th>Mật khẩu</th></tr>
             </thead>
             <tbody>
                 @foreach (var t in _teachers)
@@ -98,6 +99,7 @@ else
                         <td>@t.Status</td>
                         <td>@TeacherRoleLabel(t)</td>
                         <td>@GetUsername(t.Id)</td>
+                        <td>@GetPassword(t.Id)</td>
                     </tr>
                 }
             </tbody>
@@ -108,7 +110,7 @@ else
 
 @code {
     private List<Teacher> _teachers = new();
-    private Dictionary<int, string> _usernames = new();
+    private Dictionary<int, TeacherAccountInfo> _accounts = new();
     private int? _selectedId;
     private string _fullName = "";
     private string _phone = "";
@@ -129,15 +131,21 @@ else
     private void LoadTeachers()
     {
         _teachers = TeacherService.GetAll();
-        _usernames.Clear();
+        _accounts.Clear();
         foreach (var t in _teachers)
         {
             var info = TeacherService.GetAccountInfo(t.Id);
-            if (info is not null) _usernames[t.Id] = info.Username;
+            if (info is not null) _accounts[t.Id] = info;
         }
     }
 
-    private string GetUsername(int id) => _usernames.TryGetValue(id, out var u) ? u : "";
+    private bool CanDisable =>
+        _selectedId is int id && _teachers.Any(t => t.Id == id && string.Equals(t.Status, "Active", StringComparison.OrdinalIgnoreCase));
+
+    private string GetUsername(int id) => _accounts.TryGetValue(id, out var account) ? account.Username : "";
+
+    private string GetPassword(int id) =>
+        _accounts.TryGetValue(id, out var account) && !string.IsNullOrWhiteSpace(account.Password) ? account.Password : "—";
 
     private static string TeacherRoleLabel(Teacher teacher)
     {
@@ -262,6 +270,25 @@ else
             _message = "Đã đổi mật khẩu.";
             _accountInfo = $"Mật khẩu mới: {password}";
             _newPassword = "";
+            LoadTeachers();
+        }
+        catch (Exception ex) { _message = ex.Message; }
+    }
+
+    private void DisableAccount()
+    {
+        if (_selectedId is null || !CanDisable)
+        {
+            _message = "Tài khoản đã bị khóa.";
+            return;
+        }
+
+        try
+        {
+            TeacherService.DisableAccount(_selectedId.Value);
+            _status = "Inactive";
+            _message = "Đã khóa tài khoản. Giáo viên này không đăng nhập được nữa.";
+            LoadTeachers();
         }
         catch (Exception ex) { _message = ex.Message; }
     }

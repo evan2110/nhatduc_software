@@ -39,7 +39,7 @@ public class TeacherService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Username FROM Users WHERE TeacherId = @teacherId LIMIT 1;";
+        command.CommandText = "SELECT Username, COALESCE(PlainPassword, '') FROM Users WHERE TeacherId = @teacherId LIMIT 1;";
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         using var reader = command.ExecuteReader();
@@ -50,8 +50,23 @@ public class TeacherService
 
         return new TeacherAccountInfo
         {
-            Username = reader.GetString(0)
+            Username = reader.GetString(0),
+            Password = reader.GetString(1)
         };
+    }
+
+    public void DisableAccount(int teacherId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Teachers SET Status = 'Inactive' WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", teacherId);
+        if (command.ExecuteNonQuery() == 0)
+        {
+            throw new InvalidOperationException("Không tìm thấy giáo viên.");
+        }
     }
 
     public void UpdatePassword(int teacherId, string newPassword)
@@ -65,10 +80,10 @@ public class TeacherService
         connection.Open();
 
         using var command = connection.CreateCommand();
-        command.CommandText = @"UPDATE Users
-SET PasswordHash = @password
-WHERE TeacherId = @teacherId;";
-        command.Parameters.AddWithValue("@password", PasswordHasher.Hash(newPassword.Trim()));
+        var password = newPassword.Trim();
+        command.CommandText = "UPDATE Users SET PasswordHash = @password, PlainPassword = @plain WHERE TeacherId = @teacherId;";
+        command.Parameters.AddWithValue("@password", PasswordHasher.Hash(password));
+        command.Parameters.AddWithValue("@plain", password);
         command.Parameters.AddWithValue("@teacherId", teacherId);
 
         if (command.ExecuteNonQuery() == 0)
@@ -134,10 +149,10 @@ WHERE TeacherId = @teacherId;";
         // Create user account linked to teacher
         using var userCmd = connection.CreateCommand();
         userCmd.Transaction = transaction;
-        userCmd.CommandText = @"INSERT INTO Users(Username, PasswordHash, Role, TeacherId)
-VALUES(@username, @password, 'Teacher', @teacherId);";
+        userCmd.CommandText = "INSERT INTO Users(Username, PasswordHash, Role, TeacherId, PlainPassword) VALUES(@username, @password, 'Teacher', @teacherId, @plain);";
         userCmd.Parameters.AddWithValue("@username", username);
         userCmd.Parameters.AddWithValue("@password", PasswordHasher.Hash(defaultPassword));
+        userCmd.Parameters.AddWithValue("@plain", defaultPassword);
         userCmd.Parameters.AddWithValue("@teacherId", nextId);
         userCmd.ExecuteNonQuery();
 

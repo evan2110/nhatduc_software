@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateCourseFeeHistoryTable(connection);
         MigrateAnnouncementsTable(connection);
         MigratePlaintextPasswords(connection);
+        MigrateUserPlainPassword(connection);
         MigrateHomeworkTables(connection);
         MigrateHomeworkWorkText(connection);
         MigrateHomeworkPublicToken(connection);
@@ -154,6 +155,13 @@ CREATE TABLE IF NOT EXISTS Announcements (
     CreatedBy TEXT NULL
 );";
         createTable.ExecuteNonQuery();
+    }
+
+    private static void MigrateUserPlainPassword(Npgsql.NpgsqlConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "ALTER TABLE Users ADD COLUMN IF NOT EXISTS PlainPassword TEXT;";
+        command.ExecuteNonQuery();
     }
 
     private static void MigratePlaintextPasswords(Npgsql.NpgsqlConnection connection)
