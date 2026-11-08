@@ -159,6 +159,11 @@ public sealed class HomeworkLinkSubmit
             _logger.LogWarning(ex, "Không chấm được bài nói nộp từ link {Token}.", token);
             return ex.Message;
         }
+        catch (OperationCanceledException ex)
+        {
+            _logger.LogWarning(ex, "Không chấm được bài nói nộp từ link {Token}.", token);
+            return "Gemini chấm quá lâu. Hãy thử lại.";
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Không chấm được bài nói nộp từ link {Token}.", token);

@@ -54,7 +54,7 @@
                     <div class="form-group">
                         <label>Video hoặc ghi âm</label>
                         <div class="hw-work-file">
-                            <span class="hw-file-name">@(_media?.Name ?? "")</span>
+                            <span class="hw-file-name">@(_mediaName ?? "")</span>
                             <label class="btn btn-secondary btn-sm hw-pick">
                                 Chọn file
                                 <InputFile @key="@_fileVersion" OnChange="OnMedia" accept=".mp3,.m4a,.wav,.mp4,.webm,.mov" />
@@ -62,7 +62,7 @@
                         </div>
                         <p class="text-muted hw-note">Tối đa 15MB.</p>
                     </div>
-                    <button type="submit" class="btn btn-primary" disabled="@_busy">@(_busy ? "Đang chấm..." : "Nộp bài")</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(_busy || _reading)">@(_reading ? "Đang tải file..." : _busy ? "Đang chấm..." : "Nộp bài")</button>
                 </form>
             }
         }
@@ -75,11 +75,13 @@
     private HomeworkPublicView? _view;
     private string _studentName = "";
     private string _answer = "";
-    private IBrowserFile? _media;
+    private byte[]? _mediaBytes;
+    private string? _mediaName;
     private int _fileVersion;
     private string? _message;
     private string _messageClass = "alert-success";
     private bool _busy;
+    private bool _reading;
 
     protected override void OnParametersSet()
     {
@@ -112,29 +114,54 @@
         }
     }
 
-    private void OnMedia(InputFileChangeEventArgs e)
+    private async Task OnMedia(InputFileChangeEventArgs e)
     {
         var file = e.File;
+        _mediaBytes = null;
+        _mediaName = null;
         if (!HomeworkSpeakingUpload.TryAccept(file.Name, file.Size, out var error))
         {
-            _media = null;
             _message = error;
             _messageClass = "alert-danger";
             return;
         }
 
-        _media = file;
+        _reading = true;
         _message = null;
+        try
+        {
+            await using var stream = file.OpenReadStream(HomeworkFileRules.MaxBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            if (!HomeworkSpeakingUpload.TryAccept(file.Name, memory.Length, out error))
+            {
+                _message = error;
+                _messageClass = "alert-danger";
+                return;
+            }
+
+            _mediaBytes = memory.ToArray();
+            _mediaName = file.Name;
+        }
+        catch (Exception)
+        {
+            _message = "Không đọc được file. Hãy chọn lại.";
+            _messageClass = "alert-danger";
+        }
+        finally
+        {
+            _reading = false;
+        }
     }
 
     private async Task SubmitSpeakingAsync()
     {
-        if (_busy)
+        if (_busy || _reading)
         {
             return;
         }
 
-        if (_media is null)
+        if (_mediaBytes is null || _mediaBytes.Length == 0)
         {
             _message = HomeworkSpeakingUpload.MissingFile;
             _messageClass = "alert-danger";
@@ -145,16 +172,14 @@
         _message = null;
         try
         {
-            await using var stream = _media.OpenReadStream(HomeworkFileRules.MaxBytes);
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory);
-            var message = await SubmitService.SubmitSpeaking(Token, _studentName, memory.ToArray(), _media.Name);
+            var message = await SubmitService.SubmitSpeaking(Token, _studentName, _mediaBytes, _mediaName);
             var saved = message.StartsWith("Đã nộp", StringComparison.Ordinal) || message.StartsWith("Đã lưu", StringComparison.Ordinal);
             _messageClass = saved ? "alert-success" : "alert-danger";
             _message = message;
             if (saved)
             {
-                _media = null;
+                _mediaBytes = null;
+                _mediaName = null;
                 _fileVersion++;
             }
         }

@@ -143,6 +143,7 @@ builder.Services.AddScoped(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiHomeworkClient));
+    http.Timeout = TimeSpan.FromMinutes(3);
     var key = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
     var model = Environment.GetEnvironmentVariable("GEMINI_MODEL")
         ?? config["Gemini:Model"]
