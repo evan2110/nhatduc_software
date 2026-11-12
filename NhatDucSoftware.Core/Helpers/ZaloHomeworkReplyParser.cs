@@ -17,13 +17,21 @@ public static class ZaloHomeworkReplyParser
 
         var text = messageText.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
         var culture = CultureInfo.GetCultureInfo("vi-VN");
-        foreach (var mention in Mentions)
+        foreach (var mention in Mentions.OrderByDescending(item => item.Length))
         {
             if (text.StartsWith(mention, ignoreCase: true, culture))
             {
                 text = text[mention.Length..].Trim();
                 break;
             }
+        }
+
+        var mentionLines = text.Split('\n');
+        var firstLine = mentionLines[0].Trim();
+        if (firstLine.IndexOf('+') < 0
+            && (firstLine.StartsWith("@Bot", ignoreCase: true, culture) || firstLine.StartsWith("Bot ", ignoreCase: true, culture)))
+        {
+            text = string.Join('\n', mentionLines.Skip(1)).Trim();
         }
 
         var lines = text.Split('\n');

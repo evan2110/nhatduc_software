@@ -6,8 +6,10 @@ namespace NhatDucSoftware.Core.Services;
 public static class ZaloChatSql
 {
     public const string CreateTable = "CREATE TABLE IF NOT EXISTS ZaloChats (ChatId TEXT PRIMARY KEY, ChatType TEXT NOT NULL, UpdatedAt TEXT NOT NULL);";
-    public const string Remember = "INSERT INTO ZaloChats(ChatId, ChatType, UpdatedAt) VALUES(@chatId, @chatType, @updatedAt) ON CONFLICT (ChatId) DO UPDATE SET ChatType = EXCLUDED.ChatType, UpdatedAt = EXCLUDED.UpdatedAt;";
+    public const string Remember = "INSERT INTO ZaloChats(ChatId, ChatType, BotKey, UpdatedAt) VALUES(@chatId, @chatType, @botKey, @updatedAt) ON CONFLICT (ChatId) DO UPDATE SET ChatType = EXCLUDED.ChatType, BotKey = EXCLUDED.BotKey, UpdatedAt = EXCLUDED.UpdatedAt;";
     public const string AddClassColumn = "ALTER TABLE Classes ADD COLUMN IF NOT EXISTS ZaloChatId TEXT;";
+    public const string AddBotKeyColumn = "ALTER TABLE ZaloChats ADD COLUMN IF NOT EXISTS BotKey TEXT;";
+    public const string GetBotKey = "SELECT BotKey FROM ZaloChats WHERE ChatId = @chatId;";
     public const string LinkClass = "UPDATE Classes SET ZaloChatId = @chatId WHERE Id = @classId;";
     public const string UnlinkByChat = "UPDATE Classes SET ZaloChatId = NULL WHERE ZaloChatId = @chatId RETURNING COALESCE(ClassName, '');";
     public const string GetChatId = "SELECT ZaloChatId FROM Classes WHERE Id = @id;";
@@ -16,7 +18,7 @@ public static class ZaloChatSql
 
 public sealed class ZaloChatService
 {
-    public void Remember(string chatId, string chatType)
+    public void Remember(string chatId, string chatType, string botKey)
     {
         using var connection = DbContext.CreateConnection();
         connection.Open();
@@ -24,8 +26,26 @@ public sealed class ZaloChatService
         command.CommandText = ZaloChatSql.Remember;
         command.Parameters.AddWithValue("@chatId", chatId);
         command.Parameters.AddWithValue("@chatType", chatType);
+        command.Parameters.AddWithValue("@botKey", string.IsNullOrWhiteSpace(botKey) ? "1" : botKey.Trim());
         command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("o"));
         command.ExecuteNonQuery();
+    }
+
+    public string BotKeyFor(string chatId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = ZaloChatSql.GetBotKey;
+        command.Parameters.AddWithValue("@chatId", chatId);
+        var value = command.ExecuteScalar();
+        if (value is null || value == DBNull.Value)
+        {
+            return "1";
+        }
+
+        var text = Convert.ToString(value, CultureInfo.InvariantCulture);
+        return string.IsNullOrWhiteSpace(text) ? "1" : text;
     }
 
     public void LinkClass(int classId, string chatId)

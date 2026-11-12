@@ -88,6 +88,9 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         using var addColumn = connection.CreateCommand();
         addColumn.CommandText = ZaloChatSql.AddClassColumn;
         addColumn.ExecuteNonQuery();
+        using var addBotKey = connection.CreateCommand();
+        addBotKey.CommandText = ZaloChatSql.AddBotKeyColumn;
+        addBotKey.ExecuteNonQuery();
     }
 
     private static void MigrateHomeworkPublicToken(Npgsql.NpgsqlConnection connection)

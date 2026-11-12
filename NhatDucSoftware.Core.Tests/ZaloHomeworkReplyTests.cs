@@ -27,6 +27,17 @@ public class ZaloHomeworkReplyTests
 
         Assert.Null(ZaloHomeworkReplyParser.Parse("@Bot Nhật Đức Cancel"));
         Assert.Null(ZaloHomeworkReplyParser.Parse("@Bot Nhật Đức TOÁN THCS LỚP 6"));
+        Assert.Null(ZaloHomeworkReplyParser.Parse("@Bot TA Nhật Đức Cancel"));
+    }
+
+    [Fact]
+    public void Parse_ReadsAReplyThatMentionsTheSecondBot()
+    {
+        var reply = ZaloHomeworkReplyParser.Parse("@Bot TA Nhật Đức\nAn + Luyện nói\nhello");
+
+        Assert.Equal("An", reply?.StudentName);
+        Assert.Equal("Luyện nói", reply?.AssignmentTitle);
+        Assert.Equal("hello", reply?.Answer);
     }
 
     [Fact]

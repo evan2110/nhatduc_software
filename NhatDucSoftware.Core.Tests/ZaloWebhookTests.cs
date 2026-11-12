@@ -83,6 +83,8 @@ public class ZaloWebhookTests
         Assert.Contains("WHERE ZaloChatId = @chatId", ZaloChatSql.UnlinkByChat);
         Assert.DoesNotContain("\n", ZaloChatSql.UnlinkByChat);
         Assert.DoesNotContain("\n", ZaloChatSql.ListLinkedClasses);
+        Assert.DoesNotContain("\n", ZaloChatSql.Remember);
+        Assert.Contains("BotKey", ZaloChatSql.Remember);
         Assert.Contains("ZaloChatId = @chatId", ZaloChatSql.ListLinkedClasses);
     }
 

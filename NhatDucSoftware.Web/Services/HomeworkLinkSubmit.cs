@@ -9,7 +9,7 @@ public sealed class HomeworkLinkSubmit
     private readonly HomeworkService _homework;
     private readonly GeminiHomeworkClient _gemini;
     private readonly GoogleDriveService _drive;
-    private readonly ZaloBotClient _zalo;
+    private readonly ZaloBotDirectory _bots;
     private readonly ZaloChatService _chats;
     private readonly ILogger<HomeworkLinkSubmit> _logger;
 
@@ -17,14 +17,14 @@ public sealed class HomeworkLinkSubmit
         HomeworkService homework,
         GeminiHomeworkClient gemini,
         GoogleDriveService drive,
-        ZaloBotClient zalo,
+        ZaloBotDirectory bots,
         ZaloChatService chats,
         ILogger<HomeworkLinkSubmit> logger)
     {
         _homework = homework;
         _gemini = gemini;
         _drive = drive;
-        _zalo = zalo;
+        _bots = bots;
         _chats = chats;
         _logger = logger;
     }
@@ -94,7 +94,7 @@ public sealed class HomeworkLinkSubmit
 
         try
         {
-            await _zalo.SendTextToAsync(chatId, slip);
+            await _bots.SendTextToAsync(_chats.BotKeyFor(chatId), chatId, slip);
             return "Đã nộp bài. Phiếu đã gửi vào nhóm Zalo.";
         }
         catch (Exception ex)
@@ -178,7 +178,7 @@ public sealed class HomeworkLinkSubmit
 
         try
         {
-            await _zalo.SendTextToAsync(chatId, slip);
+            await _bots.SendTextToAsync(_chats.BotKeyFor(chatId), chatId, slip);
             return "Đã nộp bài. Phiếu đã gửi vào nhóm Zalo.";
         }
         catch (Exception ex)

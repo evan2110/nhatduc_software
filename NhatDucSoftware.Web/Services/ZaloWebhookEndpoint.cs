@@ -29,7 +29,8 @@ public static class ZaloWebhookEndpoint
 
     public static async Task<IResult> Handle(
         HttpContext context,
-        ZaloBotClient zalo,
+        ZaloBotDirectory bots,
+        string botKey,
         ZaloChatService chats,
         ClassService classes,
         HomeworkService homework,
@@ -62,7 +63,7 @@ public static class ZaloWebhookEndpoint
             var reply = GroupAck;
             try
             {
-                chats.Remember(update.ChatId, "GROUP");
+                chats.Remember(update.ChatId, "GROUP", botKey);
                 var graded = await ZaloHomeworkAutoGrade.TryReplyAsync(update.Text, update.ChatId, chats, homework, gemini, drive, logger);
                 if (graded is not null)
                 {
@@ -90,7 +91,7 @@ public static class ZaloWebhookEndpoint
 
             try
             {
-                await zalo.SendTextToAsync(update.ChatId, reply);
+                await bots.SendTextToAsync(botKey, update.ChatId, reply);
             }
             catch (Exception ex)
             {

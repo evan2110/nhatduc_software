@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using NhatDucSoftware.Core.Data;
+using NhatDucSoftware.Core.Helpers;
 using NhatDucSoftware.Core.Services;
 using NhatDucSoftware.Web.Components;
 using NhatDucSoftware.Web.Services;
@@ -160,14 +161,16 @@ builder.Services.AddScoped(sp =>
 });
 builder.Services.AddScoped(sp =>
 {
-    var config = sp.GetRequiredService<IConfiguration>();
     var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ZaloBotClient));
     http.Timeout = TimeSpan.FromSeconds(15);
-    var token = Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN") ?? "";
-    var chatId = Environment.GetEnvironmentVariable("ZALO_HOMEWORK_CHAT_ID")
-        ?? config["Zalo:HomeworkChatId"]
-        ?? "";
-    return new ZaloBotClient(http, token, chatId, sp.GetService<ILogger<ZaloBotClient>>());
+    var logger = sp.GetService<ILogger<ZaloBotClient>>();
+    var tokens = ZaloBotTokens.Read(
+        Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN"),
+        Environment.GetEnvironmentVariable("ZALO_BOT_TOKENS"));
+    var bots = tokens
+        .Select(item => (item.Key, new ZaloBotClient(http, item.Token, "", logger)))
+        .ToList();
+    return new ZaloBotDirectory(bots);
 });
 builder.Services.AddScoped<ZaloChatService>();
 builder.Services.AddScoped<ReportService>();
@@ -430,7 +433,27 @@ app.MapGet("/api/export/teacher-payroll-attendance", (
         attachment.FileName);
 }).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" }).RequireRateLimiting("export");
 
-app.MapPost("/api/zalo/webhook", ZaloWebhookEndpoint.Handle).DisableAntiforgery();
+app.MapPost("/api/zalo/webhook", (
+    HttpContext context,
+    ZaloBotDirectory bots,
+    ZaloChatService chats,
+    ClassService classes,
+    HomeworkService homework,
+    GeminiHomeworkClient gemini,
+    GoogleDriveService drive,
+    ILoggerFactory loggerFactory) =>
+    ZaloWebhookEndpoint.Handle(context, bots, "1", chats, classes, homework, gemini, drive, loggerFactory)).DisableAntiforgery();
+app.MapPost("/api/zalo/webhook/{botKey}", (
+    string botKey,
+    HttpContext context,
+    ZaloBotDirectory bots,
+    ZaloChatService chats,
+    ClassService classes,
+    HomeworkService homework,
+    GeminiHomeworkClient gemini,
+    GoogleDriveService drive,
+    ILoggerFactory loggerFactory) =>
+    ZaloWebhookEndpoint.Handle(context, bots, botKey, chats, classes, homework, gemini, drive, loggerFactory)).DisableAntiforgery();
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {
@@ -442,8 +465,7 @@ static async Task RegisterZaloWebhookAsync(WebApplication app)
 {
     var url = Environment.GetEnvironmentVariable("ZALO_WEBHOOK_URL") ?? "";
     var secret = Environment.GetEnvironmentVariable("ZALO_WEBHOOK_SECRET") ?? "";
-    var token = Environment.GetEnvironmentVariable("ZALO_BOT_TOKEN") ?? "";
-    if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(token))
+    if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(secret))
     {
         return;
     }
@@ -454,15 +476,18 @@ static async Task RegisterZaloWebhookAsync(WebApplication app)
         return;
     }
 
-    try
+    using var scope = app.Services.CreateScope();
+    var bots = scope.ServiceProvider.GetRequiredService<ZaloBotDirectory>();
+    foreach (var (key, client) in bots.All)
     {
-        using var scope = app.Services.CreateScope();
-        var zalo = scope.ServiceProvider.GetRequiredService<ZaloBotClient>();
-        await zalo.SetWebhookAsync(url, secret);
-        app.Logger.LogInformation("Đã đăng ký Zalo webhook.");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogWarning(ex, "Không đăng ký được Zalo webhook.");
+        try
+        {
+            await client.SetWebhookAsync(ZaloBotTokens.WebhookUrl(url, key), secret);
+            app.Logger.LogInformation("Đã đăng ký Zalo webhook cho bot {BotKey}.", key);
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Không đăng ký được Zalo webhook cho bot {BotKey}.", key);
+        }
     }
 }
