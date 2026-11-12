@@ -5,7 +5,7 @@
 @inject ClassService ClassService
 @inject HomeworkService HomeworkService
 @inject GeminiHomeworkClient Gemini
-@inject ZaloBotClient Zalo
+@inject ZaloBotDirectory Zalo
 @inject ZaloChatService ZaloChats
 @inject GoogleDriveService DriveService
 @inject IJSRuntime JS
@@ -995,7 +995,7 @@ else
 
         try
         {
-            await Zalo.SendTextToAsync(chatId, text);
+            await Zalo.SendTextToAsync(ZaloChats.BotKeyFor(chatId), chatId, text);
             ShowSuccess(sent);
         }
         catch (InvalidOperationException ex) when (ex.Message == ZaloBotClient.NotConfiguredMessage)
