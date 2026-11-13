@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS AppSettings (
         MigrateHomeworkTables(connection);
         MigrateHomeworkWorkText(connection);
         MigrateHomeworkPublicToken(connection);
+        MigrateHomeworkSlipAccess(connection);
         MigrateZaloChatsTable(connection);
     }
 
@@ -123,6 +124,25 @@ CREATE TABLE IF NOT EXISTS AppSettings (
 
         using var index = connection.CreateCommand();
         index.CommandText = HomeworkSql.PublicTokenIndex;
+        index.ExecuteNonQuery();
+    }
+
+    private static void MigrateHomeworkSlipAccess(Npgsql.NpgsqlConnection connection)
+    {
+        using (var students = connection.CreateCommand())
+        {
+            students.CommandText = "ALTER TABLE Students ADD COLUMN IF NOT EXISTS SlipPassword TEXT;";
+            students.ExecuteNonQuery();
+        }
+
+        using (var submissions = connection.CreateCommand())
+        {
+            submissions.CommandText = HomeworkSql.AddSlipTokenColumn;
+            submissions.ExecuteNonQuery();
+        }
+
+        using var index = connection.CreateCommand();
+        index.CommandText = HomeworkSql.SlipTokenIndex;
         index.ExecuteNonQuery();
     }
 

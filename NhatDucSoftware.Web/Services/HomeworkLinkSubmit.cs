@@ -78,7 +78,7 @@ public sealed class HomeworkLinkSubmit
         string slip;
         try
         {
-            slip = await ZaloHomeworkAutoGrade.GradeWrittenAsync(target, answer, _homework, _gemini, _drive);
+            slip = await ZaloHomeworkAutoGrade.GradeWrittenAsync(target, answer, _homework, _gemini, _drive, HomeworkSlipLink.SiteOrigin());
         }
         catch (Exception ex)
         {
@@ -152,7 +152,8 @@ public sealed class HomeworkLinkSubmit
                 media ?? Array.Empty<byte>(),
                 HomeworkSpeakingUpload.Mime(fileName),
                 _homework,
-                _gemini);
+                _gemini,
+                HomeworkSlipLink.SiteOrigin());
         }
         catch (InvalidOperationException ex)
         {

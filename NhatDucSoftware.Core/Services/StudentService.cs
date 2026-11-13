@@ -63,7 +63,7 @@ ORDER BY s.Id ASC;";
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    public void Add(Student student, int? updatedByUserId = null)
+    public void Add(Student student, int? updatedByUserId = null, string? slipPassword = null)
     {
         ValidateStudent(student);
 
@@ -102,7 +102,39 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt,
             LogBalanceChange(connection, transaction, nextId, 0, student.Balance, userId);
         }
 
+        if (!string.IsNullOrWhiteSpace(slipPassword))
+        {
+            using var setPassword = connection.CreateCommand();
+            setPassword.Transaction = transaction;
+            setPassword.CommandText = "UPDATE Students SET SlipPassword = @password WHERE Id = @id;";
+            setPassword.Parameters.AddWithValue("@password", slipPassword.Trim());
+            setPassword.Parameters.AddWithValue("@id", nextId);
+            setPassword.ExecuteNonQuery();
+        }
+
         transaction.Commit();
+    }
+
+    public string GetSlipPassword(int studentId)
+    {
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COALESCE(SlipPassword, '') FROM Students WHERE Id = @id;";
+        command.Parameters.AddWithValue("@id", studentId);
+        return Convert.ToString(command.ExecuteScalar()) ?? "";
+    }
+
+    public void SetSlipPassword(int studentId, string? password)
+    {
+        var value = (password ?? "").Trim();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Students SET SlipPassword = @password WHERE Id = @id;";
+        command.Parameters.AddWithValue("@password", value.Length == 0 ? DBNull.Value : value);
+        command.Parameters.AddWithValue("@id", studentId);
+        command.ExecuteNonQuery();
     }
 
     public void Update(Student student, int updatedByUserId)

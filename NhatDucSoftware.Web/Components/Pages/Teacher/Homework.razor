@@ -274,9 +274,10 @@ else
                     <h3>Phiếu — @selected.StudentName</h3>
                     <div class="hw-slip-actions">
                         <button class="btn btn-primary btn-sm" @onclick="SaveGradeAsync">Lưu</button>
+                        <button class="btn btn-secondary btn-sm" @onclick="SaveSlipPassword">Lưu mật khẩu</button>
                         @if (!string.IsNullOrWhiteSpace(selected.ReportText))
                         {
-                            <button class="btn btn-secondary btn-sm" @onclick="CopySlip">Chép phiếu</button>
+                            <button class="btn btn-secondary btn-sm" @onclick="CopySlip">Chép link</button>
                         }
                         @if (selected.Score is not null)
                         {
@@ -293,7 +294,12 @@ else
                         <label>Nhận xét</label>
                         <input @bind="_comment" />
                     </div>
+                    <div class="form-group">
+                        <label>Mật khẩu phiếu</label>
+                        <input @bind="_slipPassword" autocomplete="off" />
+                    </div>
                 </div>
+                <p class="text-muted hw-note">Học viên nhập mật khẩu này trên link. Nhóm Zalo chỉ nhận link, không nhận mật khẩu.</p>
                 <div class="form-group">
                     <label>Phiếu nhận xét</label>
                     <textarea @bind="_report" rows="6"></textarea>
@@ -329,6 +335,7 @@ else
     private string _scoreText = "";
     private string _comment = "";
     private string _report = "";
+    private string _slipPassword = "";
 
     private string? _message;
     private string _messageClass = "alert-success";
@@ -605,6 +612,47 @@ else
         _scoreText = row?.Score?.ToString("0.##", CultureInfo.InvariantCulture) ?? "";
         _comment = row?.ShortComment ?? "";
         _report = GeminiGradeParser.NormalizeReport(row?.ReportText, _scoreText);
+        _slipPassword = "";
+        if (TeacherId is int teacherId && _assignment is not null && row is not null)
+        {
+            _slipPassword = HomeworkService.GetStudentSlipPassword(teacherId, _assignment.ClassId, row.StudentId);
+        }
+    }
+
+    private void SaveSlipPassword()
+    {
+        if (TeacherId is not int teacherId || _assignment is null || _selectedStudentId == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            HomeworkService.SetStudentSlipPassword(teacherId, _assignment.ClassId, _selectedStudentId, _slipPassword);
+            _slipPassword = HomeworkService.GetStudentSlipPassword(teacherId, _assignment.ClassId, _selectedStudentId);
+            ShowSuccess(string.IsNullOrWhiteSpace(_slipPassword)
+                ? "Đã xóa mật khẩu phiếu."
+                : "Đã lưu mật khẩu phiếu.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không lưu được mật khẩu phiếu.");
+        }
+    }
+
+    private string SlipNotice(string studentName)
+    {
+        if (TeacherId is not int teacherId || _assignment is null || _selectedStudentId == 0)
+        {
+            return "";
+        }
+
+        var token = HomeworkService.EnsureSlipToken(teacherId, _assignment.Id, _selectedStudentId);
+        return HomeworkResultMessage.BuildLink(
+            _assignment.ClassName,
+            _assignment.Title,
+            studentName,
+            HomeworkSlipLink.For(Nav.BaseUri, token));
     }
 
     private string AssignmentLink(HomeworkAssignment? assignment)
@@ -630,14 +678,21 @@ else
 
     private async Task CopySlip()
     {
-        var saved = HomeworkResultMessage.WithoutWorkDetail(SelectedRow?.ReportText);
-        if (string.IsNullOrWhiteSpace(saved))
+        if (string.IsNullOrWhiteSpace(SelectedRow?.ReportText))
         {
             ShowError("Hãy lưu phiếu trước khi sao chép.");
             return;
         }
 
-        await CopyText(saved, "Đã sao chép phiếu.");
+        try
+        {
+            var studentName = SelectedRow?.StudentName ?? "";
+            await CopyText(SlipNotice(studentName), "Đã sao chép link phiếu.");
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(ex, "Không tạo được link phiếu.");
+        }
     }
 
     private async Task CopyText(string text, string successMessage)
@@ -962,19 +1017,13 @@ else
             LoadDraftFromSaved();
             if (_assignment is not null)
             {
-                var text = HomeworkResultMessage.Build(
-                    _assignment.ClassName,
-                    _assignment.Title,
-                    studentName,
-                    score,
-                    shortComment,
-                    _report ?? "");
+                var text = SlipNotice(studentName);
                 await SendToClassAsync(
                     _assignment.ClassId,
                     text,
-                    "Đã lưu phiếu và gửi kết quả vào nhóm Zalo của lớp.",
-                    "Đã lưu phiếu. Lớp chưa gắn nhóm Zalo nên chưa gửi được phiếu.",
-                    "Đã lưu phiếu. Zalo chưa nhận được phiếu trong nhóm.");
+                    "Đã lưu phiếu và gửi link vào nhóm Zalo của lớp.",
+                    "Đã lưu phiếu. Lớp chưa gắn nhóm Zalo nên chưa gửi được link.",
+                    "Đã lưu phiếu. Zalo chưa nhận được link.");
             }
         }
         catch (Exception ex)

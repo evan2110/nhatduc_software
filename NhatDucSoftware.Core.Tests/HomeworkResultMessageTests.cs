@@ -8,6 +8,19 @@ namespace NhatDucSoftware.Core.Tests;
 public class HomeworkResultMessageTests
 {
     [Fact]
+    public void BuildLink_KeepsTheScoreAndAnswerOffTheGroupMessage()
+    {
+        var text = HomeworkResultMessage.BuildLink("TOÁN THCS LỚP 7", "Homework", "An", "https://nhatduc.example/p/abc123");
+
+        Assert.Contains("PHIẾU CHẤM", text);
+        Assert.Contains("Học viên: An", text);
+        Assert.Contains("Xem điểm và đáp án: https://nhatduc.example/p/abc123", text);
+        Assert.DoesNotContain("Điểm:", text);
+        Assert.DoesNotContain("Nhận xét", text);
+        Assert.DoesNotContain("Đáp án đúng", text);
+    }
+
+    [Fact]
     public void Build_SendsOnlyTheSlipWhenAReportExists()
     {
         var text = HomeworkResultMessage.Build("Grade 2A", "Unit 3", "Ngân Hà", 8.5m, "Đọc rõ", "PHIẾU CHẤM & SỬA BÀI\nĐiểm: 10/10");

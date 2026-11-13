@@ -42,6 +42,11 @@ public class HomeworkSqlTests
         Assert.Contains("PublicToken", HomeworkSql.GetByPublicToken);
         Assert.DoesNotContain("\n", HomeworkSql.GetByPublicToken);
         Assert.DoesNotContain("\n", HomeworkSql.SetPublicToken);
+        Assert.DoesNotContain("\n", HomeworkSql.GetSlipToken);
+        Assert.DoesNotContain("\n", HomeworkSql.SetSlipToken);
+        Assert.DoesNotContain("\n", HomeworkSql.GetSlipByToken);
+        Assert.Contains("SlipToken", HomeworkSql.GetSlipByToken);
+        Assert.DoesNotContain("SlipPassword", HomeworkSql.ListRows);
         Assert.DoesNotContain("\n", HomeworkSql.UpsertWorkText);
         Assert.DoesNotContain("\n", HomeworkSql.ListClassStudents);
         Assert.DoesNotContain("\n", HomeworkSql.ListClassAssignments);

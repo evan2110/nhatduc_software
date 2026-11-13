@@ -13,17 +13,20 @@ public class HomeworkService
     private readonly EvaluationService _evaluations;
     private readonly GoogleDriveService _drive;
     private readonly TeacherProfileService _teachers;
+    private readonly StudentService _students;
 
     public HomeworkService(
         ClassService classes,
         EvaluationService evaluations,
         GoogleDriveService drive,
-        TeacherProfileService teachers)
+        TeacherProfileService teachers,
+        StudentService students)
     {
         _classes = classes;
         _evaluations = evaluations;
         _drive = drive;
         _teachers = teachers;
+        _students = students;
     }
 
     public int CreateAssignment(int teacherId, int classId, string title, DateTime assignedOn, string kind, string prompt, string? answerKeyText)
@@ -394,6 +397,116 @@ public class HomeworkService
         await _drive.DeleteFileAsync(commit.DriveFileIdToDelete);
     }
 
+    public string EnsureSlipToken(int teacherId, int assignmentId, int studentId)
+    {
+        var assignment = RequireAssignment(teacherId, assignmentId);
+        EnsureStudentAccess(teacherId, assignment, studentId);
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        var existing = ReadSlipToken(connection, assignmentId, studentId);
+        if (!string.IsNullOrWhiteSpace(existing))
+        {
+            return existing;
+        }
+
+        var token = HomeworkSlipToken.Create();
+        using var update = connection.CreateCommand();
+        update.CommandText = HomeworkSql.SetSlipToken;
+        update.Parameters.AddWithValue("@token", token);
+        update.Parameters.AddWithValue("@assignmentId", assignmentId);
+        update.Parameters.AddWithValue("@studentId", studentId);
+        if (update.ExecuteNonQuery() == 0)
+        {
+            existing = ReadSlipToken(connection, assignmentId, studentId);
+            if (string.IsNullOrWhiteSpace(existing))
+            {
+                throw new InvalidOperationException("Hãy lưu phiếu trước khi gửi link.");
+            }
+
+            return existing;
+        }
+
+        return token;
+    }
+
+    public string GetStudentSlipPassword(int teacherId, int classId, int studentId)
+    {
+        EnsureTeaches(teacherId, classId);
+        if (!IsStudentInClass(classId, studentId))
+        {
+            throw new InvalidOperationException("Không tìm thấy học viên.");
+        }
+
+        return _students.GetSlipPassword(studentId);
+    }
+
+    public void SetStudentSlipPassword(int teacherId, int classId, int studentId, string? password)
+    {
+        EnsureTeaches(teacherId, classId);
+        if (!IsStudentInClass(classId, studentId))
+        {
+            throw new InvalidOperationException("Không tìm thấy học viên.");
+        }
+
+        _students.SetSlipPassword(studentId, password);
+    }
+
+    public HomeworkSlipPreview? FindSlip(string? token)
+    {
+        var row = ReadSlip(token);
+        if (row is null)
+        {
+            return null;
+        }
+
+        return new HomeworkSlipPreview
+        {
+            StudentName = row.StudentName,
+            ClassName = row.ClassName,
+            Title = row.Title,
+            HasPassword = !string.IsNullOrWhiteSpace(row.Password)
+        };
+    }
+
+    public HomeworkSlipOpenResult OpenSlip(string? token, string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            return new HomeworkSlipOpenResult { Error = StudentSlipPassword.EnterMessage };
+        }
+
+        var row = ReadSlip(token);
+        if (row is null)
+        {
+            return new HomeworkSlipOpenResult { Error = StudentSlipPassword.NotFoundMessage };
+        }
+
+        if (string.IsNullOrWhiteSpace(row.Password))
+        {
+            return new HomeworkSlipOpenResult { Error = StudentSlipPassword.MissingMessage };
+        }
+
+        if (!StudentSlipPassword.Matches(row.Password, password))
+        {
+            return new HomeworkSlipOpenResult { Error = StudentSlipPassword.WrongMessage };
+        }
+
+        return new HomeworkSlipOpenResult
+        {
+            Detail = new HomeworkSlipDetail
+            {
+                StudentName = row.StudentName,
+                ClassName = row.ClassName,
+                Title = row.Title,
+                Score = row.Score,
+                AnswerKeyText = row.AnswerKey,
+                ShortComment = row.ShortComment,
+                ReportText = row.Report
+            }
+        };
+    }
+
     public void PushToMonth(int teacherId, int assignmentId, int studentId)
     {
         var assignment = RequireAssignment(teacherId, assignmentId);
@@ -426,6 +539,56 @@ public class HomeworkService
             throw new InvalidOperationException(error);
         }
     }
+
+    private static string ReadSlipToken(NpgsqlConnection connection, int assignmentId, int studentId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.GetSlipToken;
+        command.Parameters.AddWithValue("@assignmentId", assignmentId);
+        command.Parameters.AddWithValue("@studentId", studentId);
+        return Convert.ToString(command.ExecuteScalar()) ?? "";
+    }
+
+    private static SlipRecord? ReadSlip(string? token)
+    {
+        var wanted = (token ?? "").Trim();
+        if (wanted.Length == 0)
+        {
+            return null;
+        }
+
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = HomeworkSql.GetSlipByToken;
+        command.Parameters.AddWithValue("@token", wanted);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        decimal? score = reader.IsDBNull(5) ? null : Convert.ToDecimal(reader.GetValue(5));
+        return new SlipRecord(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            score,
+            reader.GetString(6),
+            reader.GetString(7));
+    }
+
+    private sealed record SlipRecord(
+        string StudentName,
+        string ClassName,
+        string Title,
+        string Password,
+        string AnswerKey,
+        decimal? Score,
+        string ShortComment,
+        string Report);
 
     private HomeworkAssignment RequireAssignment(int teacherId, int assignmentId)
     {

@@ -17,7 +17,8 @@ public static class ZaloHomeworkAutoGrade
         HomeworkService homework,
         GeminiHomeworkClient gemini,
         GoogleDriveService drive,
-        ILogger logger)
+        ILogger logger,
+        string? siteOrigin)
     {
         var reply = ZaloHomeworkReplyParser.Parse(messageText);
         if (reply is null)
@@ -57,7 +58,7 @@ public static class ZaloHomeworkAutoGrade
                 return gradeError;
             }
 
-            return await GradeWrittenAsync(target, reply.Answer, homework, gemini, drive);
+            return await GradeWrittenAsync(target, reply.Answer, homework, gemini, drive, siteOrigin);
         }
         catch (InvalidOperationException ex)
         {
@@ -76,7 +77,8 @@ public static class ZaloHomeworkAutoGrade
         string answer,
         HomeworkService homework,
         GeminiHomeworkClient gemini,
-        GoogleDriveService drive)
+        GoogleDriveService drive,
+        string? siteOrigin)
     {
         var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
             ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
@@ -110,13 +112,7 @@ public static class ZaloHomeworkAutoGrade
         var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
         var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
         await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
-        return HomeworkResultMessage.Build(
-            assignment.ClassName,
-            assignment.Title,
-            target.StudentName,
-            draft.Score,
-            draft.ShortComment,
-            report);
+        return SlipNotice(homework, target, assignment, siteOrigin);
     }
 
     public static async Task<string> GradeSpeakingAsync(
@@ -124,7 +120,8 @@ public static class ZaloHomeworkAutoGrade
         byte[] media,
         string mime,
         HomeworkService homework,
-        GeminiHomeworkClient gemini)
+        GeminiHomeworkClient gemini,
+        string? siteOrigin)
     {
         var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
             ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
@@ -147,13 +144,17 @@ public static class ZaloHomeworkAutoGrade
         var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
         var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
         await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
-        return HomeworkResultMessage.Build(
+        return SlipNotice(homework, target, assignment, siteOrigin);
+    }
+
+    private static string SlipNotice(HomeworkService homework, ZaloHomeworkTarget target, HomeworkAssignment assignment, string? siteOrigin)
+    {
+        var token = homework.EnsureSlipToken(target.TeacherId, target.AssignmentId, target.StudentId);
+        return HomeworkResultMessage.BuildLink(
             assignment.ClassName,
             assignment.Title,
             target.StudentName,
-            draft.Score,
-            draft.ShortComment,
-            report);
+            HomeworkSlipLink.For(siteOrigin, token));
     }
 
     private static string MimeFromFileName(string? fileName)

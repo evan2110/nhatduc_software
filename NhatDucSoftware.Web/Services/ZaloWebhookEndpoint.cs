@@ -64,7 +64,7 @@ public static class ZaloWebhookEndpoint
             try
             {
                 chats.Remember(update.ChatId, "GROUP", botKey);
-                var graded = await ZaloHomeworkAutoGrade.TryReplyAsync(update.Text, update.ChatId, chats, homework, gemini, drive, logger);
+                var graded = await ZaloHomeworkAutoGrade.TryReplyAsync(update.Text, update.ChatId, chats, homework, gemini, drive, logger, HomeworkSlipLink.SiteOrigin());
                 if (graded is not null)
                 {
                     reply = graded;

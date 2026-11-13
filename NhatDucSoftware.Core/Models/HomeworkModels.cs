@@ -28,6 +28,31 @@ public sealed class HomeworkAssignment
 
 public sealed record HomeworkPublicView(string ClassName, string Title, DateTime AssignedOn, string Kind, string Prompt);
 
+public sealed class HomeworkSlipPreview
+{
+    public string StudentName { get; init; } = "";
+    public string ClassName { get; init; } = "";
+    public string Title { get; init; } = "";
+    public bool HasPassword { get; init; }
+}
+
+public sealed class HomeworkSlipOpenResult
+{
+    public string? Error { get; init; }
+    public HomeworkSlipDetail? Detail { get; init; }
+}
+
+public sealed class HomeworkSlipDetail
+{
+    public string StudentName { get; init; } = "";
+    public string ClassName { get; init; } = "";
+    public string Title { get; init; } = "";
+    public decimal? Score { get; init; }
+    public string AnswerKeyText { get; init; } = "";
+    public string ShortComment { get; init; } = "";
+    public string ReportText { get; init; } = "";
+}
+
 public sealed class HomeworkSubmissionRow
 {
     public int StudentId { get; set; }

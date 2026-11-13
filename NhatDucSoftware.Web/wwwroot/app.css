@@ -1981,6 +1981,10 @@ a.brand-link:hover,
     padding: 0 1rem;
 }
 
+.hw-slip-report {
+    white-space: pre-wrap;
+}
+
 .hw-note {
     margin: 0 0 0.6rem;
     font-size: 0.85rem;

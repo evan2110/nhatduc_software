@@ -36,6 +36,10 @@ else
                 <input @bind="_form.Phone" />
             </div>
             <div class="form-group">
+                <label>Mật khẩu phiếu</label>
+                <input @bind="_form.SlipPassword" autocomplete="off" />
+            </div>
+            <div class="form-group">
                 <label>Email</label>
                 <input @bind="_form.Email" />
             </div>
@@ -376,6 +380,7 @@ else
         {
             FullName = s.FullName,
             Phone = s.Phone,
+            SlipPassword = StudentService.GetSlipPassword(s.Id),
             Email = s.Email ?? "",
             BirthYear = s.BirthYear,
             Address = s.Address ?? "",
@@ -427,7 +432,7 @@ else
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
                 Status = _form.Status,
                 Balance = balance
-            }, Session.CurrentUser?.Id);
+            }, Session.CurrentUser?.Id, _form.SlipPassword);
             _message = "Đã thêm học viên.";
             LoadStudents();
             ClearForm();
@@ -465,6 +470,7 @@ else
                 Status = _form.Status,
                 Balance = balance
             }, Session.CurrentUser.Id);
+            StudentService.SetSlipPassword(_selectedId.Value, _form.SlipPassword);
             _message = "Đã cập nhật học viên.";
             LoadStudents();
         }
@@ -672,6 +678,7 @@ else
     {
         public string FullName { get; set; } = "";
         public string Phone { get; set; } = "";
+        public string SlipPassword { get; set; } = "";
         public string Email { get; set; } = "";
         public int? BirthYear { get; set; }
         public string Address { get; set; } = "";

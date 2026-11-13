@@ -6,6 +6,16 @@ public static class HomeworkResultMessage
 {
     public const int MaxChunkLength = 2000;
 
+    public static string BuildLink(string className, string title, string studentName, string link)
+    {
+        return string.Join('\n',
+            "PHIẾU CHẤM",
+            $"Lớp: {className.Trim()}",
+            $"Bài: {title.Trim()}",
+            $"Học viên: {studentName.Trim()}",
+            $"Xem điểm và đáp án: {link.Trim()}");
+    }
+
     public static string Build(string className, string title, string studentName, decimal? score, string? shortComment, string? report)
     {
         var slip = WithoutWorkDetail(report);

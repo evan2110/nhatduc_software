@@ -1,0 +1,116 @@
+@page "/p/{Token}"
+@attribute [AllowAnonymous]
+@rendermode InteractiveServer
+@using System.Globalization
+@using NhatDucSoftware.Core.Helpers
+@inject HomeworkService HomeworkService
+
+<PageTitle>Phiếu</PageTitle>
+<HeadContent>
+    <meta property="og:title" content="Phiếu" />
+</HeadContent>
+
+<div class="hw-public">
+    <div class="card">
+        @if (_preview is null)
+        {
+            <h1>Không tìm thấy phiếu</h1>
+        }
+        else if (_detail is null)
+        {
+            <h1>@_preview.Title</h1>
+            <p class="text-muted hw-note">@_preview.ClassName · @_preview.StudentName</p>
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="alert alert-danger">@_message</div>
+            }
+            @if (_preview.HasPassword)
+            {
+                <form @onsubmit="OpenAsync" @onsubmit:preventDefault>
+                    <div class="form-group">
+                        <label for="slip-pass">Mật khẩu</label>
+                        <input id="slip-pass" type="password" required @bind="_password" autocomplete="current-password" />
+                    </div>
+                    <button type="submit" class="btn btn-primary" disabled="@_busy">Xem phiếu</button>
+                </form>
+            }
+            else
+            {
+                <p>@StudentSlipPassword.MissingMessage</p>
+            }
+        }
+        else
+        {
+            <h1>@_detail.Title</h1>
+            <p class="text-muted hw-note">@_detail.ClassName · @_detail.StudentName</p>
+            <h2>Điểm</h2>
+            <p>@ScoreText</p>
+            @if (!string.IsNullOrWhiteSpace(_detail.AnswerKeyText))
+            {
+                <h2>Đáp án</h2>
+                <div class="hw-slip-report">@_detail.AnswerKeyText</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.ShortComment))
+            {
+                <h2>Nhận xét</h2>
+                <p>@_detail.ShortComment</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.ReportText))
+            {
+                <h2>Phiếu nhận xét</h2>
+                <div class="hw-slip-report">@_detail.ReportText</div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private HomeworkSlipPreview? _preview;
+    private HomeworkSlipDetail? _detail;
+    private string _password = "";
+    private string? _message;
+    private bool _busy;
+
+    private string ScoreText => _detail?.Score is null
+        ? "Chưa có điểm"
+        : _detail.Score.Value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    protected override void OnInitialized()
+    {
+        _preview = HomeworkService.FindSlip(Token);
+    }
+
+    private void OpenAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        _message = null;
+        try
+        {
+            var opened = HomeworkService.OpenSlip(Token, _password);
+            if (opened.Detail is null)
+            {
+                _message = opened.Error ?? StudentSlipPassword.WrongMessage;
+                return;
+            }
+
+            _password = "";
+            _detail = opened.Detail;
+        }
+        catch (Exception)
+        {
+            _message = "Không mở được phiếu. Hãy thử lại.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
