@@ -102,12 +102,14 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt,
             LogBalanceChange(connection, transaction, nextId, 0, student.Balance, userId);
         }
 
-        if (!string.IsNullOrWhiteSpace(slipPassword))
+        var password = string.IsNullOrWhiteSpace(slipPassword)
+            ? StudentSlipPassword.Create(student.FullName, nextId)
+            : slipPassword.Trim();
+        using (var setPassword = connection.CreateCommand())
         {
-            using var setPassword = connection.CreateCommand();
             setPassword.Transaction = transaction;
             setPassword.CommandText = "UPDATE Students SET SlipPassword = @password WHERE Id = @id;";
-            setPassword.Parameters.AddWithValue("@password", slipPassword.Trim());
+            setPassword.Parameters.AddWithValue("@password", password);
             setPassword.Parameters.AddWithValue("@id", nextId);
             setPassword.ExecuteNonQuery();
         }

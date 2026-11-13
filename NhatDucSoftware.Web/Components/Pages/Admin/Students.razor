@@ -443,7 +443,7 @@ else
                 Address = string.IsNullOrWhiteSpace(_form.Address) ? null : _form.Address.Trim(),
                 Status = _form.Status,
                 Balance = balance
-            }, Session.CurrentUser?.Id, _form.SlipPassword);
+            }, Session.CurrentUser?.Id);
             _message = "Đã thêm học viên.";
             LoadStudents();
             ClearForm();

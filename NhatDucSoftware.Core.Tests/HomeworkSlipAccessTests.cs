@@ -5,6 +5,14 @@ namespace NhatDucSoftware.Core.Tests;
 public class HomeworkSlipAccessTests
 {
     [Fact]
+    public void Create_UsesTheLastNameAndTheStudentId()
+    {
+        Assert.Equal("anh@1", StudentSlipPassword.Create("TRẦN NGUYỄN QUỲNH ANH", 1));
+        Assert.Equal("hiep@4", StudentSlipPassword.Create("VƯƠNG CÔNG HIỆP", 4));
+        Assert.Equal("thu@8", StudentSlipPassword.Create("TRẦN  ANH THƯ", 8));
+    }
+
+    [Fact]
     public void Password_MatchesTheIssuedPasswordWithoutChangingCase()
     {
         Assert.True(StudentSlipPassword.Matches("  mat-khau  ", "mat-khau"));

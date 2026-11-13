@@ -1,7 +1,6 @@
 @page "/p/{Token}"
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
-@using System.Globalization
 @using NhatDucSoftware.Core.Helpers
 @inject HomeworkService HomeworkService
 
@@ -43,17 +42,10 @@
         {
             <h1>@_detail.Title</h1>
             <p class="text-muted hw-note">@_detail.ClassName · @_detail.StudentName</p>
-            <h2>Điểm</h2>
-            <p>@ScoreText</p>
             @if (!string.IsNullOrWhiteSpace(_detail.AnswerKeyText))
             {
                 <h2>Đáp án</h2>
                 <div class="hw-slip-report">@_detail.AnswerKeyText</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(_detail.ShortComment))
-            {
-                <h2>Nhận xét</h2>
-                <p>@_detail.ShortComment</p>
             }
             @if (!string.IsNullOrWhiteSpace(_detail.ReportText))
             {
@@ -73,10 +65,6 @@
     private string _password = "";
     private string? _message;
     private bool _busy;
-
-    private string ScoreText => _detail?.Score is null
-        ? "Chưa có điểm"
-        : _detail.Score.Value.ToString("0.##", CultureInfo.InvariantCulture);
 
     protected override void OnInitialized()
     {
