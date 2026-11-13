@@ -13,20 +13,17 @@ public class HomeworkService
     private readonly EvaluationService _evaluations;
     private readonly GoogleDriveService _drive;
     private readonly TeacherProfileService _teachers;
-    private readonly StudentService _students;
 
     public HomeworkService(
         ClassService classes,
         EvaluationService evaluations,
         GoogleDriveService drive,
-        TeacherProfileService teachers,
-        StudentService students)
+        TeacherProfileService teachers)
     {
         _classes = classes;
         _evaluations = evaluations;
         _drive = drive;
         _teachers = teachers;
-        _students = students;
     }
 
     public int CreateAssignment(int teacherId, int classId, string title, DateTime assignedOn, string kind, string prompt, string? answerKeyText)
@@ -428,28 +425,6 @@ public class HomeworkService
         }
 
         return token;
-    }
-
-    public string GetStudentSlipPassword(int teacherId, int classId, int studentId)
-    {
-        EnsureTeaches(teacherId, classId);
-        if (!IsStudentInClass(classId, studentId))
-        {
-            throw new InvalidOperationException("Không tìm thấy học viên.");
-        }
-
-        return _students.GetSlipPassword(studentId);
-    }
-
-    public void SetStudentSlipPassword(int teacherId, int classId, int studentId, string? password)
-    {
-        EnsureTeaches(teacherId, classId);
-        if (!IsStudentInClass(classId, studentId))
-        {
-            throw new InvalidOperationException("Không tìm thấy học viên.");
-        }
-
-        _students.SetSlipPassword(studentId, password);
     }
 
     public HomeworkSlipPreview? FindSlip(string? token)

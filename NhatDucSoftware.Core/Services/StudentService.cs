@@ -115,6 +115,22 @@ VALUES(@id, @name, @phone, @mail, @birthYear, @address, '', @status, @createdAt,
         transaction.Commit();
     }
 
+    public Dictionary<int, string> ListSlipPasswords()
+    {
+        var result = new Dictionary<int, string>();
+        using var connection = DbContext.CreateConnection();
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, COALESCE(SlipPassword, '') FROM Students;";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result[reader.GetInt32(0)] = reader.GetString(1);
+        }
+
+        return result;
+    }
+
     public string GetSlipPassword(int studentId)
     {
         using var connection = DbContext.CreateConnection();

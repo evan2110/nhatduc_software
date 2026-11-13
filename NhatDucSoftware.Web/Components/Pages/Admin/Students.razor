@@ -36,7 +36,7 @@ else
                 <input @bind="_form.Phone" />
             </div>
             <div class="form-group">
-                <label>Mật khẩu phiếu</label>
+                <label>Mật khẩu bài tập</label>
                 <input @bind="_form.SlipPassword" autocomplete="off" />
             </div>
             <div class="form-group">
@@ -111,6 +111,7 @@ else
                     <th>Họ tên</th>
                     <th>Lớp</th>
                     <th>SĐT</th>
+                    <th>Mật khẩu bài tập</th>
                     <th>Email</th>
                     <th>Năm sinh</th>
                     <th>Trạng thái</th>
@@ -121,7 +122,7 @@ else
                 @if (PagedStudents.Count == 0)
                 {
                     <tr class="empty-row">
-                        <td colspan="8">Không tìm thấy học viên phù hợp.</td>
+                        <td colspan="9">Không tìm thấy học viên phù hợp.</td>
                     </tr>
                 }
                 else
@@ -133,6 +134,7 @@ else
                             <td>@s.FullName</td>
                             <td>@s.ClassName</td>
                             <td>@s.Phone</td>
+                            <td>@SlipPasswordOf(s.Id)</td>
                             <td>@s.Email</td>
                             <td>@s.BirthYear</td>
                             <td>@s.Status</td>
@@ -287,6 +289,7 @@ else
 
 @code {
     private List<Student> _students = new();
+    private Dictionary<int, string> _slipPasswords = new();
     private StudentForm _form = new();
     private int? _selectedId;
     private string? _message;
@@ -370,7 +373,15 @@ else
     private void LoadStudents()
     {
         _students = StudentService.GetAll();
+        _slipPasswords = StudentService.ListSlipPasswords();
         _currentPage = Math.Clamp(_currentPage, 1, TotalPages);
+    }
+
+    private string SlipPasswordOf(int studentId)
+    {
+        return _slipPasswords.TryGetValue(studentId, out var password) && !string.IsNullOrWhiteSpace(password)
+            ? password
+            : "—";
     }
 
     private void SelectStudent(Student s)
@@ -380,7 +391,7 @@ else
         {
             FullName = s.FullName,
             Phone = s.Phone,
-            SlipPassword = StudentService.GetSlipPassword(s.Id),
+            SlipPassword = _slipPasswords.TryGetValue(s.Id, out var password) ? password : "",
             Email = s.Email ?? "",
             BirthYear = s.BirthYear,
             Address = s.Address ?? "",
