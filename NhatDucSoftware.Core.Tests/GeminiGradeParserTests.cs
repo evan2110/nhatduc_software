@@ -10,6 +10,8 @@ public class GeminiGradeParserTests
         var written = GeminiGradePrompt.Build("Written", "Grade 2A", "Unit 3", "An", "Đề", "Đáp án A");
         Assert.Contains("PHIẾU CHẤM & SỬA BÀI", written);
         Assert.Contains("Đáp án A", written);
+        Assert.Contains("không trừ điểm", written);
+        Assert.Contains("thân thiện", written);
 
         var speaking = GeminiGradePrompt.Build("Speaking", "Grade 2A", "Unit 3", "An", "Đề", null);
         Assert.Contains("PHIẾU CHẤM BÀI NÓI", speaking);
@@ -19,6 +21,7 @@ public class GeminiGradeParserTests
         Assert.Contains("từ vựng", speaking);
         Assert.Contains("nội dung", speaking);
         Assert.Contains("không phải object", speaking);
+        Assert.Contains("không trừ điểm", speaking);
     }
 
     [Fact]

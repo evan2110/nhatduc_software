@@ -16,7 +16,7 @@ public static class GeminiGradePrompt
 {
     public static string Build(string kind, string className, string title, string studentName, string prompt, string? answerKeyText, string? studentWorkText = null)
     {
-        var shared = $"Trả về JSON thuần với các khóa score, shortComment, report. score là điểm trên thang 10 hoặc chuỗi rỗng nếu không chấm được. Học viên: {studentName}. Lớp: {className}. Bài: {title}. Đề: {prompt}.";
+        var shared = $"Trả về JSON thuần với các khóa score, shortComment, report. score là điểm trên thang 10 hoặc chuỗi rỗng nếu không chấm được. Chấm nhẹ tay và thoải mái. shortComment và nhận xét vui vẻ, thân thiện, ngắn. Dấu câu thừa, lỗi viết hoa viết thường và lỗi chính tả chỉ nhắc nhẹ, không trừ điểm. Chỉ trừ điểm khi sai nội dung, sai ngữ pháp làm đổi nghĩa, hoặc lệch đáp án. Học viên: {studentName}. Lớp: {className}. Bài: {title}. Đề: {prompt}.";
         if (!string.IsNullOrWhiteSpace(studentWorkText))
         {
             shared += " Bài làm dạng chữ: " + studentWorkText.Trim();
