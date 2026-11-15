@@ -58,7 +58,7 @@ public static class ZaloHomeworkAutoGrade
                 return gradeError;
             }
 
-            return await GradeWrittenAsync(target, reply.Answer, homework, gemini, drive, siteOrigin);
+            return await GradeWrittenAsync(target, reply.Answer, homework, gemini, drive, siteOrigin, logger);
         }
         catch (InvalidOperationException ex)
         {
@@ -78,7 +78,8 @@ public static class ZaloHomeworkAutoGrade
         HomeworkService homework,
         GeminiHomeworkClient gemini,
         GoogleDriveService drive,
-        string? siteOrigin)
+        string? siteOrigin,
+        ILogger? logger = null)
     {
         var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
             ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
@@ -97,18 +98,20 @@ public static class ZaloHomeworkAutoGrade
             answerKeyMime = MimeFromFileName(assignment.AnswerKeyFileName);
         }
 
-        var draft = await gemini.GradeAsync(
-            assignment.Kind,
-            assignment.ClassName,
-            assignment.Title,
-            target.StudentName,
-            assignment.Prompt,
-            assignment.AnswerKeyText,
-            answerKeyBytes,
-            answerKeyMime,
-            Array.Empty<byte>(),
-            "text/plain",
-            answer);
+        var draft = await GradeUntilCompleteAsync(
+            () => gemini.GradeAsync(
+                assignment.Kind,
+                assignment.ClassName,
+                assignment.Title,
+                target.StudentName,
+                assignment.Prompt,
+                assignment.AnswerKeyText,
+                answerKeyBytes,
+                answerKeyMime,
+                Array.Empty<byte>(),
+                "text/plain",
+                answer),
+            logger);
         var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
         var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
         await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
@@ -121,7 +124,8 @@ public static class ZaloHomeworkAutoGrade
         string mime,
         HomeworkService homework,
         GeminiHomeworkClient gemini,
-        string? siteOrigin)
+        string? siteOrigin,
+        ILogger? logger = null)
     {
         var assignment = homework.GetAssignment(target.TeacherId, target.AssignmentId)
             ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
@@ -130,21 +134,32 @@ public static class ZaloHomeworkAutoGrade
             throw new InvalidOperationException(gradeError);
         }
 
-        var draft = await gemini.GradeAsync(
-            assignment.Kind,
-            assignment.ClassName,
-            assignment.Title,
-            target.StudentName,
-            assignment.Prompt,
-            null,
-            null,
-            null,
-            media,
-            mime);
+        var draft = await GradeUntilCompleteAsync(
+            () => gemini.GradeAsync(
+                assignment.Kind,
+                assignment.ClassName,
+                assignment.Title,
+                target.StudentName,
+                assignment.Prompt,
+                null,
+                null,
+                null,
+                media,
+                mime),
+            logger);
         var scoreText = draft.Score?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "";
         var report = GeminiGradeParser.NormalizeReport(draft.ReportText, scoreText);
         await homework.SaveGrade(target.TeacherId, target.AssignmentId, target.StudentId, draft.Score, draft.ShortComment, report);
         return SlipNotice(homework, target, assignment, siteOrigin);
+    }
+
+    private static Task<GeminiGradeDraft> GradeUntilCompleteAsync(Func<Task<GeminiGradeDraft>> grade, ILogger? logger)
+    {
+        return HomeworkAutoRetry.UntilAsync(
+            grade,
+            HomeworkAutoRetry.IsComplete,
+            HomeworkAutoRetry.IsTransientGrade,
+            onRetry: (exception, attempt) => logger?.LogWarning(exception, "Chấm bài lần {Attempt} chưa được.", attempt));
     }
 
     private static string SlipNotice(HomeworkService homework, ZaloHomeworkTarget target, HomeworkAssignment assignment, string? siteOrigin)

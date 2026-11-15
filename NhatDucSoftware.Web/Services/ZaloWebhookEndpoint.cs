@@ -91,7 +91,7 @@ public static class ZaloWebhookEndpoint
 
             try
             {
-                await bots.SendTextToAsync(botKey, update.ChatId, reply);
+                await ZaloSendRetry.SendAsync(bots, botKey, update.ChatId, reply, logger);
             }
             catch (Exception ex)
             {

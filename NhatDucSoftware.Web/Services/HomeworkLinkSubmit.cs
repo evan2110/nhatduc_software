@@ -78,7 +78,7 @@ public sealed class HomeworkLinkSubmit
         string slip;
         try
         {
-            slip = await ZaloHomeworkAutoGrade.GradeWrittenAsync(target, answer, _homework, _gemini, _drive, HomeworkSlipLink.SiteOrigin());
+            slip = await ZaloHomeworkAutoGrade.GradeWrittenAsync(target, answer, _homework, _gemini, _drive, HomeworkSlipLink.SiteOrigin(), _logger);
         }
         catch (Exception ex)
         {
@@ -94,7 +94,7 @@ public sealed class HomeworkLinkSubmit
 
         try
         {
-            await _bots.SendTextToAsync(_chats.BotKeyFor(chatId), chatId, slip);
+            await ZaloSendRetry.SendAsync(_bots, _chats.BotKeyFor(chatId), chatId, slip, _logger);
             return "Đã nộp bài. Phiếu đã gửi vào nhóm Zalo.";
         }
         catch (Exception ex)
@@ -153,7 +153,8 @@ public sealed class HomeworkLinkSubmit
                 HomeworkSpeakingUpload.Mime(fileName),
                 _homework,
                 _gemini,
-                HomeworkSlipLink.SiteOrigin());
+                HomeworkSlipLink.SiteOrigin(),
+                _logger);
         }
         catch (InvalidOperationException ex)
         {
@@ -179,7 +180,7 @@ public sealed class HomeworkLinkSubmit
 
         try
         {
-            await _bots.SendTextToAsync(_chats.BotKeyFor(chatId), chatId, slip);
+            await ZaloSendRetry.SendAsync(_bots, _chats.BotKeyFor(chatId), chatId, slip, _logger);
             return "Đã nộp bài. Phiếu đã gửi vào nhóm Zalo.";
         }
         catch (Exception ex)

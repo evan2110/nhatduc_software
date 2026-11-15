@@ -902,7 +902,8 @@ else
                 return;
             }
 
-            var draft = await Gemini.GradeAsync(
+            var draft = await HomeworkAutoRetry.UntilAsync(
+                () => Gemini.GradeAsync(
                 assignment.Kind,
                 assignment.ClassName,
                 assignment.Title,
@@ -913,7 +914,10 @@ else
                 answerKeyMime,
                 studentBytes,
                 studentMime,
-                assignment.Kind == HomeworkKind.Written ? WorkTextOf(studentId) : null);
+                assignment.Kind == HomeworkKind.Written ? WorkTextOf(studentId) : null),
+                HomeworkAutoRetry.IsComplete,
+                HomeworkAutoRetry.IsTransientGrade,
+                onRetry: (exception, attempt) => Logger.LogWarning(exception, "Chấm bài lần {Attempt} chưa được.", attempt));
 
             studentBytes = Array.Empty<byte>();
             answerKeyBytes = null;
@@ -1011,7 +1015,7 @@ else
 
         try
         {
-            await Zalo.SendTextToAsync(ZaloChats.BotKeyFor(chatId), chatId, text);
+            await ZaloSendRetry.SendAsync(Zalo, ZaloChats.BotKeyFor(chatId), chatId, text, Logger);
             ShowSuccess(sent);
         }
         catch (InvalidOperationException ex) when (ex.Message == ZaloBotClient.NotConfiguredMessage)
