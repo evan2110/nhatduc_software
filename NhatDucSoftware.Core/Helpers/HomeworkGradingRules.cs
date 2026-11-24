@@ -4,7 +4,7 @@ public static class HomeworkGradingRules
 {
     public static bool TryValidateCreate(string? title, string? prompt, string? kind, out string error)
     {
-        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(prompt))
+        if (string.IsNullOrWhiteSpace(title) || HomeworkPromptHtml.IsBlank(prompt))
         {
             error = "Nhập tên bài và đề bài.";
             return false;

@@ -21,7 +21,7 @@
         {
             <h1>@_view.Title</h1>
             <p class="text-muted hw-note">@_view.ClassName · @_view.AssignedOn.ToString("dd/MM/yyyy")</p>
-            <p class="hw-prompt">@_view.Prompt</p>
+            <div class="hw-prompt sun-editor-editable">@((MarkupString)HomeworkPromptHtml.Sanitize(_view.Prompt))</div>
             @if (_view.Kind == HomeworkKind.Written)
             {
                 @if (!string.IsNullOrEmpty(_message))

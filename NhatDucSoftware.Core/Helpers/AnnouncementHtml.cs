@@ -26,6 +26,11 @@ public static class AnnouncementHtml
             return true;
         }
 
+        if (Regex.IsMatch(html, @"<(img|iframe|video)\b", RegexOptions.IgnoreCase))
+        {
+            return false;
+        }
+
         var text = Regex.Replace(html, "<[^>]+>", " ");
         text = WebUtility.HtmlDecode(text).Replace('\u00a0', ' ');
         return string.IsNullOrWhiteSpace(text);
@@ -38,7 +43,7 @@ public static class AnnouncementHtml
             return "";
         }
 
-        if (!html.Contains('<'))
+        if (!Regex.IsMatch(html, @"</?[a-zA-Z]"))
         {
             return WebUtility.HtmlEncode(html).Replace("\r\n", "\n").Replace("\n", "<br>");
         }
@@ -96,7 +101,8 @@ public static class AnnouncementHtml
         }
         else if (name == "img")
         {
-            var src = SafeUrl(ExtractAttr(attributes, "src"), allowMailto: false);
+            var rawSrc = ExtractAttr(attributes, "src");
+            var src = HomeworkMediaRules.IsMediaPath(rawSrc) ? rawSrc : SafeUrl(rawSrc, allowMailto: false);
             if (src is null)
             {
                 return "";
@@ -236,7 +242,9 @@ public static class AnnouncementHtml
         var allowed = host.Equals("www.youtube.com", StringComparison.OrdinalIgnoreCase)
             || host.Equals("youtube.com", StringComparison.OrdinalIgnoreCase)
             || host.Equals("www.youtube-nocookie.com", StringComparison.OrdinalIgnoreCase)
-            || host.Equals("player.vimeo.com", StringComparison.OrdinalIgnoreCase);
+            || host.Equals("player.vimeo.com", StringComparison.OrdinalIgnoreCase)
+            || (host.Equals("drive.google.com", StringComparison.OrdinalIgnoreCase)
+                && Regex.IsMatch(uri.AbsolutePath, @"^/file/d/[A-Za-z0-9_-]+/preview$"));
         return allowed ? encoded : null;
     }
 }

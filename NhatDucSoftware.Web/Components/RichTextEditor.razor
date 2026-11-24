@@ -1,4 +1,5 @@
 @using Microsoft.JSInterop
+@using NhatDucSoftware.Core.Helpers
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
@@ -12,9 +13,18 @@
 
 @code {
     private ElementReference _surface;
+    private DotNetObjectReference<RichTextEditor>? _self;
     private bool _created;
     private int _version;
     private string? _error;
+
+    [Parameter] public string Placeholder { get; set; } = "Nhập nội dung thông báo";
+    [Parameter] public int MaxCharCount { get; set; } = 5000;
+    [Parameter] public string MinHeight { get; set; } = "120px";
+    [Parameter] public string MaxHeight { get; set; } = "260px";
+
+    // Receives the image bytes and returns the URL to show in the content. Leave unset to allow image links only.
+    [Parameter] public Func<byte[], Task<string>>? ImageUploader { get; set; }
 
     protected override bool ShouldRender() => !_created;
 
@@ -29,7 +39,16 @@
         var surface = _surface;
         try
         {
-            await JS.InvokeVoidAsync("announcementEditor.create", surface);
+            _self ??= DotNetObjectReference.Create(this);
+            var options = new
+            {
+                placeholder = Placeholder,
+                maxCharCount = MaxCharCount,
+                minHeight = MinHeight,
+                maxHeight = MaxHeight,
+                imageUpload = ImageUploader is not null
+            };
+            await JS.InvokeVoidAsync("announcementEditor.create", surface, options, _self);
             if (version != _version)
             {
                 try
@@ -55,6 +74,45 @@
     public async Task<string> GetHtmlAsync() =>
         await JS.InvokeAsync<string>("announcementEditor.getHtml", _surface);
 
+    public async Task SetHtmlAsync(string html) =>
+        await JS.InvokeVoidAsync("announcementEditor.setHtml", _surface, html);
+
+    public sealed record UploadResult(string? Url, string? Error);
+
+    [JSInvokable]
+    public async Task<UploadResult> UploadImage(long size, IJSStreamReference stream)
+    {
+        await using (stream)
+        {
+            if (ImageUploader is null)
+            {
+                return new UploadResult(null, "Không hỗ trợ tải ảnh ở đây.");
+            }
+
+            if (size <= 0 || size > HomeworkMediaRules.MaxImageBytes)
+            {
+                return new UploadResult(null, HomeworkMediaRules.TooLarge);
+            }
+
+            try
+            {
+                await using var input = await stream.OpenReadStreamAsync(HomeworkMediaRules.MaxImageBytes);
+                using var memory = new MemoryStream();
+                await input.CopyToAsync(memory);
+                var url = await ImageUploader(memory.ToArray());
+                return new UploadResult(url, null);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new UploadResult(null, ex.Message);
+            }
+            catch (Exception)
+            {
+                return new UploadResult(null, "Không tải được ảnh. Hãy thử lại.");
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -70,5 +128,7 @@
         catch (InvalidOperationException)
         {
         }
+
+        _self?.Dispose();
     }
 }

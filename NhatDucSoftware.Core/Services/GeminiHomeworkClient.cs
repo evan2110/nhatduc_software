@@ -59,6 +59,7 @@ public sealed class GeminiHomeworkClient
 
         var text = GeminiGradePrompt.Build(kind, className, title, studentName, prompt, answerKeyText, studentWorkText);
         var parts = new List<object> { new { text } };
+        AddPromptImages(parts, prompt);
         if (answerKeyFile is { Length: > 0 })
         {
             parts.Add(new { inline_data = new { mime_type = answerKeyMime, data = Convert.ToBase64String(answerKeyFile) } });
@@ -109,6 +110,41 @@ public sealed class GeminiHomeworkClient
                 }
             }
         }
+    }
+
+    private const int MaxPromptImages = 3;
+
+    // Prompt images go before the answer key and the student's work, labelled so Gemini does not mix them up.
+    private void AddPromptImages(List<object> parts, string prompt)
+    {
+        if (HomeworkMediaRules.TokensIn(prompt).Count == 0)
+        {
+            return;
+        }
+
+        List<HomeworkMediaFile> images;
+        try
+        {
+            images = HomeworkMediaService.LoadForPrompt(prompt, MaxPromptImages);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Không tải được ảnh của đề bài để gửi Gemini.");
+            return;
+        }
+
+        if (images.Count == 0)
+        {
+            return;
+        }
+
+        parts.Add(new { text = $"Các ảnh sau là ảnh trong đề bài, theo thứ tự {HomeworkPromptHtml.ImageMarker} trong đề. Đây không phải bài làm của học viên." });
+        foreach (var image in images)
+        {
+            parts.Add(new { inline_data = new { mime_type = image.ContentType, data = Convert.ToBase64String(image.Data) } });
+        }
+
+        parts.Add(new { text = "Hết ảnh đề bài." });
     }
 
     private static bool IsSpeakingMedia(string? mime)

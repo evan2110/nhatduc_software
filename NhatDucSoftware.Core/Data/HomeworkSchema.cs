@@ -34,5 +34,13 @@ CREATE TABLE IF NOT EXISTS HomeworkSubmissions (
     PendingDriveWebViewLink TEXT NULL,
     GradedAt TEXT NULL,
     CONSTRAINT UQ_HomeworkSubmissions_Assignment_Student UNIQUE (AssignmentId, StudentId)
+);
+CREATE TABLE IF NOT EXISTS HomeworkMedia (
+    Id BIGSERIAL PRIMARY KEY,
+    Token TEXT NOT NULL UNIQUE,
+    TeacherId BIGINT NOT NULL,
+    ContentType TEXT NOT NULL,
+    Data BYTEA NOT NULL,
+    CreatedAt TEXT NOT NULL
 );";
 }

@@ -28,9 +28,15 @@ public class HomeworkService
 
     public int CreateAssignment(int teacherId, int classId, string title, DateTime assignedOn, string kind, string prompt, string? answerKeyText)
     {
+        prompt = HomeworkPromptHtml.Sanitize(prompt);
         if (!HomeworkGradingRules.TryValidateCreate(title, prompt, kind, out var error))
         {
             throw new InvalidOperationException(error);
+        }
+
+        if (prompt.Length > HomeworkPromptHtml.MaxLength)
+        {
+            throw new InvalidOperationException("Đề bài quá dài.");
         }
 
         EnsureTeaches(teacherId, classId);
@@ -107,6 +113,15 @@ public class HomeworkService
         }
 
         transaction.Commit();
+
+        try
+        {
+            HomeworkMediaService.DeleteForPrompt(teacherId, assignment.Prompt);
+        }
+        catch (Exception)
+        {
+            // The assignment row is already gone. Leftover prompt images only take space.
+        }
 
         foreach (var fileId in fileIds.Distinct(StringComparer.Ordinal))
         {

@@ -4,6 +4,7 @@
 @inject UserSession Session
 @inject ClassService ClassService
 @inject HomeworkService HomeworkService
+@inject HomeworkMediaService MediaService
 @inject GeminiHomeworkClient Gemini
 @inject ZaloBotDirectory Zalo
 @inject ZaloChatService ZaloChats
@@ -81,19 +82,23 @@ else
                     </select>
                 </div>
             </div>
-            <div class="@(_kind == HomeworkKind.Written ? "hw-pair" : "hw-pair hw-pair-one")">
-                <div class="form-group">
-                    <label>Đề bài</label>
-                    <textarea @bind="_prompt" rows="2"></textarea>
-                </div>
-                @if (_kind == HomeworkKind.Written)
-                {
-                    <div class="form-group">
-                        <label>Đáp án</label>
-                        <textarea @bind="_newAnswerKey" rows="2"></textarea>
-                    </div>
-                }
+            <div class="form-group hw-prompt-editor">
+                <label>Đề bài</label>
+                <RichTextEditor @ref="_promptEditor"
+                                Placeholder="Nhập đề bài. Có thể chèn ảnh (tải từ máy hoặc dán) và video (link YouTube, Vimeo, Google Drive)."
+                                MaxCharCount="20000"
+                                MinHeight="160px"
+                                MaxHeight="480px"
+                                ImageUploader="UploadPromptImageAsync" />
+                <p class="text-muted hw-note">Ảnh JPG, PNG, WEBP, GIF tối đa 5MB, ảnh lớn tự thu nhỏ. Video Google Drive cần mở quyền "Bất kỳ ai có đường liên kết".</p>
             </div>
+            @if (_kind == HomeworkKind.Written)
+            {
+                <div class="form-group">
+                    <label>Đáp án</label>
+                    <textarea @bind="_newAnswerKey" rows="3"></textarea>
+                </div>
+            }
             <button class="btn btn-primary" @onclick="CreateAssignmentAsync">Tạo</button>
         }
     </div>
@@ -147,9 +152,9 @@ else
                 </div>
                 <button class="btn btn-secondary btn-sm" @onclick="CopyAnnouncement">Chép tin</button>
             </div>
-            @if (!string.IsNullOrWhiteSpace(_assignment.Prompt))
+            @if (!HomeworkPromptHtml.IsBlank(_assignment.Prompt))
             {
-                <p class="hw-prompt">@_assignment.Prompt</p>
+                <div class="hw-prompt sun-editor-editable">@((MarkupString)HomeworkPromptHtml.Sanitize(_assignment.Prompt))</div>
             }
             @if (!string.IsNullOrWhiteSpace(AssignmentLink(_assignment)))
             {
@@ -316,7 +321,7 @@ else
     private string _title = "";
     private DateTime _assignedOn = DateTime.Today;
     private string _kind = HomeworkKind.Written;
-    private string _prompt = "";
+    private RichTextEditor? _promptEditor;
     private string _newAnswerKey = "";
 
     private string _answerKeyText = "";
@@ -477,6 +482,16 @@ else
 
     private void CloseFallback() => _clipboardFallback = null;
 
+    private Task<string> UploadPromptImageAsync(byte[] data)
+    {
+        if (TeacherId is not int teacherId)
+        {
+            throw new InvalidOperationException("Tài khoản này chưa gắn với giáo viên.");
+        }
+
+        return Task.FromResult(MediaService.SaveImage(teacherId, data));
+    }
+
     private async Task CreateAssignmentAsync()
     {
         if (TeacherId is not int teacherId)
@@ -489,14 +504,17 @@ else
         var className = _classes.FirstOrDefault(item => item.Id == classId)?.ClassName ?? "";
         var title = _title;
         var assignedOn = _assignedOn;
-        var prompt = _prompt;
         try
         {
+            var prompt = _promptEditor is null ? "" : await _promptEditor.GetHtmlAsync();
             var answerKey = _kind == HomeworkKind.Speaking ? null : _newAnswerKey;
             var id = HomeworkService.CreateAssignment(teacherId, classId, title, assignedOn, _kind, prompt, answerKey);
             _title = "";
-            _prompt = "";
             _newAnswerKey = "";
+            if (_promptEditor is not null)
+            {
+                await _promptEditor.SetHtmlAsync("");
+            }
             LoadAssignments(teacherId);
             LoadAssignment(teacherId, id);
             var created = HomeworkService.GetAssignment(teacherId, id);

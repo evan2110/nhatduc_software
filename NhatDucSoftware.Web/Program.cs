@@ -146,6 +146,7 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
 builder.Services.AddScoped<HomeworkService>();
+builder.Services.AddScoped<HomeworkMediaService>();
 builder.Services.AddScoped<HomeworkLinkSubmit>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped(sp =>
@@ -240,6 +241,20 @@ app.MapGet("/announcements/{id:int}/image", (int id, AnnouncementService announc
 
     return Results.File(image.Data, image.ContentType);
 }).RequireAuthorization(new AuthorizeAttribute { Roles = "Admin,Teacher" });
+
+// Images inside a homework prompt. Public, because students open the homework link without logging in; the token is unguessable.
+app.MapGet("/homework/media/{token}", (string token, HttpContext context, HomeworkMediaService media) =>
+{
+    var file = media.Get(token);
+    if (file is null)
+    {
+        return Results.NotFound();
+    }
+
+    context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    return Results.File(file.Data, file.ContentType);
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
