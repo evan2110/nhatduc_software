@@ -177,6 +177,16 @@ a.brand-link:hover,
 .announcement-editor-host .sun-editor {
     width: 100% !important;
     max-width: 100%;
+    /* SunEditor asks for Helvetica Neue, which Windows lacks, so its dialogs fell back to a serif font. */
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.announcement-editor-host .sun-editor .se-dialog input[type="checkbox"],
+.announcement-editor-host .sun-editor .se-dialog input[type="radio"] {
+    width: auto;
+    min-height: 0;
+    margin: 0 4px 0 0;
+    vertical-align: middle;
 }
 
 .announcement-content.sun-editor-editable {
@@ -271,7 +281,7 @@ a.brand-link:hover,
     margin-bottom: 1rem;
 }
 
-.form-group label {
+.form-group label:not(:where(.sun-editor *)) {
     display: block;
     font-size: 0.85rem;
     font-weight: 600;
@@ -335,9 +345,10 @@ a.brand-link:hover,
     font-size: 0.8rem;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea,
+/* :not(:where(.sun-editor *)) keeps these out of the rich text editor's own dialogs. */
+.form-group input:not(:where(.sun-editor *)),
+.form-group select:not(:where(.sun-editor *)),
+.form-group textarea:not(:where(.sun-editor *)),
 .form-group .input-date input {
     width: 100%;
     padding: 0.55rem 0.65rem;

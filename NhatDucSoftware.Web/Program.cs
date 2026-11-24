@@ -147,6 +147,7 @@ builder.Services.AddScoped<AttendanceService>();
 builder.Services.AddScoped<EvaluationService>();
 builder.Services.AddScoped<HomeworkService>();
 builder.Services.AddScoped<HomeworkMediaService>();
+builder.Services.AddSingleton<NhatDucSoftware.Web.Services.StaticAssetVersion>();
 builder.Services.AddScoped<HomeworkLinkSubmit>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped(sp =>

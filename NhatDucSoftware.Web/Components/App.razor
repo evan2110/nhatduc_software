@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject NhatDucSoftware.Web.Services.StaticAssetVersion Assets
+<!DOCTYPE html>
 <html lang="vi">
 
 <head>
@@ -7,8 +8,8 @@
     <base href="/" />
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
-    <link rel="stylesheet" href="app.css" asp-append-version="true" />
-    <link rel="stylesheet" href="lib/suneditor/suneditor.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="@Assets.For("app.css")" />
+    <link rel="stylesheet" href="@Assets.For("lib/suneditor/suneditor.min.css")" />
     <link rel="stylesheet" href="NhatDucSoftware.Web.styles.css" />
     <HeadOutlet />
 </head>
@@ -16,8 +17,8 @@
 <body>
     <Routes />
     <script src="_framework/blazor.web.js"></script>
-    <script src="login-remember.js"></script>
-    <script src="announcement-editor.js"></script>
+    <script src="@Assets.For("login-remember.js")"></script>
+    <script src="@Assets.For("announcement-editor.js")"></script>
     <script>
         document.addEventListener('click', function (e) {
             var link = e.target.closest('.sidebar nav a');
